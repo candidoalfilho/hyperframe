@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "paths": {
+      "@hyperframe/engine": ["../../packages/engine/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

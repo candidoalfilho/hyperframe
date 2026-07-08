@@ -1,0 +1,17 @@
+{
+  "name": "hyperframe",
+  "private": true,
+  "version": "0.1.0",
+  "description": "HyperFrame — Análise e dimensionamento estrutural para edifícios de concreto armado (normas ABNT)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @hyperframe/desktop",
+    "build": "npm run build -w @hyperframe/desktop",
+    "test": "npm run test -w @hyperframe/engine",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "tauri": "npm run tauri -w @hyperframe/desktop --"
+  }
+}
