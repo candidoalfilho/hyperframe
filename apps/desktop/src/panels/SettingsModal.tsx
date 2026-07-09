@@ -4,6 +4,7 @@ import {
   CONCRETE_CLASSES,
   COVER_BY_CAA,
   PSI_PRESETS,
+  SOIL_PRESETS,
   type Aggregate,
   type CAA,
   type WindParams,
@@ -97,6 +98,10 @@ export default function SettingsModal() {
     const p = PSI_PRESETS[k]
     return p.psi0 === st.psiLive.psi0 && p.psi1 === st.psiLive.psi1 && p.psi2 === st.psiLive.psi2
   })
+
+  const soilMatch = SOIL_PRESETS.find(
+    (p) => p.label === st.soil.label && Math.abs(p.sigmaAdm - st.soil.sigmaAdm) < 1e-9,
+  )
 
   return (
     <div className="modal-overlay">
@@ -352,6 +357,50 @@ export default function SettingsModal() {
                 </div>
               </div>
             </div>
+          </Section>
+
+          {/* ------------------------------------------------ fundações */}
+          <Section title="Fundações (NBR 6122)">
+            <div className="field-row">
+              <div className="field">
+                <label className="label">Tipo de solo</label>
+                <select
+                  className="select"
+                  style={{ width: '100%' }}
+                  value={soilMatch ? soilMatch.label : 'custom'}
+                  onChange={(e) => {
+                    const p = SOIL_PRESETS.find((x) => x.label === e.target.value)
+                    if (p) updateSettings({ soil: { sigmaAdm: p.sigmaAdm, label: p.label } })
+                  }}
+                >
+                  {!soilMatch && (
+                    <option value="custom" disabled>
+                      {st.soil.label || 'Personalizado'} — {fmt(st.soil.sigmaAdm, 0)} kPa
+                    </option>
+                  )}
+                  {SOIL_PRESETS.map((p) => (
+                    <option key={p.label} value={p.label}>
+                      {p.label} — {fmt(p.sigmaAdm, 0)} kPa
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label className="label">σadm (kPa)</label>
+                <NumberField
+                  value={st.soil.sigmaAdm}
+                  digits={0}
+                  min={10}
+                  max={5000}
+                  style={{ width: '100%' }}
+                  onCommit={(v) => updateSettings({ soil: { sigmaAdm: v, label: 'Personalizado' } })}
+                />
+              </div>
+            </div>
+            <Note>
+              Tensões admissíveis orientativas — o projeto executivo exige sondagem SPT e laudo
+              geotécnico (NBR 6122).
+            </Note>
           </Section>
 
           {/* ------------------------------------------------ análise */}

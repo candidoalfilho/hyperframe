@@ -16,18 +16,22 @@
 - [x] Verificação simplificada de pilares, quantitativos, relatório imprimível
 - [x] 80 testes automatizados (âncoras analíticas + equilíbrio global)
 
-## v0.2 — Confiabilidade e detalhamento (4–8 semanas)
+## v0.2 — Confiabilidade e detalhamento ✅ (núcleo entregue)
 
-- [ ] **Validação cruzada** (ver VALIDATION.md): 5 edifícios-referência comparados com Ftool (pórticos planos), Eberick estudante e planilhas consagradas → publicar relatório
-- [ ] Dimensionamento completo de **pilares**: flexo-compressão oblíqua (diagrama de interação por integração da seção), pilar-padrão com curvatura aproximada (λ ≤ 90), momentos mínimos
-- [ ] Dimensionamento de **lajes maciças** (Marcus/Bares) + flechas com fluência (ξ, As′)
-- [ ] Flechas de vigas ELS (imediata + diferida) com limite L/250
+- [x] Dimensionamento completo de **pilares**: flexo-compressão oblíqua (curva de interação por integração da seção com bloco retangular + domínios), pilar-padrão com curvatura aproximada, αb por momentos de extremidade, momentos mínimos (§11.3.3.4.3), escolha automática de arranjo (4–20 barras, ρ 0,4–4%)
+- [x] Dimensionamento de **lajes maciças** (Marcus sem redução por torção, condições de contorno automáticas por continuidade) + flechas com Branson + fluência (αf=1,32)
+- [x] Flechas de vigas ELS (elástica do pórtico via Hermite + Branson + diferida) com limite L/250
+- [x] Fundações: reações de serviço → **sapatas rígidas** (bielas/CG, núcleo central, presets de solo) — orientativo, exige SPT
+- [x] **Detalhamento preliminar** (posições, estribos, ancoragens NBR §9.4) + tabela de aço por bitola
+- [x] **Pranchas**: planta de forma, armação de vigas e seções de pilares — SVG no app + exportação **DXF** (writer R12 próprio)
+- [x] **Importação DXF** como underlay do editor (parser próprio com blocos/INSERT) p/ modelar sobre a arquitetura
+- [x] **Múltiplas plantas de forma** (térreo ≠ tipo ≠ cobertura) com gerenciador
+- [x] Regiões de carga: **escadas e reservatório/caixa d'água** (distribuição às lajes por interseção de polígonos)
+- [ ] **Validação cruzada** (ver VALIDATION.md): 5 edifícios-referência vs Ftool/Eberick/planilhas → publicar relatório — **bloqueante p/ venda**
 - [ ] Diagramas 2D por barra no inspetor (M, V, N com valores)
-- [ ] Exportação **DXF** das plantas de forma
-- [ ] Memorial de cálculo completo em PDF (dados → modelo → combinações → resultados → dimensionamento)
-- [ ] Fundação: reações de apoio → pré-dimensionamento de sapatas
-- [ ] Múltiplas plantas de forma (térreo ≠ tipo ≠ cobertura), pé-direito variável
+- [ ] Memorial de cálculo completo em PDF (hoje: resumo imprimível)
 - [ ] Salvar/abrir nativo (diálogos do SO via plugin Tauri) + autosave/recuperação
+- [ ] Pé-direito variável por pavimento na UI (modelo já suporta)
 
 ## v0.3 — Beta fechado (2–3 meses)
 

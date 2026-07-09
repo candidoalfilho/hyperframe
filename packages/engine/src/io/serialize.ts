@@ -13,7 +13,7 @@ export function serializeProject(project: Project): string {
   const file: ProjectFile = {
     magic: MAGIC,
     schemaVersion: 1,
-    savedWith: 'HyperFrame 0.1.0',
+    savedWith: 'HyperFrame 0.2.0',
     project,
   }
   return JSON.stringify(file, null, 2)
@@ -41,5 +41,17 @@ export function parseProject(text: string): Project {
   if (!Array.isArray(p.levels) || !Array.isArray(p.plans) || !Array.isArray(p.columns)) {
     throw new ProjectParseError('Arquivo corrompido: estrutura de projeto incompleta.')
   }
+  return normalizeProject(p)
+}
+
+/** preenche campos introduzidos após o schema 1 original (compatibilidade) */
+export function normalizeProject(p: Project): Project {
+  for (const plan of p.plans) {
+    if (!Array.isArray(plan.loadRegions)) plan.loadRegions = []
+  }
+  if (!p.settings.soil) {
+    p.settings.soil = { sigmaAdm: 250, label: 'Argila rija' }
+  }
+  if (p.underlay === undefined) p.underlay = null
   return p
 }

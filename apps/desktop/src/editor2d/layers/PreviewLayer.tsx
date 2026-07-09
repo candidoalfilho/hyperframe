@@ -18,7 +18,7 @@ interface Props {
   columnRotation: 0 | 90
 }
 
-/** pré-visualizações das ferramentas: fantasma do pilar, polilinha da viga, marcador de snap */
+/** pré-visualizações das ferramentas: fantasma do pilar, polilinha da viga/região, marcador de snap */
 export default function PreviewLayer({
   tool,
   k,
@@ -48,22 +48,41 @@ export default function PreviewLayer({
     )
   }
 
-  if (tool === 'beam') {
+  if (tool === 'beam' || tool === 'region') {
+    const isRegion = tool === 'region'
     if (chain.length > 0) {
       const pts = chain.map((p) => `${p.x * k},${-p.y * k}`).join(' ')
+      // fantasma do polígono da região (contorno atual + cursor)
+      if (isRegion && chain.length >= 2) {
+        const fillPts = cursor ? `${pts} ${cursor.point.x * k},${-cursor.point.y * k}` : pts
+        parts.push(
+          <polygon key="ghost" points={fillPts} fill="rgba(255,160,40,0.08)" stroke="none" />,
+        )
+      }
       parts.push(
-        <polyline key="chain" points={pts} fill="none" stroke="var(--accent)" strokeWidth={1.6} />,
+        <polyline
+          key="chain"
+          points={pts}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth={1.6}
+          strokeDasharray={isRegion ? '4 2' : undefined}
+        />,
       )
       chain.forEach((p, i) =>
         parts.push(
-          <rect
-            key={`v${i}`}
-            x={p.x * k - 3}
-            y={-p.y * k - 3}
-            width={6}
-            height={6}
-            fill="var(--accent)"
-          />,
+          isRegion ? (
+            <circle key={`v${i}`} cx={p.x * k} cy={-p.y * k} r={3} fill="var(--accent)" />
+          ) : (
+            <rect
+              key={`v${i}`}
+              x={p.x * k - 3}
+              y={-p.y * k - 3}
+              width={6}
+              height={6}
+              fill="var(--accent)"
+            />
+          ),
         ),
       )
       if (cursor) {
@@ -97,6 +116,22 @@ export default function PreviewLayer({
                 {fmt(L)} m
               </text>
             </g>,
+          )
+        }
+        // prévia da aresta de fechamento até o primeiro ponto
+        if (isRegion && chain.length >= 2) {
+          parts.push(
+            <line
+              key="close"
+              x1={bx}
+              y1={by}
+              x2={chain[0].x * k}
+              y2={-chain[0].y * k}
+              stroke="var(--accent)"
+              strokeWidth={1.2}
+              strokeDasharray="6 4"
+              opacity={0.45}
+            />,
           )
         }
       }

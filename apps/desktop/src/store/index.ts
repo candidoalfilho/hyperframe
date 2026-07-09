@@ -6,14 +6,19 @@ import {
   detectFaces,
   nextBeamName,
   nextColumnName,
+  nextPlanName,
+  nextRegionName,
   nextSlabName,
   pointInPolygon,
   uid,
+  REGION_PRESETS,
   type AnalysisResults,
   type Beam,
   type Column,
+  type DxfUnderlay,
   type ElementRef,
   type FloorPlan,
+  type LoadRegion,
   type NewProjectParams,
   type Project,
   type ProjectSettings,
@@ -23,14 +28,17 @@ import {
   type WallLoad,
 } from '@hyperframe/engine'
 
-export type Tool = 'select' | 'column' | 'beam' | 'slab' | 'wall'
+export type Tool = 'select' | 'column' | 'beam' | 'slab' | 'wall' | 'region'
 export type ViewMode = 'plan' | '3d' | 'split'
 export type ResultsTab =
   | 'estabilidade'
   | 'vigas'
   | 'pilares'
+  | 'lajes'
+  | 'fundacoes'
   | 'reacoes'
   | 'quantitativos'
+  | 'pranchas'
   | 'relatorio'
 
 export type Diagram3D = 'none' | 'My' | 'Mz' | 'N'
@@ -63,6 +71,7 @@ export interface ElementDefaults {
   slabLiveLabel: string
   wallW: number
   wallLabel: string
+  regionKind: 'escada' | 'reservatorio' | 'generica'
 }
 
 export interface HFState {
@@ -80,6 +89,7 @@ export interface HFState {
   welcomeOpen: boolean
   wizardOpen: boolean
   settingsOpen: boolean
+  plansManagerOpen: boolean
   resultsOpen: boolean
   resultsTab: ResultsTab
   display: DisplayOptions
@@ -112,6 +122,7 @@ export interface HFState {
   setWelcomeOpen: (v: boolean) => void
   setWizardOpen: (v: boolean) => void
   setSettingsOpen: (v: boolean) => void
+  setPlansManagerOpen: (v: boolean) => void
   setResultsOpen: (v: boolean) => void
   setResultsTab: (t: ResultsTab) => void
 
@@ -125,12 +136,26 @@ export interface HFState {
   updateSlab: (id: string, patch: Partial<Omit<Slab, 'id'>>) => void
   addWallLoad: (beamId: string) => void
   updateWallLoad: (id: string, patch: Partial<Omit<WallLoad, 'id'>>) => void
+  /** cria região de carga (escada/reservatório) com preset do tipo padrão */
+  addLoadRegion: (polygon: Vec2[]) => void
+  updateLoadRegion: (id: string, patch: Partial<Omit<LoadRegion, 'id'>>) => void
   deleteElement: (ref: ElementRef) => void
   deleteSelected: () => void
 
   updateGridAxis: (dir: 'x' | 'y', axisId: string, pos: number) => void
   addGridAxis: (dir: 'x' | 'y', pos: number) => void
   removeGridAxis: (dir: 'x' | 'y', axisId: string) => void
+
+  // ---- plantas de forma ----
+  addPlan: (copyFromId?: string) => void
+  renamePlan: (planId: string, name: string) => void
+  assignPlanToLevel: (levelId: string, planId: string | null) => void
+  /** remove planta se nenhum nível a usa */
+  deletePlan: (planId: string) => void
+
+  // ---- underlay DXF ----
+  setUnderlay: (underlay: DxfUnderlay | null) => void
+  updateUnderlay: (patch: Partial<DxfUnderlay>) => void
 
   // ---- ações: análise ----
   runAnalysis: () => void
@@ -177,6 +202,7 @@ export const useStore = create<HFState>()(
       welcomeOpen: true,
       wizardOpen: false,
       settingsOpen: false,
+      plansManagerOpen: false,
       resultsOpen: false,
       resultsTab: 'estabilidade',
       display: { showAxes: true, showDims: true, showNames: true, showLoads: true, showSlabs: true },
@@ -199,6 +225,7 @@ export const useStore = create<HFState>()(
         slabLiveLabel: 'Residencial — dormitórios/salas/cozinhas',
         wallW: 6.0,
         wallLabel: 'Alvenaria bloco 14 cm',
+        regionKind: 'escada',
       },
       cursorWorld: null,
 
@@ -258,6 +285,7 @@ export const useStore = create<HFState>()(
       setWelcomeOpen: (welcomeOpen) => set({ welcomeOpen }),
       setWizardOpen: (wizardOpen) => set({ wizardOpen }),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+      setPlansManagerOpen: (plansManagerOpen) => set({ plansManagerOpen }),
       setResultsOpen: (resultsOpen) => set({ resultsOpen }),
       setResultsTab: (resultsTab) => set({ resultsTab }),
 
@@ -419,6 +447,47 @@ export const useStore = create<HFState>()(
           analysisStatus: 'idle',
         })
       },
+      addLoadRegion: (polygon) => {
+        if (polygon.length < 3) return
+        const s = get()
+        const plan = activePlanOf(s.project, s.activeLevelId)
+        if (!plan) return
+        const preset =
+          REGION_PRESETS.find((p) => p.kind === s.defaults.regionKind) ?? REGION_PRESETS[0]
+        const region: LoadRegion = {
+          id: uid('rg'),
+          name: nextRegionName(s.project, plan.id, preset.kind),
+          kind: preset.kind,
+          polygon,
+          g: preset.g,
+          q: preset.q,
+          label: preset.label,
+        }
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            loadRegions: [...pl.loadRegions, region],
+          })),
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+          selection: { kind: 'loadRegion', id: region.id },
+        })
+      },
+      updateLoadRegion: (id, patch) => {
+        const s = get()
+        const plan = s.project.plans.find((pl) => pl.loadRegions.some((r) => r.id === id))
+        if (!plan) return
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            loadRegions: pl.loadRegions.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+          })),
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+        })
+      },
       deleteElement: (ref) => {
         const s = get()
         let project = s.project
@@ -437,6 +506,9 @@ export const useStore = create<HFState>()(
               }
               if (ref.kind === 'slab') {
                 return { ...pl, slabs: pl.slabs.filter((x) => x.id !== ref.id) }
+              }
+              if (ref.kind === 'loadRegion') {
+                return { ...pl, loadRegions: pl.loadRegions.filter((r) => r.id !== ref.id) }
               }
               return { ...pl, wallLoads: pl.wallLoads.filter((w) => w.id !== ref.id) }
             }),
@@ -498,6 +570,82 @@ export const useStore = create<HFState>()(
                 : s.project.grid.yAxes
               ).filter((a) => a.id !== axisId),
             },
+          },
+          dirty: true,
+        })),
+
+      // ---- plantas de forma ----
+      addPlan: (copyFromId) => {
+        const s = get()
+        const src = copyFromId ? s.project.plans.find((p) => p.id === copyFromId) : null
+        const plan: FloorPlan = src
+          ? {
+              id: uid('pl'),
+              name: `${src.name} (cópia)`,
+              beams: src.beams.map((b) => ({ ...b, id: uid('bm'), path: b.path.map((p) => ({ ...p })) })),
+              slabs: src.slabs.map((sl) => ({
+                ...sl,
+                id: uid('sl'),
+                polygon: sl.polygon.map((p) => ({ ...p })),
+              })),
+              wallLoads: [],
+              loadRegions: src.loadRegions.map((r) => ({
+                ...r,
+                id: uid('rg'),
+                polygon: r.polygon.map((p) => ({ ...p })),
+              })),
+            }
+          : {
+              id: uid('pl'),
+              name: nextPlanName(s.project),
+              beams: [],
+              slabs: [],
+              wallLoads: [],
+              loadRegions: [],
+            }
+        // cargas de parede referenciam vigas — remapeia na cópia
+        if (src) {
+          const beamIdMap = new Map(src.beams.map((b, i) => [b.id, plan.beams[i].id]))
+          plan.wallLoads = src.wallLoads.map((w) => ({
+            ...w,
+            id: uid('wl'),
+            beamId: beamIdMap.get(w.beamId) ?? w.beamId,
+          }))
+        }
+        set({ project: { ...s.project, plans: [...s.project.plans, plan] }, dirty: true })
+      },
+      renamePlan: (planId, name) =>
+        set((s) => ({
+          project: withPlan(s.project, planId, (pl) => ({ ...pl, name })),
+          dirty: true,
+        })),
+      assignPlanToLevel: (levelId, planId) =>
+        set((s) => ({
+          project: {
+            ...s.project,
+            levels: s.project.levels.map((l) => (l.id === levelId ? { ...l, planId } : l)),
+          },
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+        })),
+      deletePlan: (planId) => {
+        const s = get()
+        if (s.project.levels.some((l) => l.planId === planId)) return
+        set({
+          project: { ...s.project, plans: s.project.plans.filter((p) => p.id !== planId) },
+          dirty: true,
+        })
+      },
+
+      // ---- underlay DXF ----
+      setUnderlay: (underlay) =>
+        set((s) => ({ project: { ...s.project, underlay }, dirty: true })),
+      updateUnderlay: (patch) =>
+        set((s) => ({
+          project: {
+            ...s.project,
+            underlay: s.project.underlay ? { ...s.project.underlay, ...patch } : s.project.underlay,
           },
           dirty: true,
         })),

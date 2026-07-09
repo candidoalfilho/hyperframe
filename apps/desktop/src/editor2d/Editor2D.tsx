@@ -25,8 +25,10 @@ import {
 import { buildSnapData, computeSnap, roundPoint05 } from './snap'
 import { hitTest, nearestBeam, type HitContext } from './hittest'
 import GridLayer from './layers/GridLayer'
+import UnderlayLayer from './layers/UnderlayLayer'
 import AxesLayer from './layers/AxesLayer'
 import SlabsLayer from './layers/SlabsLayer'
+import RegionsLayer from './layers/RegionsLayer'
 import BeamsLayer from './layers/BeamsLayer'
 import ColumnsLayer from './layers/ColumnsLayer'
 import WallLoadsLayer from './layers/WallLoadsLayer'
@@ -88,6 +90,7 @@ export default function Editor2D() {
   // ---- store ----
   const grid = useStore((s) => s.project.grid)
   const columns = useStore((s) => s.project.columns)
+  const underlay = useStore((s) => s.project.underlay ?? null)
   const plan = useActivePlan()
   const tool = useStore((s) => s.tool)
   const display = useStore((s) => s.display)
@@ -177,17 +180,36 @@ export default function Editor2D() {
     }
   }, [])
 
-  // ---- Enter finaliza / Escape cancela a polilinha da viga ----
+  // ---- toast ----
+  const showToast = useCallback((msg: string) => {
+    setToast(msg)
+    window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(null), 2500)
+  }, [])
+  useEffect(() => () => window.clearTimeout(toastTimer.current), [])
+
+  // ---- Enter finaliza / Escape cancela a polilinha (viga/região) ----
   // (captura antes do handler global do App, que trocaria a ferramenta)
   const finishChain = useCallback(() => {
     const c = chainRef.current
-    if (c.length >= 2) useStore.getState().addBeamPath(c)
-    setChain([])
-  }, [])
+    const t = useStore.getState().tool
+    if (t === 'beam') {
+      if (c.length >= 2) useStore.getState().addBeamPath(c)
+      setChain([])
+    } else if (t === 'region') {
+      if (c.length < 3) {
+        showToast('Região precisa de pelo menos 3 pontos')
+        return
+      }
+      useStore.getState().addLoadRegion(c)
+      setChain([])
+    }
+  }, [showToast])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (useStore.getState().tool !== 'beam') return
+      const t = useStore.getState().tool
+      if (t !== 'beam' && t !== 'region') return
       if (e.key === 'Escape' && chainRef.current.length > 0) {
         e.preventDefault()
         e.stopPropagation()
@@ -210,14 +232,6 @@ export default function Editor2D() {
     if (st.hoverRef) st.setHover(null)
   }, [tool, planId])
 
-  // ---- toast ----
-  const showToast = (msg: string) => {
-    setToast(msg)
-    window.clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), 2500)
-  }
-  useEffect(() => () => window.clearTimeout(toastTimer.current), [])
-
   // ---- helpers de evento ----
   const toScreenPt = (e: { clientX: number; clientY: number }): Vec2 => {
     const r = svgRef.current!.getBoundingClientRect()
@@ -232,14 +246,14 @@ export default function Editor2D() {
     st.setHover(ref)
   }
 
-  /** ponto efetivo do cursor por ferramenta: snap > orto (viga) > arredondar 0,05 m */
+  /** ponto efetivo do cursor por ferramenta: snap > orto (viga/região) > arredondar 0,05 m */
   const effectiveCursor = (raw: Vec2, alt: boolean): CursorSnap => {
     const tolW = SNAP_PX / vp.k
     if (tool === 'column') {
       const snap = computeSnap(raw, snapData, tolW)
       return snap ?? { point: roundPoint05(raw), kind: null }
     }
-    if (tool === 'beam') {
+    if (tool === 'beam' || tool === 'region') {
       const snap = computeSnap(raw, snapData, tolW)
       if (snap) return snap
       let pt = roundPoint05(raw)
@@ -255,6 +269,7 @@ export default function Editor2D() {
     beams: plan?.beams ?? [],
     slabs: plan?.slabs ?? [],
     wallLoads: plan?.wallLoads ?? [],
+    loadRegions: plan?.loadRegions ?? [],
     showLoads: display.showLoads,
     showSlabs: display.showSlabs,
     k: vp.k,
@@ -281,7 +296,8 @@ export default function Editor2D() {
       case 'column':
         st.addColumn(effectiveCursor(raw, e.altKey).point)
         break
-      case 'beam': {
+      case 'beam':
+      case 'region': {
         if (!plan) break
         const pt = effectiveCursor(raw, e.altKey).point
         setChain((c) => {
@@ -349,7 +365,7 @@ export default function Editor2D() {
   }
 
   const onDoubleClick = () => {
-    if (tool === 'beam') finishChain()
+    if (tool === 'beam' || tool === 'region') finishChain()
   }
 
   // ---- ids de seleção/hover por camada (props primitivas p/ React.memo) ----
@@ -357,10 +373,12 @@ export default function Editor2D() {
   const selBeam = selection?.kind === 'beam' ? selection.id : null
   const selSlab = selection?.kind === 'slab' ? selection.id : null
   const selWall = selection?.kind === 'wallLoad' ? selection.id : null
+  const selRegion = selection?.kind === 'loadRegion' ? selection.id : null
   const hovColumn = hoverRef?.kind === 'column' ? hoverRef.id : null
   const hovBeam = hoverRef?.kind === 'beam' ? hoverRef.id : null
   const hovSlab = hoverRef?.kind === 'slab' ? hoverRef.id : null
   const hovWall = hoverRef?.kind === 'wallLoad' ? hoverRef.id : null
+  const hovRegion = hoverRef?.kind === 'loadRegion' ? hoverRef.id : null
 
   const cursorCss = panning
     ? 'grabbing'
@@ -392,6 +410,11 @@ export default function Editor2D() {
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => e.preventDefault()}
       >
+        {underlay && underlay.visible && (
+          <g transform={`translate(${vp.ox} ${vp.oy})`}>
+            <UnderlayLayer underlay={underlay} k={vp.k} />
+          </g>
+        )}
         <GridLayer w={size.w} h={size.h} k={vp.k} ox={vp.ox} oy={vp.oy} />
         {/* tudo abaixo em "coords de mundo × k" (y invertido); pan é só o translate */}
         <g transform={`translate(${vp.ox} ${vp.oy})`}>
@@ -409,6 +432,14 @@ export default function Editor2D() {
           )}
           {plan && display.showSlabs && (
             <SlabsLayer slabs={plan.slabs} k={vp.k} selectedId={selSlab} hoveredId={hovSlab} />
+          )}
+          {plan && display.showLoads && (
+            <RegionsLayer
+              regions={plan.loadRegions}
+              k={vp.k}
+              selectedId={selRegion}
+              hoveredId={hovRegion}
+            />
           )}
           {plan && (
             <BeamsLayer

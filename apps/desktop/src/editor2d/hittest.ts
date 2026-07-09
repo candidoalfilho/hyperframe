@@ -4,6 +4,7 @@ import {
   type Beam,
   type Column,
   type ElementRef,
+  type LoadRegion,
   type Slab,
   type Vec2,
   type WallLoad,
@@ -37,13 +38,14 @@ export interface HitContext {
   beams: Beam[]
   slabs: Slab[]
   wallLoads: WallLoad[]
+  loadRegions: LoadRegion[]
   showLoads: boolean
   showSlabs: boolean
   /** px por metro — p/ tolerância mínima de 8 px nas vigas */
   k: number
 }
 
-/** hit-test com prioridade: pilares > cargas de parede > vigas > lajes */
+/** hit-test com prioridade: pilares > cargas de parede > regiões de carga > vigas > lajes */
 export function hitTest(p: Vec2, ctx: HitContext): ElementRef | null {
   // pilares — retângulo expandido 0,15 m
   for (let i = ctx.columns.length - 1; i >= 0; i--) {
@@ -70,6 +72,14 @@ export function hitTest(p: Vec2, ctx: HitContext): ElementRef | null {
       }
     }
     if (best) return { kind: 'wallLoad', id: best.id }
+  }
+
+  // regiões de carga — pequenas e desenhadas sobre lajes: antes das vigas (só se visíveis)
+  if (ctx.showLoads) {
+    for (let i = ctx.loadRegions.length - 1; i >= 0; i--) {
+      const rg = ctx.loadRegions[i]
+      if (pointInPolygon(p, rg.polygon)) return { kind: 'loadRegion', id: rg.id }
+    }
   }
 
   // vigas — distância ao caminho < max(bw/2 + 0,1, 8px/zoom)

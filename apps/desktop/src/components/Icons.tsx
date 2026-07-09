@@ -169,3 +169,24 @@ export const IconChevronDown = (p: P) => (
     <path d="M6 9l6 6 6-6" />
   </svg>
 )
+
+export const IconStairs = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 20h4v-4h4v-4h4V8h4V4" />
+    <path d="M4 20V4h16" opacity={0.35} />
+  </svg>
+)
+
+export const IconLayers = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3l9 5-9 5-9-5 9-5z" />
+    <path d="M3 13l9 5 9-5" opacity={0.6} />
+    <path d="M3 17l9 5 9-5" opacity={0.35} />
+  </svg>
+)
+
+export const IconDownload = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3v12M7 10l5 5 5-5M4 19h16" />
+  </svg>
+)

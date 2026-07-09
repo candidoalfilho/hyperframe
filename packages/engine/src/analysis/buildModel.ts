@@ -1,13 +1,17 @@
-import type { Project, Vec2 } from '../model/types'
+import type { FloorPlan, Project, Slab, Vec2 } from '../model/types'
 import {
   TOL,
+  bbox,
+  cross,
   dist,
   pointKey,
   polygonArea,
   polygonCentroid,
   projectOnSegment,
   segIntersection,
+  sub,
 } from '../geometry/geometry'
+import { overlapArea } from '../geometry/clip'
 import { computeWind } from '../nbr/nbr6123/wind'
 import type { WindGeometry } from '../nbr/api'
 import type { AMember, ANode, AnalysisModel, CaseId, Vec3 } from './types'
@@ -313,11 +317,28 @@ export function buildAnalysisModel(project: Project): {
     const levelMembers = members.filter(
       (m) => m.ref.kind === 'beam' && nodes[m.ni].levelIndex === li,
     )
+    // cobertura das regiões de carga (escada/reservatório) sobre as lajes
+    for (const region of plan.loadRegions ?? []) {
+      const aRegion = polygonArea(region.polygon)
+      if (aRegion < 1e-6) continue
+      let covered = 0
+      for (const slab of plan.slabs) {
+        covered += overlapArea(region.polygon, convexClipOf(slab))
+      }
+      if (covered < 0.9 * aRegion) {
+        warnings.push(
+          `Região ${region.name} (${level.name}): apenas ${Math.round(
+            (100 * covered) / aRegion,
+          )}% sobre lajes — carga fora de laje não aplicada.`,
+        )
+      }
+    }
     for (const slab of plan.slabs) {
       const area = polygonArea(slab.polygon)
       if (area < 1e-6) continue
-      const gArea = slab.thickness * γ + slab.finishLoad // kN/m²
-      const qArea = slab.liveLoad
+      const extras = slabExtraLoads(plan, slab)
+      const gArea = slab.thickness * γ + slab.finishLoad + extras.g // kN/m²
+      const qArea = slab.liveLoad + extras.q
       levelG[li] += gArea * area
       levelQ[li] += qArea * area
 
@@ -451,6 +472,51 @@ export function buildAnalysisModel(project: Project): {
     stats: { nodes: nodes.length, members: members.length, dofs: 0 },
   }
   return { model, internal: { memberLoads, nodalLoads } }
+}
+
+/** polígono de recorte convexo da laje (a própria, se convexa; senão o bbox) */
+function convexClipOf(slab: Slab): Vec2[] {
+  const poly = slab.polygon
+  let sign = 0
+  let convex = poly.length >= 3
+  for (let i = 0; i < poly.length && convex; i++) {
+    const a = poly[i]
+    const b = poly[(i + 1) % poly.length]
+    const c = poly[(i + 2) % poly.length]
+    const cr = cross(sub(b, a), sub(c, b))
+    if (Math.abs(cr) < 1e-9) continue
+    const s = Math.sign(cr)
+    if (sign === 0) sign = s
+    else if (s !== sign) convex = false
+  }
+  if (convex) return poly
+  const { min, max } = bbox(poly)
+  return [
+    { x: min.x, y: min.y },
+    { x: max.x, y: min.y },
+    { x: max.x, y: max.y },
+    { x: min.x, y: max.y },
+  ]
+}
+
+/**
+ * Cargas extras (g, q em kN/m²) que as regiões de carga do pavimento
+ * depositam sobre uma laje — força total conservada, espalhada na laje.
+ */
+export function slabExtraLoads(plan: FloorPlan, slab: Slab): { g: number; q: number } {
+  const aSlab = polygonArea(slab.polygon)
+  if (aSlab < 1e-9) return { g: 0, q: 0 }
+  let g = 0
+  let q = 0
+  const clip = convexClipOf(slab)
+  for (const region of plan.loadRegions ?? []) {
+    const ov = overlapArea(region.polygon, clip)
+    if (ov > 1e-9) {
+      g += (region.g * ov) / aSlab
+      q += (region.q * ov) / aSlab
+    }
+  }
+  return { g, q }
 }
 
 /**

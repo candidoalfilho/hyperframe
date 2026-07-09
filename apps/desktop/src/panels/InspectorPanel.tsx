@@ -1,13 +1,16 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useRef, type ChangeEvent, type ReactNode } from 'react'
 import {
   CONCRETE_CLASSES,
   FINISH_LOAD_PRESETS,
   LIVE_LOAD_PRESETS,
+  REGION_PRESETS,
   WALL_PRESETS,
   dist,
+  parseDxf,
   polygonArea,
   type Beam,
   type Column,
+  type LoadRegion,
   type Project,
   type Slab,
   type WallLoad,
@@ -16,6 +19,7 @@ import { useStore } from '../store'
 import { NumberField } from './NumberField'
 import { cm, fmt, ROMAN } from './format'
 import { IconTrash } from '../components/Icons'
+import PlansManager from './PlansManager'
 
 // ---------------------------------------------------------------------------
 // blocos reutilizáveis
@@ -113,6 +117,40 @@ function ProjectInspector({ project }: { project: Project }) {
   const setDisplay = useStore((s) => s.setDisplay)
   const defaults = useStore((s) => s.defaults)
   const setDefaults = useStore((s) => s.setDefaults)
+  const activeLevelId = useStore((s) => s.activeLevelId)
+  const setPlansManagerOpen = useStore((s) => s.setPlansManagerOpen)
+  const setUnderlay = useStore((s) => s.setUnderlay)
+  const updateUnderlay = useStore((s) => s.updateUnderlay)
+  const dxfInputRef = useRef<HTMLInputElement>(null)
+
+  const activeLevel = project.levels.find((l) => l.id === activeLevelId)
+  const activePlan = activeLevel?.planId
+    ? project.plans.find((p) => p.id === activeLevel.planId) ?? null
+    : null
+  const underlay = project.underlay ?? null
+
+  const onDxfFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permite reimportar o mesmo arquivo
+    if (!file) return
+    try {
+      const text = await file.text()
+      const entities = parseDxf(text)
+      if (entities.length === 0) throw new Error('nenhuma entidade suportada encontrada')
+      setUnderlay({
+        entities,
+        scale: 1,
+        offset: { x: 0, y: 0 },
+        visible: true,
+        opacity: 0.45,
+        fileName: file.name,
+      })
+    } catch (err) {
+      alert(
+        `Não foi possível importar o DXF: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+  }
 
   const floors = project.levels.filter((l) => l.planId !== null).length
   const height = project.levels[project.levels.length - 1]?.elevation ?? 0
@@ -143,6 +181,111 @@ function ProjectInspector({ project }: { project: Project }) {
         }
       />
       <Row label="Pilares" value={String(project.columns.length)} />
+
+      <div className="panel-section">
+        <h3 className="panel-title">Plantas de forma</h3>
+        <Row label="Planta atual" value={activePlan ? activePlan.name : '— sem planta —'} />
+        <button
+          className="btn"
+          style={{ width: '100%', marginTop: 6 }}
+          onClick={() => setPlansManagerOpen(true)}
+        >
+          Gerenciar plantas…
+        </button>
+      </div>
+
+      <div className="panel-section">
+        <h3 className="panel-title">Underlay DXF</h3>
+        {!underlay ? (
+          <>
+            <input
+              ref={dxfInputRef}
+              type="file"
+              accept=".dxf"
+              style={{ display: 'none' }}
+              onChange={onDxfFile}
+            />
+            <button
+              className="btn"
+              style={{ width: '100%' }}
+              onClick={() => dxfInputRef.current?.click()}
+            >
+              Importar DXF…
+            </button>
+          </>
+        ) : (
+          <>
+            <Row label="Arquivo" value={underlay.fileName ?? 'DXF'} />
+            <Row label="Entidades" value={String(underlay.entities.length)} />
+            <Check
+              label="Visível"
+              checked={underlay.visible}
+              onChange={(v) => updateUnderlay({ visible: v })}
+            />
+            <div className="field" style={{ marginTop: 6 }}>
+              <label className="label">Opacidade — {fmt(underlay.opacity * 100, 0)}%</label>
+              <input
+                type="range"
+                min={0.1}
+                max={1}
+                step={0.05}
+                value={underlay.opacity}
+                style={{ width: '100%' }}
+                onChange={(e) => updateUnderlay({ opacity: Number(e.target.value) })}
+              />
+            </div>
+            <div className="field">
+              <label className="label">Escala (unidade do desenho)</label>
+              <select
+                className="select"
+                style={{ width: '100%' }}
+                value={String(underlay.scale)}
+                onChange={(e) => updateUnderlay({ scale: Number(e.target.value) })}
+              >
+                {![1, 0.01, 0.001].includes(underlay.scale) && (
+                  <option value={String(underlay.scale)} disabled>
+                    Personalizada — ×{fmt(underlay.scale, 3)}
+                  </option>
+                )}
+                <option value="1">metros (×1)</option>
+                <option value="0.01">centímetros (×0,01)</option>
+                <option value="0.001">milímetros (×0,001)</option>
+              </select>
+            </div>
+            <div className="field">
+              <label className="label">Deslocamento x · y (m)</label>
+              <div className="field-row">
+                <NumberField
+                  value={underlay.offset.x}
+                  digits={2}
+                  trim={false}
+                  onCommit={(v) => updateUnderlay({ offset: { ...underlay.offset, x: v } })}
+                />
+                <NumberField
+                  value={underlay.offset.y}
+                  digits={2}
+                  trim={false}
+                  onCommit={(v) => updateUnderlay({ offset: { ...underlay.offset, y: v } })}
+                />
+              </div>
+            </div>
+            <button
+              className="btn"
+              style={{
+                width: '100%',
+                color: 'var(--err)',
+                borderColor: 'rgba(255, 92, 105, 0.45)',
+              }}
+              onClick={() => setUnderlay(null)}
+            >
+              Remover underlay
+            </button>
+          </>
+        )}
+        <div className="faint" style={{ fontSize: 11, marginTop: 8 }}>
+          Escala: escolha a unidade em que o DXF foi desenhado.
+        </div>
+      </div>
 
       <div className="panel-section">
         <h3 className="panel-title">Exibição</h3>
@@ -306,6 +449,25 @@ function ProjectInspector({ project }: { project: Project }) {
               kN/m
             </span>
           </div>
+        </div>
+
+        <div className="field">
+          <label className="label">Região de carga — tipo</label>
+          <select
+            className="select"
+            style={{ width: '100%' }}
+            value={defaults.regionKind}
+            onChange={(e) => {
+              const p = REGION_PRESETS.find((x) => x.kind === e.target.value)
+              if (p) setDefaults({ regionKind: p.kind })
+            }}
+          >
+            {REGION_PRESETS.map((p) => (
+              <option key={p.kind} value={p.kind}>
+                {p.label} — g {fmt(p.g, 1)} · q {fmt(p.q, 1)} kN/m²
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     </>
@@ -619,6 +781,74 @@ function WallLoadInspector({ wl, project }: { wl: WallLoad; project: Project }) 
 }
 
 // ---------------------------------------------------------------------------
+// região de carga (escada, reservatório…)
+// ---------------------------------------------------------------------------
+
+function LoadRegionInspector({ region }: { region: LoadRegion }) {
+  const updateLoadRegion = useStore((s) => s.updateLoadRegion)
+  const deleteElement = useStore((s) => s.deleteElement)
+
+  const area = useMemo(() => polygonArea(region.polygon), [region.polygon])
+
+  return (
+    <>
+      <h3 className="panel-title">Região {region.name}</h3>
+
+      <div className="field">
+        <label className="label">Tipo</label>
+        <select
+          className="select"
+          style={{ width: '100%' }}
+          value={region.kind}
+          onChange={(e) => {
+            const p = REGION_PRESETS.find((x) => x.kind === e.target.value)
+            if (p) updateLoadRegion(region.id, { kind: p.kind, g: p.g, q: p.q, label: p.label })
+          }}
+        >
+          {REGION_PRESETS.map((p) => (
+            <option key={p.kind} value={p.kind}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field">
+        <label className="label">Permanente adicional g (kN/m²)</label>
+        <NumberField
+          value={region.g}
+          digits={2}
+          min={0}
+          max={100}
+          style={{ width: '100%' }}
+          onCommit={(v) => updateLoadRegion(region.id, { g: v })}
+        />
+      </div>
+
+      <div className="field">
+        <label className="label">Variável adicional q (kN/m²)</label>
+        <NumberField
+          value={region.q}
+          digits={2}
+          min={0}
+          max={100}
+          style={{ width: '100%' }}
+          onCommit={(v) => updateLoadRegion(region.id, { q: v })}
+        />
+      </div>
+
+      <Row label="Área" value={`${fmt(area, 2)} m²`} />
+
+      <div className="faint" style={{ fontSize: 11, marginTop: 8 }}>
+        Distribuída às lajes sobrepostas (proporcional à área de interseção).
+      </div>
+
+      <DeleteButton onClick={() => deleteElement({ kind: 'loadRegion', id: region.id })} />
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // painel (raiz)
 // ---------------------------------------------------------------------------
 
@@ -637,6 +867,11 @@ export default function InspectorPanel() {
     } else if (selection.kind === 'slab') {
       const slab = project.plans.flatMap((p) => p.slabs).find((x) => x.id === selection.id)
       if (slab) content = <SlabInspector key={slab.id} slab={slab} />
+    } else if (selection.kind === 'loadRegion') {
+      const region = project.plans
+        .flatMap((p) => p.loadRegions)
+        .find((r) => r.id === selection.id)
+      if (region) content = <LoadRegionInspector key={region.id} region={region} />
     } else {
       const wl = project.plans.flatMap((p) => p.wallLoads).find((w) => w.id === selection.id)
       if (wl) content = <WallLoadInspector key={wl.id} wl={wl} project={project} />
@@ -644,5 +879,10 @@ export default function InspectorPanel() {
   }
   if (!content) content = <ProjectInspector project={project} />
 
-  return <div className="panel">{content}</div>
+  return (
+    <>
+      <div className="panel">{content}</div>
+      <PlansManager />
+    </>
+  )
 }

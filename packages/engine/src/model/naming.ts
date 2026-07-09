@@ -23,3 +23,23 @@ export function nextSlabName(project: Project, planId: string): string {
   const plan = project.plans.find((p) => p.id === planId)
   return `L${nextNumber(plan ? plan.slabs.map((s) => s.name) : [], 'L')}`
 }
+
+const REGION_PREFIX: Record<string, string> = {
+  escada: 'ESC',
+  reservatorio: 'RES',
+  generica: 'CR',
+}
+
+export function nextRegionName(
+  project: Project,
+  planId: string,
+  kind: 'escada' | 'reservatorio' | 'generica',
+): string {
+  const plan = project.plans.find((p) => p.id === planId)
+  const prefix = REGION_PREFIX[kind]
+  return `${prefix}${nextNumber(plan ? plan.loadRegions.map((r) => r.name) : [], prefix)}`
+}
+
+export function nextPlanName(project: Project): string {
+  return `Planta ${project.plans.length + 1}`
+}

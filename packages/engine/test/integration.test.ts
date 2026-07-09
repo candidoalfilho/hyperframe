@@ -174,11 +174,83 @@ describe('análise — projeto de exemplo completo (8 pavimentos)', () => {
     }
   })
 
-  it('verifica pilares com esforços não nulos', () => {
-    expect(results.columnChecks).toHaveLength(12)
-    for (const cc of results.columnChecks) {
-      expect(cc.nd).toBeGreaterThan(100) // 8 pavimentos → sempre centenas de kN
-      expect(cc.nu).toBeGreaterThan(0)
+  it('dimensiona pilares a flexo-compressão oblíqua', () => {
+    expect(results.columnDesign).toHaveLength(12)
+    for (const cd of results.columnDesign) {
+      expect(cd.nd).toBeGreaterThan(100) // 8 pavimentos → sempre centenas de kN
+      expect(cd.status).not.toBe('falha')
+      expect(cd.utilization).toBeGreaterThan(0)
+      expect(cd.utilization).toBeLessThanOrEqual(1.01)
+      expect(cd.barsN).toBeGreaterThanOrEqual(4)
+      // ρ dentro dos limites normativos
+      const ac = cd.section.bw * cd.section.h
+      expect(cd.as).toBeGreaterThanOrEqual(0.004 * ac - 1e-9)
+      expect(cd.as).toBeLessThanOrEqual(0.04 * ac + 1e-9)
+      expect(cd.barPositions.length).toBe(cd.barsN)
+    }
+  })
+
+  it('dimensiona lajes retangulares (Marcus) — tipo e cobertura', () => {
+    // 6 lajes do tipo + 6 da cobertura (plantas distintas)
+    expect(results.slabDesign).toHaveLength(12)
+    for (const sd of results.slabDesign) {
+      expect(sd.rectangular).toBe(true)
+      expect(sd.design).not.toBeNull()
+      expect(sd.status).not.toBe('falha')
+      const d = sd.design!
+      // quinhões somam a carga característica da laje (com extras de região)
+      expect(d.dirA.w + d.dirB.w).toBeGreaterThan(0.12 * 25) // pelo menos o peso próprio
+      expect(d.dirA.asSpan).toBeGreaterThanOrEqual(d.dirA.asSpanMin - 1e-12)
+      expect(d.dirA.spanSpec).toContain('φ')
+      expect(d.deflection).toBeGreaterThan(0)
+    }
+    // laje sob o reservatório recebe carga extra (g e q de região)
+    const withExtras = results.slabDesign.filter((sd) =>
+      sd.notes.some((n) => n.includes('região')),
+    )
+    expect(withExtras.length).toBeGreaterThan(0)
+  })
+
+  it('regiões de carga entram no peso dos pavimentos', () => {
+    // reservatório de 2,5×2,5 m com q=15 kN/m² no último nível
+    const top = results.model.levelWeights[results.model.levelWeights.length - 1]
+    const below = results.model.levelWeights[results.model.levelWeights.length - 2]
+    // cobertura tem menos sobrecarga (1,0) porém reservatório → Q próximo do tipo
+    expect(top.Q).toBeGreaterThan(0.4 * below.Q)
+  })
+
+  it('pré-dimensiona sapatas com tensão ≤ admissível', () => {
+    expect(results.foundations).toHaveLength(12)
+    for (const f of results.foundations) {
+      expect(f.nServ).toBeGreaterThan(100)
+      expect(f.footing.sigma).toBeLessThanOrEqual(250 + 1e-6)
+      expect(f.footing.a).toBeGreaterThanOrEqual(f.footing.b - 1e-9)
+      expect(f.footing.h).toBeGreaterThanOrEqual(0.3)
+      expect(f.status).not.toBe('falha')
+    }
+  })
+
+  it('verifica flechas de vigas em serviço', () => {
+    expect(results.beamService.length).toBe(results.beamDesign.length)
+    for (const bs of results.beamService) {
+      expect(bs.deltaTotal).toBeGreaterThan(0)
+      expect(bs.crackFactor).toBeGreaterThanOrEqual(1)
+      expect(bs.ok).toBe(true) // seções 20×50 em vãos de 4–4,5 m passam folgado
+    }
+  })
+
+  it('gera detalhamento e tabela de aço', () => {
+    expect(results.detailing.beams.length).toBe(results.beamDesign.length)
+    expect(results.detailing.columns).toHaveLength(12)
+    expect(results.detailing.steel.items.length).toBeGreaterThan(30)
+    expect(results.detailing.steel.totalKg).toBeGreaterThan(3000)
+    expect(results.detailing.steel.totalWithWaste).toBeCloseTo(
+      results.detailing.steel.totalKg * 1.1,
+      6,
+    )
+    for (const it of results.detailing.steel.items) {
+      expect(it.kg).toBeGreaterThan(0)
+      expect(it.unitLength).toBeGreaterThan(0)
     }
   })
 

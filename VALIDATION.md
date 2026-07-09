@@ -3,9 +3,9 @@
 Software estrutural só tem valor se merecer confiança. Este documento define como o
 HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
 
-## Estado atual (v0.1)
+## Estado atual (v0.2)
 
-### Validação automatizada (roda em `npm test` — 80 testes)
+### Validação automatizada (roda em `npm test` — 107 testes)
 
 **Âncoras analíticas (soluções fechadas):**
 - Matriz de rigidez local 12×12: simetria, termos EA/L e 12EI/L³
@@ -27,6 +27,18 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
 - Simetria: estrutura simétrica → reações simétricas
 - Deslocamento lateral monotônico com a altura
 - Edifício de 8 pavimentos: γz ∈ [1,0; 1,5], taxas de aço ∈ [40; 250] kg/m³
+
+**Dimensionamento v0.2 (âncoras adicionais):**
+- Pilares: NRd de compressão centrada = 0,85·fcd·(Ac−As) + 420 MPa·As (fórmula fechada);
+  curva de interação simétrica p/ seção simétrica; utilização radial linear no momento;
+  λ, λ1, αb e momento mínimo por fórmulas (§15.8/§11.3.3.4.3); ρ ∈ [0,4%; 4%] no exemplo
+- Lajes (Marcus): laje quadrada biapoiada → quinhão w/2 por direção (caso clássico);
+  quinhões conservam a carga total; As ≥ 0,67·ρmin
+- Sapatas: σ ≤ σadm em todas; a−b acompanha o pilar; h ≥ (a−ap)/3
+- Flechas: fator de fissuração ≥ 1; vigas 20×50 do exemplo ≤ L/250
+- Regiões de carga (escada/reservatório): força conservada na distribuição às lajes,
+  refletida nos pesos de pavimento (γz) e nas reações
+- DXF: roundtrip write→parse preserva entidades; blocos/INSERT com rotação/escala
 
 ### O que os testes NÃO cobrem ainda
 

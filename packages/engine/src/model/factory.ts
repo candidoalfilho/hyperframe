@@ -44,6 +44,7 @@ export function defaultSettings(p: NewProjectParams): ProjectSettings {
       windClass: 'B',
       s3Group: p.wind.s3Group,
     },
+    soil: { sigmaAdm: 250, label: 'Argila rija' },
     stiffnessReduction: { beams: 0.4, columns: 0.8 },
     torsionFactor: 0.05,
     considerSelfWeight: true,
@@ -69,6 +70,7 @@ export function createEmptyProject(params: NewProjectParams): Project {
     beams: [],
     slabs: [],
     wallLoads: [],
+    loadRegions: [],
   }
   const levels: Level[] = [
     { id: uid('lv'), name: 'Fundação', elevation: 0, planId: null },
@@ -218,6 +220,70 @@ export function createSampleProject(): Project {
     }
   }
   plan.wallLoads = wallLoads
+
+  // escada no pavimento tipo (região de carga sobre L2)
+  plan.loadRegions = [
+    {
+      id: uid('rg'),
+      name: 'ESC1',
+      kind: 'escada',
+      polygon: [
+        { x: 5.0, y: 5.5 },
+        { x: 6.4, y: 5.5 },
+        { x: 6.4, y: 8.3 },
+        { x: 5.0, y: 8.3 },
+      ],
+      g: 5.0,
+      q: 3.0,
+      label: 'Escada (lance + patamar sobre a laje)',
+    },
+  ]
+
+  // cobertura: planta própria (sem alvenarias internas, sobrecarga de manutenção,
+  // platibanda no perímetro e reservatório sobre a laje central)
+  const cobertura: FloorPlan = {
+    id: uid('pl'),
+    name: 'Cobertura',
+    beams: beams.map((b) => ({ ...b, id: uid('bm'), path: b.path.map((p) => ({ ...p })) })),
+    slabs: slabs.map((s) => ({
+      ...s,
+      id: uid('sl'),
+      polygon: s.polygon.map((p) => ({ ...p })),
+      finishLoad: 1.0,
+      liveLoad: 1.0,
+      liveLoadLabel: 'Cobertura — acesso apenas p/ manutenção',
+    })),
+    wallLoads: [],
+    loadRegions: [
+      {
+        id: uid('rg'),
+        name: 'RES1',
+        kind: 'reservatorio',
+        polygon: [
+          { x: 5.0, y: 5.0 },
+          { x: 7.5, y: 5.0 },
+          { x: 7.5, y: 7.5 },
+          { x: 5.0, y: 7.5 },
+        ],
+        g: 3.0,
+        q: 15.0,
+        label: 'Reservatório / caixa d’água (lâmina 1,5 m)',
+      },
+    ],
+  }
+  // platibanda (parede baixa) no perímetro da cobertura
+  const beamIdMap = new Map(beams.map((b, i) => [b.id, cobertura.beams[i].id]))
+  for (const id of perimeterBeamIds) {
+    cobertura.wallLoads.push({
+      id: uid('wl'),
+      beamId: beamIdMap.get(id) ?? id,
+      w: 2.0,
+      label: 'Platibanda',
+    })
+  }
+  project.plans.push(cobertura)
+  const topLevel = project.levels[project.levels.length - 1]
+  topLevel.planId = cobertura.id
 
   return project
 }

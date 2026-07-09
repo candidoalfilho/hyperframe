@@ -9,10 +9,12 @@ import {
   type GammaZResult,
   type Project,
   type Reaction,
+  type SlabDesignOutput,
 } from '@hyperframe/engine'
 import { useStore, type ResultsTab } from '../store'
 import { cm, cm2, fmt, fmtCmDim, ROMAN } from './format'
 import { IconClose, IconPrint } from '../components/Icons'
+import PranchasPanel from '../drawings/PranchasPanel'
 
 // ---------------------------------------------------------------------------
 // helpers compartilhados do painel
@@ -22,8 +24,11 @@ const TABS: [ResultsTab, string][] = [
   ['estabilidade', 'Estabilidade'],
   ['vigas', 'Vigas'],
   ['pilares', 'Pilares'],
+  ['lajes', 'Lajes'],
+  ['fundacoes', 'Fundações'],
   ['reacoes', 'Reações'],
   ['quantitativos', 'Quantitativos'],
+  ['pranchas', 'Pranchas'],
   ['relatorio', 'Relatório'],
 ]
 
@@ -81,6 +86,37 @@ const GAMMAZ_TEXT: Record<GammaZResult['classification'], string> = {
 function GammaZChip({ c }: { c: GammaZResult['classification'] }) {
   const cls = c === 'nos-fixos' ? 'chip ok' : c === 'nos-moveis' ? 'chip warn' : 'chip err'
   return <span className={cls}>{GAMMAZ_TEXT[c]}</span>
+}
+
+/** ordena por nome em ordem natural pt-BR (P1, P2, … P10) */
+function byName<T extends { name: string }>(items: readonly T[]): T[] {
+  return [...items].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }))
+}
+
+/** φ em m → rótulo em mm ("8", "12,5") */
+function fmtPhi(phiM: number): string {
+  const mm = Math.round(phiM * 10000) / 10
+  return fmt(mm, Number.isInteger(mm) ? 0 : 1)
+}
+
+/** utilização em % → cor do texto */
+function utilColor(pct: number): string {
+  return pct <= 80 ? 'var(--ok)' : pct <= 100 ? 'var(--warn)' : 'var(--err)'
+}
+
+/** armaduras negativas de laje (só onde há engaste) */
+function slabNegatives(d: SlabDesignOutput): string {
+  const parts: string[] = []
+  if (d.dirA.mSupportD > 0) parts.push(`A: ${d.dirA.supportSpec}`)
+  if (d.dirB.mSupportD > 0) parts.push(`B: ${d.dirB.supportSpec}`)
+  return parts.length > 0 ? parts.join(' · ') : '—'
+}
+
+/** condição de apoio das faixas ("A: 2 engastes · B: 1") */
+function slabSupports(d: SlabDesignOutput): string {
+  const a = d.dirA.fixedEnds
+  const b = d.dirB.fixedEnds
+  return `A: ${a} ${a === 1 ? 'engaste' : 'engastes'} · B: ${b}`
 }
 
 /** agrupa vãos por viga, em ordem natural (V1, V2, … V10) */
@@ -239,6 +275,15 @@ function EstabilidadeTab({ results, project }: { results: AnalysisResults; proje
 
 function VigasTab({ results }: { results: AnalysisResults }) {
   const groups = useMemo(() => beamGroups(results), [results])
+  const service = useMemo(
+    () =>
+      [...results.beamService].sort(
+        (a, b) =>
+          a.beamName.localeCompare(b.beamName, 'pt-BR', { numeric: true }) ||
+          a.spanIndex - b.spanIndex,
+      ),
+    [results],
+  )
 
   if (groups.length === 0) return <Empty text="Nenhuma viga dimensionada." />
 
@@ -318,6 +363,50 @@ function VigasTab({ results }: { results: AnalysisResults }) {
         Flexão simples + cisalhamento (modelo I) por vão, envoltória ELU. Passe o mouse sobre a
         linha para ver as observações do dimensionamento.
       </Footnote>
+
+      <SectionTitle>Flechas em serviço (QP)</SectionTitle>
+      {service.length === 0 ? (
+        <Empty text="Sem verificação de flechas em serviço." />
+      ) : (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Viga</th>
+              <th>Vão</th>
+              <th>L (m)</th>
+              <th>δ elástica (mm)</th>
+              <th>Fator fissuração</th>
+              <th>δ total (mm)</th>
+              <th>Limite L/250 (mm)</th>
+              <th>Verificação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {service.map((b) => (
+              <tr key={`${b.beamId}-${b.spanIndex}`}>
+                <td style={{ fontWeight: 600 }}>{b.beamName}</td>
+                <td>{b.spanIndex + 1}</td>
+                <td>{fmt(b.length, 2)}</td>
+                <td>{fmt(b.deltaElastic * 1000, 2)}</td>
+                <td>{fmt(b.crackFactor, 2)}</td>
+                <td style={{ fontWeight: 700 }}>{fmt(b.deltaTotal * 1000, 2)}</td>
+                <td>{fmt(b.limit * 1000, 2)}</td>
+                <td>
+                  {b.ok ? (
+                    <span className="chip ok">OK</span>
+                  ) : (
+                    <span className="chip err">excede</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <Footnote>
+        Flecha total = elástica (ELS quase-permanente, EI íntegro) × fator de fissuração (Branson)
+        × (1 + αf de fluência).
+      </Footnote>
     </>
   )
 }
@@ -327,15 +416,9 @@ function VigasTab({ results }: { results: AnalysisResults }) {
 // ---------------------------------------------------------------------------
 
 function PilaresTab({ results }: { results: AnalysisResults }) {
-  const checks = useMemo(
-    () =>
-      [...results.columnChecks].sort((a, b) =>
-        a.name.localeCompare(b.name, 'pt-BR', { numeric: true }),
-      ),
-    [results],
-  )
+  const items = useMemo(() => byName(results.columnDesign), [results])
 
-  if (checks.length === 0) return <Empty text="Nenhum pilar verificado." />
+  if (items.length === 0) return <Empty text="Nenhum pilar dimensionado." />
 
   return (
     <>
@@ -343,35 +426,240 @@ function PilaresTab({ results }: { results: AnalysisResults }) {
         <thead>
           <tr>
             <th>Pilar</th>
+            <th>Seção (cm)</th>
             <th>Nd (kN)</th>
-            <th>Md,x / Md,y (kN·m)</th>
+            <th title="u ao longo de bw · v ao longo de h">Md,u / Md,v (kN·m)</th>
             <th>ν</th>
             <th>λ</th>
-            <th>As,est (cm²)</th>
+            <th>As (cm²)</th>
+            <th>ρ (%)</th>
+            <th>Barras</th>
+            <th>Estribo</th>
+            <th>Utilização</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody>
-          {checks.map((c) => (
-            <tr key={c.columnId} title={c.note || undefined}>
-              <td>{c.name}</td>
-              <td>{fmt(c.nd, 0)}</td>
-              <td>
-                {fmt(c.mdx, 1)} / {fmt(c.mdy, 1)}
-              </td>
-              <td>{fmt(c.nu, 2)}</td>
-              <td>{fmt(c.lambda, 1)}</td>
-              <td>{fmt(cm2(c.asEst), 2)}</td>
-              <td>
-                <StatusChip s={c.status} />
-              </td>
-            </tr>
-          ))}
+          {items.map((c) => {
+            const lambda = Math.max(c.lambdaU, c.lambdaV)
+            const utilPct = c.utilization * 100
+            const title = [...c.notes, c.governing ? `governante: ${c.governing}` : '']
+              .filter(Boolean)
+              .join(' · ')
+            return (
+              <tr key={c.columnId} title={title || undefined}>
+                <td style={{ fontWeight: 600 }}>{c.name}</td>
+                <td>
+                  {fmtCmDim(c.section.bw)}×{fmtCmDim(c.section.h)}
+                </td>
+                <td>{fmt(c.nd, 0)}</td>
+                <td>
+                  {fmt(c.mdU, 1)} / {fmt(c.mdV, 1)}
+                </td>
+                <td>{fmt(c.nu, 2)}</td>
+                <td>
+                  {fmt(lambda, 1)}
+                  {c.needsRigorous && (
+                    <span
+                      style={{ color: 'var(--warn)', marginLeft: 4 }}
+                      title="λ > 90 — exige método rigoroso com curvatura real"
+                    >
+                      ⚠
+                    </span>
+                  )}
+                </td>
+                <td>{fmt(cm2(c.as), 2)}</td>
+                <td>{fmt(c.rho * 100, 2)}</td>
+                <td>{c.bars || '—'}</td>
+                <td>{c.stirrupSpec}</td>
+                <td style={{ fontWeight: 700, color: utilColor(utilPct) }}>
+                  {Number.isFinite(utilPct) ? `${fmt(utilPct, 0)}%` : '—'}
+                </td>
+                <td>
+                  <StatusChip s={c.status} />
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
       <Footnote>
-        Verificação simplificada (compressão + esbeltez); dimensionamento completo a
-        flexo-compressão oblíqua no roadmap.
+        Flexo-compressão oblíqua por integração da seção (bloco retangular) + pilar-padrão com
+        curvatura aproximada (§15.8.3.3.2). Passe o mouse sobre a linha para ver as observações e
+        a combinação governante.
+      </Footnote>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// aba: lajes
+// ---------------------------------------------------------------------------
+
+function LajesTab({ results }: { results: AnalysisResults }) {
+  const items = useMemo(
+    () =>
+      [...results.slabDesign].sort(
+        (a, b) =>
+          a.levelName.localeCompare(b.levelName, 'pt-BR', { numeric: true }) ||
+          a.name.localeCompare(b.name, 'pt-BR', { numeric: true }),
+      ),
+    [results],
+  )
+
+  if (items.length === 0) return <Empty text="Nenhuma laje no modelo." />
+
+  return (
+    <>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Laje</th>
+            <th>Pavimento</th>
+            <th>lx×ly (m)</th>
+            <th>h (cm)</th>
+            <th>Apoios</th>
+            <th>Md vão A/B (kN·m/m)</th>
+            <th>As A/B (cm²/m)</th>
+            <th>Malha A/B</th>
+            <th>Negativos</th>
+            <th>Flecha (mm)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((s) => {
+            const d = s.design
+            const title = s.notes.length > 0 ? s.notes.join(' · ') : undefined
+            return (
+              <tr key={s.slabId} title={title}>
+                <td style={{ fontWeight: 600 }}>{s.name}</td>
+                <td style={{ fontFamily: 'var(--sans)' }}>{s.levelName}</td>
+                <td>
+                  {fmt(s.spanA, 2)}×{fmt(s.spanB, 2)}
+                </td>
+                <td>{fmtCmDim(s.thickness)}</td>
+                {d ? (
+                  <>
+                    <td>{slabSupports(d)}</td>
+                    <td>
+                      {fmt(d.dirA.mSpanD, 1)} / {fmt(d.dirB.mSpanD, 1)}
+                    </td>
+                    <td>
+                      {fmt(cm2(d.dirA.asSpan), 2)} / {fmt(cm2(d.dirB.asSpan), 2)}
+                    </td>
+                    <td>
+                      {d.dirA.spanSpec} / {d.dirB.spanSpec}
+                    </td>
+                    <td>{slabNegatives(d)}</td>
+                    <td>
+                      <span className={`chip ${d.deflectionOk ? 'ok' : 'err'}`}>
+                        {fmt(d.deflection * 1000, 1)} {d.deflectionOk ? '≤' : '>'}{' '}
+                        {fmt(d.deflectionLimit * 1000, 1)}
+                      </span>
+                    </td>
+                  </>
+                ) : (
+                  <td colSpan={6} className="faint">
+                    manual — {s.notes.join(' · ') || 'laje não retangular: dimensionar à parte'}
+                  </td>
+                )}
+                <td>
+                  <StatusChip s={s.status} />
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <Footnote>
+        Marcus sem redução por torção (a favor da segurança); flecha com Branson + fluência
+        (αf=1,32).
+      </Footnote>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// aba: fundações
+// ---------------------------------------------------------------------------
+
+function FundacoesTab({ results, project }: { results: AnalysisResults; project: Project }) {
+  const items = useMemo(() => byName(results.foundations), [results])
+  const soil = project.settings.soil
+
+  return (
+    <>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+          margin: '4px 0 10px',
+          fontSize: 12,
+        }}
+      >
+        <span>
+          Solo: <strong>{soil.label}</strong> — σadm = {fmt(soil.sigmaAdm, 0)} kPa
+        </span>
+        <span className="chip warn">
+          ⚠ valores orientativos — projeto exige sondagem SPT (NBR 6122)
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <Empty text="Nenhuma sapata dimensionada." />
+      ) : (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Pilar</th>
+              <th>Nserv (kN)</th>
+              <th>Sapata a×b (m)</th>
+              <th>h (m)</th>
+              <th>σ (kPa)</th>
+              <th>σmax (kPa)</th>
+              <th>e no núcleo?</th>
+              <th>As dir A</th>
+              <th>As dir B</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((f) => {
+              const ft = f.footing
+              return (
+                <tr key={f.columnId} title={ft.notes.join(' · ') || undefined}>
+                  <td style={{ fontWeight: 600 }}>{f.name}</td>
+                  <td>{fmt(f.nServ, 0)}</td>
+                  <td>
+                    {fmt(ft.a, 2)}×{fmt(ft.b, 2)}
+                  </td>
+                  <td>{fmt(ft.h, 2)}</td>
+                  <td>{fmt(ft.sigma, 0)}</td>
+                  <td>{fmt(ft.sigmaMax, 0)}</td>
+                  <td>
+                    {ft.insideKern ? (
+                      <span className="chip ok">sim</span>
+                    ) : (
+                      <span className="chip warn">não</span>
+                    )}
+                  </td>
+                  <td>{ft.specA}</td>
+                  <td>{ft.specB}</td>
+                  <td>
+                    <StatusChip s={f.status} />
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+      <Footnote>
+        Sapatas rígidas isoladas — armadura pelo método das bielas (CG do pilar), tensões de
+        serviço com excentricidade (NBR 6118 §22.6 + NBR 6122).
       </Footnote>
     </>
   )
@@ -566,6 +854,7 @@ function approxArea(project: Project): number {
 
 function QuantitativosTab({ results, project }: { results: AnalysisResults; project: Project }) {
   const q = results.quantities
+  const steel = results.detailing.steel
   const area = useMemo(() => approxArea(project), [project])
 
   return (
@@ -594,7 +883,7 @@ function QuantitativosTab({ results, project }: { results: AnalysisResults; proj
           label="Aço total"
           value={fmt(q.steel.total, 0)}
           unit="kg"
-          sub={`vigas (dim.) ${fmt(q.steel.beamsDesigned, 0)} · pilares (est.) ${fmt(q.steel.columnsEstimated, 0)} · lajes (est.) ${fmt(q.steel.slabsEstimated, 0)} kg`}
+          sub={`vigas (dim.) ${fmt(q.steel.beamsDesigned, 0)} · pilares (dim.) ${fmt(q.steel.columnsEstimated, 0)} · lajes (malhas dim.) ${fmt(q.steel.slabsEstimated, 0)} kg`}
         />
         <StatCard
           label="Taxa de aço"
@@ -615,7 +904,47 @@ function QuantitativosTab({ results, project }: { results: AnalysisResults; proj
           sub="indicador p/ orçamento preliminar"
         />
       </div>
-      <Footnote>Aço de pilares/lajes por taxas típicas — estimativa para orçamento preliminar.</Footnote>
+
+      <SectionTitle>Resumo do aço por bitola</SectionTitle>
+      {steel.byPhi.length === 0 ? (
+        <Empty text="Sem tabela de aço — detalhamento indisponível." />
+      ) : (
+        <table className="table" style={{ maxWidth: 380 }}>
+          <thead>
+            <tr>
+              <th>φ (mm)</th>
+              <th>Massa (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {steel.byPhi.map((r) => (
+              <tr key={r.phi}>
+                <td>φ {fmtPhi(r.phi)}</td>
+                <td>{fmt(r.kg, 1)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td style={{ fontWeight: 700, borderTop: '2px solid var(--border-strong)' }}>
+                Total
+              </td>
+              <td style={{ fontWeight: 700, borderTop: '2px solid var(--border-strong)' }}>
+                {fmt(steel.totalKg, 1)}
+              </td>
+            </tr>
+            <tr>
+              <td>Total c/ perdas (10%)</td>
+              <td style={{ fontWeight: 700 }}>{fmt(steel.totalWithWaste, 1)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      )}
+
+      <Footnote>
+        Aço de vigas e pilares dimensionado (detalhamento preliminar); lajes com malhas
+        dimensionadas pelo método de Marcus. Valores para orçamento preliminar.
+      </Footnote>
     </>
   )
 }
@@ -690,7 +1019,19 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
     `fck ${fmt(s.concrete.fck / 1000, 0)} MPa`
   const cover = COVER_BY_CAA[s.caa]
   const q = results.quantities
+  const steel = results.detailing.steel
   const groups = useMemo(() => beamGroups(results), [results])
+  const cols = useMemo(() => byName(results.columnDesign), [results])
+  const slabs = useMemo(
+    () =>
+      [...results.slabDesign].sort(
+        (a, b) =>
+          a.levelName.localeCompare(b.levelName, 'pt-BR', { numeric: true }) ||
+          a.name.localeCompare(b.name, 'pt-BR', { numeric: true }),
+      ),
+    [results],
+  )
+  const footings = useMemo(() => byName(results.foundations), [results])
   const wind = results.model.wind
   const today = new Date().toLocaleDateString('pt-BR')
 
@@ -862,8 +1203,9 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
             </tr>
             <tr>
               <td style={{ ...rTd, fontFamily: 'inherit' }}>
-                Aço (vigas dim. {fmt(q.steel.beamsDesigned, 0)} · pilares est.{' '}
-                {fmt(q.steel.columnsEstimated, 0)} · lajes est. {fmt(q.steel.slabsEstimated, 0)} kg)
+                Aço (vigas dim. {fmt(q.steel.beamsDesigned, 0)} · pilares dim.{' '}
+                {fmt(q.steel.columnsEstimated, 0)} · malhas de laje {fmt(q.steel.slabsEstimated, 0)}{' '}
+                kg)
               </td>
               <td style={rTd}>{fmt(q.steel.total, 0)} kg</td>
             </tr>
@@ -922,8 +1264,150 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
           </tbody>
         </table>
 
-        {/* 6 — avisos */}
-        <h3 style={rH3}>6. Avisos</h3>
+        {/* 5a — pilares */}
+        <h3 style={rH3}>5a. Pilares — dimensionamento (resumo)</h3>
+        {cols.length === 0 ? (
+          <p style={{ fontSize: 11.5, margin: '6px 0 10px' }}>Nenhum pilar dimensionado.</p>
+        ) : (
+          <table style={rTable}>
+            <thead>
+              <tr>
+                <th style={rTh}>Pilar</th>
+                <th style={rTh}>Seção (cm)</th>
+                <th style={rTh}>As (cm²)</th>
+                <th style={rTh}>Barras</th>
+                <th style={rTh}>Utilização</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cols.map((c) => (
+                <tr key={c.columnId}>
+                  <td style={rTd}>{c.name}</td>
+                  <td style={rTd}>
+                    {fmtCmDim(c.section.bw)}×{fmtCmDim(c.section.h)}
+                  </td>
+                  <td style={rTd}>{fmt(cm2(c.as), 2)}</td>
+                  <td style={rTd}>{c.bars || '—'}</td>
+                  <td style={rTd}>
+                    {Number.isFinite(c.utilization) ? `${fmt(c.utilization * 100, 0)}%` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* 5b — lajes */}
+        <h3 style={rH3}>5b. Lajes — malhas (resumo)</h3>
+        {slabs.length === 0 ? (
+          <p style={{ fontSize: 11.5, margin: '6px 0 10px' }}>Nenhuma laje no modelo.</p>
+        ) : (
+          <table style={rTable}>
+            <thead>
+              <tr>
+                <th style={rTh}>Laje</th>
+                <th style={rTh}>Pavimento</th>
+                <th style={rTh}>Malha vão A</th>
+                <th style={rTh}>Malha vão B</th>
+                <th style={rTh}>Negativos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {slabs.map((sl) => (
+                <tr key={sl.slabId}>
+                  <td style={rTd}>{sl.name}</td>
+                  <td style={{ ...rTd, fontFamily: 'inherit' }}>{sl.levelName}</td>
+                  {sl.design ? (
+                    <>
+                      <td style={rTd}>{sl.design.dirA.spanSpec}</td>
+                      <td style={rTd}>{sl.design.dirB.spanSpec}</td>
+                      <td style={rTd}>{slabNegatives(sl.design)}</td>
+                    </>
+                  ) : (
+                    <td colSpan={3} style={{ ...rTd, fontFamily: 'inherit' }}>
+                      manual — laje não retangular
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* 5c — fundações */}
+        <h3 style={rH3}>5c. Fundações — sapatas (resumo)</h3>
+        {footings.length === 0 ? (
+          <p style={{ fontSize: 11.5, margin: '6px 0 10px' }}>Nenhuma sapata dimensionada.</p>
+        ) : (
+          <>
+            <p style={{ fontSize: 11.5, margin: '6px 0 4px' }}>
+              Solo: {project.settings.soil.label} — σadm = {fmt(project.settings.soil.sigmaAdm, 0)}{' '}
+              kPa (orientativo — exige sondagem SPT, NBR 6122).
+            </p>
+            <table style={rTable}>
+              <thead>
+                <tr>
+                  <th style={rTh}>Pilar</th>
+                  <th style={rTh}>Sapata a×b×h (m)</th>
+                  <th style={rTh}>σ / σmax (kPa)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {footings.map((f) => (
+                  <tr key={f.columnId}>
+                    <td style={rTd}>{f.name}</td>
+                    <td style={rTd}>
+                      {fmt(f.footing.a, 2)}×{fmt(f.footing.b, 2)}×{fmt(f.footing.h, 2)}
+                    </td>
+                    <td style={rTd}>
+                      {fmt(f.footing.sigma, 0)} / {fmt(f.footing.sigmaMax, 0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {/* 6 — tabela de aço */}
+        <h3 style={rH3}>6. Tabela de aço (por bitola)</h3>
+        {steel.byPhi.length === 0 ? (
+          <p style={{ fontSize: 11.5, margin: '6px 0 10px' }}>Tabela de aço indisponível.</p>
+        ) : (
+          <table style={{ ...rTable, maxWidth: 320 }}>
+            <thead>
+              <tr>
+                <th style={rTh}>φ (mm)</th>
+                <th style={rTh}>Massa (kg)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {steel.byPhi.map((r) => (
+                <tr key={r.phi}>
+                  <td style={rTd}>φ {fmtPhi(r.phi)}</td>
+                  <td style={rTd}>{fmt(r.kg, 1)}</td>
+                </tr>
+              ))}
+              <tr>
+                <td style={{ ...rTd, fontWeight: 700, borderTop: '1.5px solid #888' }}>Total</td>
+                <td style={{ ...rTd, fontWeight: 700, borderTop: '1.5px solid #888' }}>
+                  {fmt(steel.totalKg, 1)}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ ...rTd, fontFamily: 'inherit' }}>Total c/ perdas (10%)</td>
+                <td style={{ ...rTd, fontWeight: 700 }}>{fmt(steel.totalWithWaste, 1)}</td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+        <p style={{ fontSize: 10.5, margin: '2px 0 10px', color: '#555' }}>
+          Detalhamento preliminar — quantidades estimadas a partir dos arranjos dimensionados
+          (vigas, pilares e malhas de laje); o detalhamento executivo pode alterar os valores.
+        </p>
+
+        {/* 7 — avisos */}
+        <h3 style={rH3}>7. Avisos</h3>
         {results.warnings.length > 0 ? (
           <ul style={{ margin: '4px 0 10px', paddingLeft: 18 }}>
             {results.warnings.map((w, i) => (
@@ -1068,8 +1552,11 @@ export default function ResultsPanel() {
         {tab === 'estabilidade' && <EstabilidadeTab results={results} project={project} />}
         {tab === 'vigas' && <VigasTab results={results} />}
         {tab === 'pilares' && <PilaresTab results={results} />}
+        {tab === 'lajes' && <LajesTab results={results} />}
+        {tab === 'fundacoes' && <FundacoesTab results={results} project={project} />}
         {tab === 'reacoes' && <ReacoesTab results={results} project={project} />}
         {tab === 'quantitativos' && <QuantitativosTab results={results} project={project} />}
+        {tab === 'pranchas' && <PranchasPanel />}
         {tab === 'relatorio' && <RelatorioTab results={results} project={project} />}
       </div>
     </div>

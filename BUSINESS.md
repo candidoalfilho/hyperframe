@@ -131,7 +131,73 @@ O que **não** fazer: dongle físico, bloqueio de VM, internet obrigatória, pun
 ## 8. Próximos passos comerciais (90 dias)
 
 1. Semana 1–2: registrar domínio (hyperframe.eng.br / .com.br), INPI, CNPJ LTDA.
-2. Semana 2–6: fechar o MVP técnico do roadmap v0.2 (detalhamento DXF + memorial completo).
+2. Semana 2–6: fechar o MVP técnico do roadmap v0.2 (detalhamento DXF + memorial completo). ✅ *(v0.2 técnico entregue)*
 3. Semana 4–8: recrutar 10 beta users (grupos de calculistas no WhatsApp/Telegram, ABECE jr, professores).
-4. Semana 8–12: landing page com lista de espera + 3 vídeos YouTube; instrumentar telemetria de uso.
+4. Semana 8–12: landing page com lista de espera *(pronta em `site/`)* + 3 vídeos YouTube; instrumentar telemetria de uso.
 5. Dia 90: decisão go/no-go do lançamento pago com dados do beta.
+
+---
+
+## 9. Playbook de venda — do zero à primeira receita
+
+> O objetivo é vender a **primeira licença com o mínimo de infraestrutura possível** e
+> só automatizar o que doer. Cada etapa abaixo é executável em dias, não meses.
+
+### Etapa 0 — Infra mínima (1 dia)
+- Publicar `site/` (Vercel/Cloudflare Pages — instruções em `site/README.md`), ligar o
+  formulário de lista de espera (Formspree grátis até 50 envios/mês; depois Brevo).
+- Domínio: registro.br (`hyperframe.com.br`, ~R$ 40/ano). E-mail: `contato@` via
+  Cloudflare Email Routing (grátis) → seu Gmail.
+- WhatsApp Business com o número comercial — no Brasil B2B de engenharia, **o funil é
+  o WhatsApp**; o site existe para gerar a conversa.
+
+### Etapa 1 — Vender ANTES de automatizar (primeiras 10 vendas)
+- **Checkout sem código**: Stripe Payment Links ou Mercado Pago link de pagamento
+  (Pix/boleto/cartão em 12×). Um link por plano. Nota fiscal via eNotas/NFE.io (Simples).
+- **Entrega da licença manualmente**: gere um arquivo de licença assinado (script
+  Ed25519 de 30 linhas — chave privada sua, pública embutida no app) e mande por
+  e-mail/WhatsApp. Com < 50 clientes, isso custa minutos por venda e permite conversar
+  com CADA cliente — o insight vale mais que a automação.
+- Preço de fundador: 40% off vitalício no preço (não no produto) p/ os 20 primeiros
+  ("early believers") — cria urgência e perdoa a imaturidade do produto.
+
+### Etapa 2 — Máquina de demanda (contínuo)
+Canais em ordem de ROI esperado p/ este nicho:
+1. **YouTube** (o canal decide o jogo): série semanal "Calculando um prédio real do
+   zero no HyperFrame" + comparativos "mesmo edifício no Eberick vs HyperFrame".
+   Título honesto, tela gravada, sem produção cara.
+2. **Instagram/TikTok reels**: 30–60 s — o 3D girando NUM MACBOOK, γz aparecendo,
+   pranchas saindo. O nicho compartilha ferramenta nova como fofoca.
+3. **Professores**: 10 e-mails por semana p/ professores de concreto/estruturas
+   (currículo Lattes é público) oferecendo a versão Estudante + material de aula
+   pronto (projeto exemplo + roteiro). Cada professor = 40-80 alunos/semestre.
+4. **Comunidades**: grupos de Telegram/WhatsApp/Facebook de calculistas e do CREA
+   estadual; responder dúvidas de norma COM prints do software (ajudar > anunciar).
+5. **SEO técnico**: os posts que os engenheiros pesquisam ("como calcular γz",
+   "vento NBR 6123 passo a passo", "quanto custa TQS") com calculadoras embutidas.
+6. Depois de 50 clientes: caso de sucesso em PDF + palestra em IBRACON/ABECE.
+
+### Etapa 3 — Automatizar a operação (após ~30 clientes)
+- Portal do assinante (Next.js + Stripe Billing/Pagar.me): cadastro → pagamento →
+  licença emitida automaticamente → download. Pix Automático quando disponível no PSP.
+- Servidor de licenças: endpoint que assina/renova licenças (Cloudflare Workers basta),
+  flutuação por dispositivo + graça offline 30 dias (BUSINESS §4).
+- Suporte: WhatsApp (Zapdesk/manual) + docs públicas (Docusaurus/Mintlify) + Discord.
+- Métricas mínimas: MRR, churn, ativação (rodou 1ª análise), NPS trimestral.
+
+### Etapa 4 — Fortalecer o moat
+- Publicar `validation/` (VALIDATION.md) com comparativos vs Ftool/Eberick — vira
+  argumento de venda único ("o único que mostra a validação").
+- Programa de indicação: 1 mês grátis p/ cada assinante indicado (B2B de nicho:
+  indicação é o canal nº 1 no longo prazo).
+- Parceria com cursos de pós/especialização em estruturas (licença educacional).
+
+### Metas de sanidade (checkpoints)
+| Marco | Sinal de que está funcionando |
+|---|---|
+| 30 dias de site no ar | ≥ 150 e-mails na lista de espera |
+| Beta (10-15 calculistas) | ≥ 5 usam semanalmente sem você cutucar |
+| 90 dias pós-lançamento | ≥ 25 assinantes pagos (≈ R$ 4-6 mil MRR) |
+| 12 meses | 150 assinantes, churn < 3%/mês, 1 caso público |
+
+Se um marco falhar: conversar com 10 usuários antes de mexer em produto ou preço.

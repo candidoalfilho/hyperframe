@@ -105,12 +105,63 @@ export interface WallLoad {
   label?: string
 }
 
+/**
+ * Região de carga adicional sobre lajes (escada, reservatório/caixa d'água,
+ * equipamento, jardim…). A carga é distribuída às lajes sobrepostas
+ * proporcionalmente à área de interseção.
+ */
+export interface LoadRegion {
+  id: string
+  name: string
+  kind: 'escada' | 'reservatorio' | 'generica'
+  polygon: Vec2[]
+  /** permanente adicional, kN/m² */
+  g: number
+  /** variável adicional, kN/m² */
+  q: number
+  label?: string
+}
+
 export interface FloorPlan {
   id: string
   name: string
   beams: Beam[]
   slabs: Slab[]
   wallLoads: WallLoad[]
+  loadRegions: LoadRegion[]
+}
+
+/** entidade de underlay importada de DXF (coordenadas já em m, após escala) */
+export interface UnderlayEntity {
+  type: 'line' | 'polyline' | 'circle' | 'arc' | 'text'
+  x1?: number
+  y1?: number
+  x2?: number
+  y2?: number
+  points?: Vec2[]
+  closed?: boolean
+  cx?: number
+  cy?: number
+  r?: number
+  /** ângulos do arco, graus */
+  a1?: number
+  a2?: number
+  x?: number
+  y?: number
+  text?: string
+  height?: number
+  rotation?: number
+  layer?: string
+}
+
+export interface DxfUnderlay {
+  entities: UnderlayEntity[]
+  /** fator aplicado sobre as coordenadas do arquivo (ex.: 0,01 p/ desenho em cm) */
+  scale: number
+  offset: Vec2
+  visible: boolean
+  opacity: number
+  fileName?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -156,11 +207,18 @@ export interface WindParams {
   caOverride?: { x?: number; y?: number }
 }
 
+export interface SoilParams {
+  /** tensão admissível do solo, kPa (orientativo — exige sondagem SPT) */
+  sigmaAdm: number
+  label: string
+}
+
 export interface ProjectSettings {
   concrete: ConcreteMaterial
   steel: SteelMaterial
   caa: CAA
   wind: WindParams
+  soil: SoilParams
   /**
    * Não-linearidade física aproximada p/ análise global ELU — NBR 6118 §15.7.3:
    * vigas 0,4·EI, pilares 0,8·EI
@@ -195,10 +253,11 @@ export interface Project {
   /** pilares em escopo de edifício (contínuos da base ao topo) */
   columns: Column[]
   settings: ProjectSettings
+  underlay?: DxfUnderlay | null
   notes?: string
 }
 
-export type ElementKind = 'column' | 'beam' | 'slab' | 'wallLoad'
+export type ElementKind = 'column' | 'beam' | 'slab' | 'wallLoad' | 'loadRegion'
 
 export interface ElementRef {
   kind: ElementKind

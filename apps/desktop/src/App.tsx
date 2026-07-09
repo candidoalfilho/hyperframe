@@ -52,6 +52,10 @@ export default function App() {
         case 'W':
           s.setTool('wall')
           break
+        case 'r':
+        case 'R':
+          s.setTool('region')
+          break
         case 'Delete':
         case 'Backspace':
           s.deleteSelected()

@@ -179,12 +179,17 @@ export interface FlexureDesign {
   md: number
   /** área de aço necessária, m² */
   as: number
+  /** área de aço efetiva do arranjo escolhido, m² */
+  asProvided: number
   /** área de aço mínima, m² */
   asMin: number
   /** profundidade relativa da LN */
   xd: number
   /** arranjo sugerido, ex.: "3 φ 12.5" */
   bars: string
+  barsN: number
+  /** m */
+  barsPhi: number
   ok: boolean
   note?: string
 }
@@ -220,21 +225,137 @@ export interface BeamSpanDesign {
   status: 'ok' | 'atencao' | 'falha'
 }
 
-export interface ColumnCheck {
+/** dimensionamento completo do pilar (flexo-compressão oblíqua) */
+export interface ColumnDesignResult {
   columnId: string
   name: string
-  /** por trecho (nível a nível), pior caso ELU */
+  section: SectionRect
+  /** solicitação governante (já com e2 e momentos mínimos) */
   nd: number
-  mdx: number
-  mdy: number
-  /** ν = Nd/(Ac·fcd) */
+  /** momento na direção de bw (gradiente ao longo de bw), kN·m */
+  mdU: number
+  /** momento na direção de h, kN·m */
+  mdV: number
+  /** ν = Nd/(Ac·fcd) do caso governante */
   nu: number
-  /** índice de esbeltez máximo */
-  lambda: number
-  /** As estimada (compressão simples + mínimos), m² */
-  asEst: number
+  lambdaU: number
+  lambdaV: number
+  needsRigorous: boolean
+  as: number
+  rho: number
+  bars: string
+  barsN: number
+  barsPhi: number
+  /** posições (u ao longo de bw, v ao longo de h) p/ desenho da seção, m */
+  barPositions: { x: number; y: number }[]
+  stirrupSpec: string
+  stirrupPhi: number
+  stirrupSpacing: number
+  utilization: number
+  governing: string
   status: 'ok' | 'atencao' | 'falha'
+  notes: string[]
+}
+
+export interface SlabEdgeInfo {
+  fixedEndsA: 0 | 1 | 2
+  fixedEndsB: 0 | 1 | 2
+}
+
+export interface SlabDesignResultItem {
+  slabId: string
+  name: string
+  levelName: string
+  /** vãos das faixas A (ao longo da 1ª borda) e B, m */
+  spanA: number
+  spanB: number
+  thickness: number
+  rectangular: boolean
+  /** presente apenas p/ lajes retangulares */
+  design: import('../nbr/nbr6118/slabDesign').SlabDesignOutput | null
+  status: 'ok' | 'atencao' | 'falha'
+  notes: string[]
+}
+
+export interface FoundationResultItem {
+  columnId: string
+  name: string
+  /** carga vertical de serviço (G+Q), kN */
+  nServ: number
+  footing: import('../nbr/nbr6118/foundations').FootingResult
+  status: 'ok' | 'atencao' | 'falha'
+}
+
+export interface BeamServiceResult {
+  beamId: string
+  beamName: string
+  spanIndex: number
+  length: number
+  /** flecha elástica (pórtico, EI íntegro) na combinação quase-permanente, m */
+  deltaElastic: number
+  /** amplificação por fissuração (Ic/Ieq de Branson) */
+  crackFactor: number
+  /** flecha total: elástica × fissuração × (1 + αf fluência), m */
+  deltaTotal: number
+  limit: number
+  ok: boolean
+}
+
+// ---------------------------------------------------------------------------
+// detalhamento (preliminar) — posições e tabela de aço
+// ---------------------------------------------------------------------------
+
+export interface RebarItem {
+  pos: number
+  /** m */
+  phi: number
+  n: number
+  unitLength: number
+  totalLength: number
+  kg: number
+  element: string
   note?: string
+}
+
+export interface BeamDetailSpan {
+  beamId: string
+  beamName: string
+  spanIndex: number
+  length: number
+  section: SectionRect
+  positive: { n: number; phi: number; length: number }
+  negLeft: { n: number; phi: number; length: number } | null
+  negRight: { n: number; phi: number; length: number } | null
+  stirrup: { phi: number; spacing: number; count: number; unitLength: number }
+}
+
+export interface ColumnDetailInfo {
+  columnId: string
+  name: string
+  section: SectionRect
+  barsN: number
+  barsPhi: number
+  barPositions: { x: number; y: number }[]
+  stirrupPhi: number
+  stirrupSpacing: number
+  /** alturas dos tramos, m */
+  storyHeights: number[]
+  /** traspasse por tramo, m */
+  lapLength: number
+}
+
+export interface SteelSummary {
+  items: RebarItem[]
+  byPhi: { phi: number; kg: number }[]
+  totalKg: number
+  /** com 10% de perdas */
+  totalWithWaste: number
+}
+
+export interface DetailingResults {
+  beams: BeamDetailSpan[]
+  columns: ColumnDetailInfo[]
+  steel: SteelSummary
 }
 
 export interface Quantities {
@@ -268,7 +389,11 @@ export interface AnalysisResults {
   }
   stability: StabilityResults
   beamDesign: BeamSpanDesign[]
-  columnChecks: ColumnCheck[]
+  columnDesign: ColumnDesignResult[]
+  slabDesign: SlabDesignResultItem[]
+  foundations: FoundationResultItem[]
+  beamService: BeamServiceResult[]
+  detailing: DetailingResults
   quantities: Quantities
   /** log de avisos da geração do modelo + análise */
   warnings: string[]

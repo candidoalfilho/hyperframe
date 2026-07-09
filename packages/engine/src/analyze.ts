@@ -4,14 +4,19 @@ import { numberDofs, solvePass } from './analysis/solve'
 import { generateCombos } from './nbr/nbr8681/combinations'
 import { concreteProps, coverFor, fyd as fydOf } from './nbr/nbr6118/materials'
 import { designBeamFlexure, designBeamShear, pickBars } from './nbr/nbr6118/beamDesign'
-import { alphaParam, gammaZ } from './nbr/nbr6118/stability'
+import { gammaZ, alphaParam } from './nbr/nbr6118/stability'
 import { DRIFT_STORY_RATIO, DRIFT_TOP_RATIO } from './nbr/api'
+import { runColumnDesign } from './design/columnRun'
+import { runSlabDesign } from './design/slabRun'
+import { runFoundationDesign } from './design/foundationRun'
+import { runBeamService } from './design/serviceRun'
+import { runDetailing } from './design/detailing'
 import type {
   AnalysisResults,
   BeamSpanDesign,
   CaseId,
   CaseResult,
-  ColumnCheck,
+  DetailingResults,
   DriftResult,
   FlexureDesign,
   GammaZResult,
@@ -19,6 +24,7 @@ import type {
   MemberDiagrams,
   Quantities,
   Reaction,
+  SlabDesignResultItem,
 } from './analysis/types'
 import { ALL_CASES } from './analysis/types'
 
@@ -112,10 +118,14 @@ export function analyze(project: Project): AnalysisResults {
 
   // ------------------------------------------------------- dimensionamento
   const beamDesign = designBeams(project, model, envelopeELU)
-  const columnChecks = checkColumns(project, model, envelopeELU)
+  const columnDesign = runColumnDesign(project, model, combos, casesElu)
+  const slabDesign = runSlabDesign(project)
+  const foundations = runFoundationDesign(project, model, casesEls)
+  const beamService = runBeamService(project, model, combos, casesEls, beamDesign)
+  const detailing = runDetailing(project, beamDesign, columnDesign)
 
   // ----------------------------------------------------------- quantitativos
-  const quantities = computeQuantities(project, model, beamDesign)
+  const quantities = computeQuantities(project, model, detailing, slabDesign)
 
   const elapsedMs = now() - t0
   return {
@@ -125,7 +135,11 @@ export function analyze(project: Project): AnalysisResults {
     envelopeELU,
     stability,
     beamDesign,
-    columnChecks,
+    columnDesign,
+    slabDesign,
+    foundations,
+    beamService,
+    detailing,
     quantities,
     warnings: model.warnings,
     elapsedMs,
@@ -433,9 +447,12 @@ function designBeams(
       return {
         md,
         as: asFinal,
+        asProvided: bars.asProvided,
         asMin: r.asMin,
         xd: r.xd,
         bars: bars.spec,
+        barsN: bars.n,
+        barsPhi: bars.phi,
         ok: r.ok,
         note: r.note,
       }
@@ -505,89 +522,14 @@ function designBeams(
 }
 
 // ---------------------------------------------------------------------------
-// verificação simplificada de pilares
-// ---------------------------------------------------------------------------
-
-function checkColumns(
-  project: Project,
-  model: AnalysisResults['model'],
-  env: AnalysisResults['envelopeELU'],
-): ColumnCheck[] {
-  const cp = concreteProps(
-    project.settings.concrete.fck,
-    project.settings.concrete.aggregate,
-    project.settings.concrete.gammaC,
-  )
-  const fydV = fydOf(project.settings.steel)
-  const out: ColumnCheck[] = []
-
-  for (const col of project.columns) {
-    const memberIds: number[] = []
-    model.members.forEach((m, mi) => {
-      if (m.ref.kind === 'column' && m.ref.sourceId === col.id) memberIds.push(mi)
-    })
-    if (memberIds.length === 0) continue
-    let nd = 0
-    let mdx = 0
-    let mdy = 0
-    let le = 0
-    for (const mi of memberIds) {
-      const eN = env.N[mi]
-      for (const v of eN.min) nd = Math.max(nd, -v) // compressão
-      const eMy = env.My[mi]
-      const eMz = env.Mz[mi]
-      for (let s = 0; s < eMy.max.length; s++) {
-        mdx = Math.max(mdx, Math.abs(eMy.max[s]), Math.abs(eMy.min[s]))
-        mdy = Math.max(mdy, Math.abs(eMz.max[s]), Math.abs(eMz.min[s]))
-      }
-      le = Math.max(le, model.members[mi].length)
-    }
-    const ac = col.section.bw * col.section.h
-    const nu = nd / (ac * cp.fcd)
-    const hMin = Math.min(col.section.bw, col.section.h)
-    const lambda = (3.46 * le) / hMin
-    // compressão simples aproximada (σsd em 2‰)
-    const sigmaSd = Math.min(fydV, 420_000)
-    const asCalc = Math.max((nd - 0.85 * cp.fcd * ac) / sigmaSd, 0)
-    const asMin = Math.max((0.15 * nd) / fydV, 0.004 * ac)
-    const asEst = Math.max(asCalc, asMin)
-    const asMax = 0.04 * ac
-    let status: ColumnCheck['status'] = 'ok'
-    let note: string | undefined
-    if (asEst > asMax || nu > 1.0 || lambda > 90) {
-      status = 'falha'
-      note =
-        lambda > 90
-          ? 'λ > 90 — exige método rigoroso de 2ª ordem'
-          : 'seção insuficiente — aumente o pilar'
-    } else if (nu > 0.7 || lambda > 60) {
-      status = 'atencao'
-      note = nu > 0.7 ? 'ν elevado — verificar flexo-compressão' : 'esbeltez moderada (λ > 60)'
-    }
-    out.push({
-      columnId: col.id,
-      name: col.name,
-      nd,
-      mdx,
-      mdy,
-      nu,
-      lambda,
-      asEst,
-      status,
-      note,
-    })
-  }
-  return out.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }))
-}
-
-// ---------------------------------------------------------------------------
 // quantitativos
 // ---------------------------------------------------------------------------
 
 function computeQuantities(
   project: Project,
   model: AnalysisResults['model'],
-  beamDesign: BeamSpanDesign[],
+  detailing: DetailingResults,
+  slabDesign: SlabDesignResultItem[],
 ): Quantities {
   let volColumns = 0
   let volBeams = 0
@@ -622,34 +564,59 @@ function computeQuantities(
     }
   }
 
-  // vigas: aço dimensionado no pavimento representativo × nº de pavimentos com a planta
+  // aço de vigas e pilares: tabela de aço do detalhamento (posições reais)
+  let steelBeams = 0
+  let steelColumns = 0
+  for (const it of detailing.steel.items) {
+    if (it.element.startsWith('Viga')) steelBeams += it.kg
+    else if (it.element.startsWith('Pilar')) steelColumns += it.kg
+  }
+
+  // lajes: malhas dimensionadas (Marcus) × pavimentos que usam a planta;
+  // fator 1,4 cobre negativas/ancoragens; não-retangulares por taxa típica
   const levelsPerPlan = new Map<string, number>()
   for (const level of levels) {
     if (level.planId) levelsPerPlan.set(level.planId, (levelsPerPlan.get(level.planId) ?? 0) + 1)
   }
-  const beamPlanOf = new Map<string, string>()
+  const slabPlanOf = new Map<string, string>()
+  const slabAreaOf = new Map<string, number>()
   for (const plan of project.plans) {
-    for (const b of plan.beams) beamPlanOf.set(b.id, plan.id)
+    for (const s of plan.slabs) {
+      slabPlanOf.set(s.id, plan.id)
+      slabAreaOf.set(
+        s.id,
+        Math.abs(
+          s.polygon.reduce((acc, p, i) => {
+            const q = s.polygon[(i + 1) % s.polygon.length]
+            return acc + (p.x * q.y - q.x * p.y)
+          }, 0) / 2,
+        ),
+      )
+    }
   }
-  let steelBeams = 0
-  for (const bd of beamDesign) {
-    const planId = beamPlanOf.get(bd.beamId)
-    const reps = planId ? levelsPerPlan.get(planId) ?? 1 : 1
-    steelBeams += bd.steelKg * reps
+  let steelSlabs = 0
+  for (const sd of slabDesign) {
+    const reps = levelsPerPlan.get(slabPlanOf.get(sd.slabId) ?? '') ?? 1
+    const area = slabAreaOf.get(sd.slabId) ?? 0
+    if (sd.design) {
+      steelSlabs +=
+        (sd.design.dirA.asSpan + sd.design.dirB.asSpan) * area * 7850 * 1.4 * reps
+    } else {
+      steelSlabs += area * sd.thickness * 85 * reps // taxa típica p/ não-retangular
+    }
   }
-  const steelColumnsEst = volColumns * 130
-  const steelSlabsEst = volSlabs * 85
   const total = volColumns + volBeams + volSlabs
+  const steelTotal = steelBeams + steelColumns + steelSlabs
 
   return {
     concrete: { columns: volColumns, beams: volBeams, slabs: volSlabs, total },
     formwork,
     steel: {
       beamsDesigned: steelBeams,
-      columnsEstimated: steelColumnsEst,
-      slabsEstimated: steelSlabsEst,
-      total: steelBeams + steelColumnsEst + steelSlabsEst,
-      ratePerM3: total > 0 ? (steelBeams + steelColumnsEst + steelSlabsEst) / total : 0,
+      columnsEstimated: steelColumns,
+      slabsEstimated: steelSlabs,
+      total: steelTotal,
+      ratePerM3: total > 0 ? steelTotal / total : 0,
     },
   }
 }

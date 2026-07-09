@@ -119,3 +119,51 @@ export const BAR_DIAMETERS = [0.0063, 0.008, 0.01, 0.0125, 0.016, 0.02, 0.025]
 
 /** diâmetros de estribos (m) */
 export const STIRRUP_DIAMETERS = [0.005, 0.0063, 0.008]
+
+/** diâmetros usuais de armadura de laje (m) */
+export const SLAB_BAR_DIAMETERS = [0.0063, 0.008, 0.01, 0.0125]
+
+// ---------------------------------------------------------------------------
+// Solo — tensões admissíveis ORIENTATIVAS (exigem sondagem SPT / laudo)
+// ---------------------------------------------------------------------------
+
+export interface SoilPreset {
+  label: string
+  sigmaAdm: number // kPa
+}
+
+export const SOIL_PRESETS: SoilPreset[] = [
+  { label: 'Rocha sã / alterada dura', sigmaAdm: 1000 },
+  { label: 'Areia compacta', sigmaAdm: 400 },
+  { label: 'Areia medianamente compacta', sigmaAdm: 300 },
+  { label: 'Argila rija', sigmaAdm: 250 },
+  { label: 'Argila média', sigmaAdm: 150 },
+  { label: 'Areia fofa / argila mole (verificar!)', sigmaAdm: 80 },
+]
+
+// ---------------------------------------------------------------------------
+// Regiões de carga (escada, reservatório…)
+// ---------------------------------------------------------------------------
+
+export interface RegionPreset {
+  kind: 'escada' | 'reservatorio' | 'generica'
+  label: string
+  g: number
+  q: number
+}
+
+export const REGION_PRESETS: RegionPreset[] = [
+  {
+    kind: 'escada',
+    label: 'Escada (lance + patamar sobre a laje)',
+    g: 5.0, // laje inclinada + degraus + revestimento (típico)
+    q: 3.0, // NBR 6120 — escadas de uso coletivo (2,5 p/ residencial interno)
+  },
+  {
+    kind: 'reservatorio',
+    label: 'Reservatório / caixa d’água (lâmina 1,5 m)',
+    g: 3.0, // estrutura (tampa + fundo + paredes rateadas)
+    q: 15.0, // água como variável (some nas combinações favoráveis)
+  },
+  { kind: 'generica', label: 'Carga adicional genérica', g: 2.0, q: 0 },
+]

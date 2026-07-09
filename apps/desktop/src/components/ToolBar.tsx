@@ -5,6 +5,7 @@ import {
   IconColumn,
   IconCursor,
   IconSlab,
+  IconStairs,
   IconTrash,
   IconWall,
 } from './Icons'
@@ -15,6 +16,11 @@ const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Elem
   { id: 'beam', title: 'Viga (B) — clique nos pontos, Enter/duplo-clique finaliza', icon: IconBeam },
   { id: 'slab', title: 'Laje (L) — clique dentro de um contorno fechado de vigas', icon: IconSlab },
   { id: 'wall', title: 'Carga de parede (W) — clique na viga', icon: IconWall },
+  {
+    id: 'region',
+    title: 'Região de carga (R) — escada/reservatório: clique os vértices, Enter fecha',
+    icon: IconStairs,
+  },
 ]
 
 export default function ToolBar() {
