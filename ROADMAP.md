@@ -121,8 +121,19 @@
 - [x] Chave da API por máquina (localStorage — nunca no arquivo do projeto), seleção de
   modelo (Opus 4.8 padrão, Sonnet 5, Haiku 4.5), thinking adaptativo, tratamento de
   erros/recusas, botão parar
-- [ ] **Modelos locais baixáveis no app** (llama.cpp + gerenciador de download, p/ o
-  release não pesar) → v0.4
+
+## v0.2.5 — Copiloto local (modelos baixáveis) ✅ (entregue)
+
+- [x] **Provedor local via Ollama**: abstração de provedores (Claude API ×
+  local) com formato neutro de conversa; chat com ferramentas validado contra o
+  Ollama real (tool_calls + role:"tool"/tool_call_id)
+- [x] **Download de modelos DENTRO do app**: recomendados com suporte a tools
+  (qwen3:4b leve, qwen3:8b recomendado, llama3.1:8b) com barra de progresso e
+  cancelamento (/api/pull NDJSON); detecção automática do servidor; seleção do
+  modelo padrão entre os instalados — o release continua leve (o app não embute pesos)
+- [x] Painel indica o modo (local = offline/privado) e orienta instalação
+  (`brew install ollama` + `ollama serve`) quando o servidor está parado
+- [ ] Runtime embutido (llama.cpp sidecar, sem depender do Ollama) → v0.4
 - [ ] Streaming de texto no chat + contexto de seleção (elemento selecionado vai junto) → v0.3
 
 ## Paridade com o CypeCAD — mapa de módulos e fases

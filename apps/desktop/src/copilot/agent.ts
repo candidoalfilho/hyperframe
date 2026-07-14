@@ -1,14 +1,18 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { COPILOT_TOOLS, executeTool, isMutatingTool } from './tools'
+import {
+  AnthropicProvider,
+  OllamaProvider,
+  type ChatProvider,
+  type NMessage,
+} from './providers'
 
 /**
- * Loop do Copiloto (tool-use manual): mensagem → Claude → ferramentas →
- * resultados → Claude… As ferramentas de mutação pausam o loop até o usuário
+ * Loop do Copiloto (tool-use manual): mensagem → modelo → ferramentas →
+ * resultados → modelo… As ferramentas de mutação pausam o loop até o usuário
  * aprovar/recusar (cartões na UI). No modo planejamento, só ferramentas de
- * leitura são oferecidas.
- *
- * A chave da API fica em localStorage (NUNCA no arquivo do projeto) e as
- * chamadas saem direto do app p/ api.anthropic.com (dangerouslyAllowBrowser).
+ * leitura são oferecidas. Funciona com Claude (API) ou modelos locais
+ * (Ollama) via a abstração de provedores.
  */
 
 export const COPILOT_MODELS = [
@@ -17,8 +21,12 @@ export const COPILOT_MODELS = [
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (econômico)' },
 ] as const
 
+export type ProviderKind = 'claude' | 'local'
+
 const LS_KEY = 'hyperframe.copilot.apiKey'
 const LS_MODEL = 'hyperframe.copilot.model'
+const LS_PROVIDER = 'hyperframe.copilot.provider'
+const LS_LOCAL_MODEL = 'hyperframe.copilot.localModel'
 
 export function getApiKey(): string {
   return localStorage.getItem(LS_KEY) ?? ''
@@ -32,6 +40,28 @@ export function getModel(): string {
 }
 export function setModel(model: string): void {
   localStorage.setItem(LS_MODEL, model)
+}
+export function getProviderKind(): ProviderKind {
+  return (localStorage.getItem(LS_PROVIDER) as ProviderKind) ?? 'claude'
+}
+export function setProviderKind(kind: ProviderKind): void {
+  localStorage.setItem(LS_PROVIDER, kind)
+}
+export function getLocalModel(): string {
+  return localStorage.getItem(LS_LOCAL_MODEL) ?? ''
+}
+export function setLocalModel(model: string): void {
+  localStorage.setItem(LS_LOCAL_MODEL, model)
+}
+
+/** cria o provedor conforme as preferências salvas (null = não configurado) */
+export function buildProvider(): ChatProvider | null {
+  if (getProviderKind() === 'local') {
+    const model = getLocalModel()
+    return model ? new OllamaProvider(model) : null
+  }
+  const key = getApiKey()
+  return key ? new AnthropicProvider(key, getModel()) : null
 }
 
 const SYSTEM_PROMPT = `Você é o Copiloto do HyperFrame — software brasileiro de análise e dimensionamento estrutural de edifícios de concreto armado pelas normas ABNT (NBR 6118/6120/6122/6123/8681/14432/15200).
@@ -59,7 +89,6 @@ export interface ChatEntry {
   id: string
   role: 'user' | 'assistant' | 'tool' | 'error'
   text: string
-  /** ferramenta associada (role 'tool') */
   toolName?: string
   pending?: boolean
 }
@@ -81,17 +110,15 @@ let seq = 0
 const eid = (): string => `ce${++seq}`
 
 export class CopilotAgent {
-  private client: Anthropic
-  private model: string
-  private messages: Anthropic.MessageParam[] = []
+  private provider: ChatProvider
+  private messages: NMessage[] = []
   private entries: ChatEntry[] = []
   private cb: CopilotCallbacks
   private aborted = false
   planMode = false
 
-  constructor(apiKey: string, model: string, cb: CopilotCallbacks) {
-    this.client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
-    this.model = model
+  constructor(provider: ChatProvider, cb: CopilotCallbacks) {
+    this.provider = provider
     this.cb = cb
   }
 
@@ -116,7 +143,6 @@ export class CopilotAgent {
     this.cb.onEntries(this.entries)
   }
 
-  /** pede aprovação ao usuário e espera a decisão */
   private askApproval(toolUseId: string, name: string, description: string): Promise<boolean> {
     return new Promise((resolve) => {
       this.cb.onApproval({
@@ -131,11 +157,14 @@ export class CopilotAgent {
     })
   }
 
-  async send(userText: string, describeToolCall: (n: string, i: Record<string, unknown>) => string): Promise<void> {
+  async send(
+    userText: string,
+    describeToolCall: (n: string, i: Record<string, unknown>) => string,
+  ): Promise<void> {
     this.aborted = false
     this.cb.onBusy(true)
     this.push({ id: eid(), role: 'user', text: userText })
-    this.messages.push({ role: 'user', content: userText })
+    this.messages.push({ role: 'user', text: userText })
 
     const tools = this.planMode
       ? COPILOT_TOOLS.filter((t) => !isMutatingTool(t.name))
@@ -145,18 +174,9 @@ export class CopilotAgent {
     try {
       for (let iter = 0; iter < 20; iter++) {
         if (this.aborted) break
-        const isHaiku = this.model.includes('haiku')
-        const response = await this.client.messages.create({
-          model: this.model,
-          max_tokens: isHaiku ? 8192 : 16000,
-          system,
-          // Opus 4.8/Sonnet 5: thinking adaptativo; Haiku 4.5 não suporta
-          ...(isHaiku ? {} : { thinking: { type: 'adaptive' as const } }),
-          tools,
-          messages: this.messages,
-        })
+        const response = await this.provider.chat(system, this.messages, tools)
 
-        if (response.stop_reason === 'refusal') {
+        if (response.refusal) {
           this.push({
             id: eid(),
             role: 'error',
@@ -165,74 +185,52 @@ export class CopilotAgent {
           break
         }
 
-        // texto do assistente
-        const text = response.content
-          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-          .map((b) => b.text)
-          .join('\n')
-          .trim()
-        if (text) this.push({ id: eid(), role: 'assistant', text })
+        if (response.text) this.push({ id: eid(), role: 'assistant', text: response.text })
+        this.messages.push({
+          role: 'assistant',
+          text: response.text,
+          toolCalls: response.toolCalls,
+          raw: response.raw,
+        })
 
-        this.messages.push({ role: 'assistant', content: response.content })
+        if (response.toolCalls.length === 0) break
 
-        if (response.stop_reason !== 'tool_use') break
-
-        const toolUses = response.content.filter(
-          (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
-        )
-        const results: Anthropic.ToolResultBlockParam[] = []
-        for (const tu of toolUses) {
+        const results: { id: string; content: string; isError?: boolean }[] = []
+        for (const tc of response.toolCalls) {
           if (this.aborted) {
-            results.push({
-              type: 'tool_result',
-              tool_use_id: tu.id,
-              content: 'Interrompido pelo usuário.',
-              is_error: true,
-            })
+            results.push({ id: tc.id, content: 'Interrompido pelo usuário.', isError: true })
             continue
           }
-          const input = (tu.input ?? {}) as Record<string, unknown>
-          const mutating = isMutatingTool(tu.name)
-          const desc = describeToolCall(tu.name, input)
-          this.push({
-            id: eid(),
-            role: 'tool',
-            toolName: tu.name,
-            text: desc,
-            pending: true,
-          })
+          const mutating = isMutatingTool(tc.name)
+          const desc = describeToolCall(tc.name, tc.input)
+          this.push({ id: eid(), role: 'tool', toolName: tc.name, text: desc, pending: true })
 
           let approved = true
-          if (mutating) {
-            approved = await this.askApproval(tu.id, tu.name, desc)
-          }
+          if (mutating) approved = await this.askApproval(tc.id, tc.name, desc)
           if (!approved) {
             this.replaceLast({ pending: false, text: `${desc} — recusado` })
             results.push({
-              type: 'tool_result',
-              tool_use_id: tu.id,
+              id: tc.id,
               content:
                 'O usuário RECUSOU esta ação. Não tente de novo sem novas instruções; pergunte o que ele prefere.',
-              is_error: true,
+              isError: true,
             })
             continue
           }
           try {
-            const out = await executeTool(tu.name, input)
+            const out = await executeTool(tc.name, tc.input)
             this.replaceLast({ pending: false })
-            results.push({ type: 'tool_result', tool_use_id: tu.id, content: out })
+            results.push({ id: tc.id, content: out })
           } catch (err) {
             this.replaceLast({ pending: false, text: `${desc} — erro` })
             results.push({
-              type: 'tool_result',
-              tool_use_id: tu.id,
+              id: tc.id,
               content: `Erro ao executar: ${err instanceof Error ? err.message : String(err)}`,
-              is_error: true,
+              isError: true,
             })
           }
         }
-        // todos os resultados numa única mensagem de usuário
-        this.messages.push({ role: 'user', content: results })
+        this.messages.push({ role: 'toolResults', results })
       }
     } catch (err) {
       let msg: string
@@ -244,6 +242,8 @@ export class CopilotAgent {
         msg = 'Falha de conexão com a API — verifique sua internet.'
       } else if (err instanceof Anthropic.APIError) {
         msg = `Erro da API (${err.status}): ${err.message}`
+      } else if (err instanceof TypeError && this.provider instanceof OllamaProvider) {
+        msg = 'Não consegui falar com o Ollama — ele está rodando? (ollama serve)'
       } else {
         msg = `Erro: ${err instanceof Error ? err.message : String(err)}`
       }

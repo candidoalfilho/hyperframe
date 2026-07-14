@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   CITY_V0_PRESETS,
   CONCRETE_CLASSES,
@@ -23,9 +23,12 @@ import {
   COPILOT_MODELS,
   getApiKey,
   getModel,
+  getProviderKind,
   setApiKey,
   setModel as setCopilotModel,
+  setProviderKind,
 } from '../copilot/agent'
+import LocalModelsSettings from '../copilot/LocalModelsSettings'
 
 // ---------------------------------------------------------------------------
 // opções normativas (rótulos pt-BR)
@@ -115,6 +118,7 @@ export default function SettingsModal() {
   const updateSettings = useStore((s) => s.updateSettings)
   const setProjectMeta = useStore((s) => s.setProjectMeta)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
+  const [copilotKind, setCopilotKindState] = useState<'claude' | 'local'>(getProviderKind())
 
   const st = project.settings
   const wind = st.wind
@@ -1038,38 +1042,60 @@ export default function SettingsModal() {
           </Section>
 
           {/* ------------------------------------------------ copiloto IA */}
-          <Section title="Copiloto IA (Claude)">
+          <Section title="Copiloto IA">
             <div className="field">
-              <label className="label">Chave da API (console.anthropic.com)</label>
-              <input
-                className="input"
-                style={{ width: '100%', fontFamily: 'var(--mono)' }}
-                type="password"
-                placeholder="sk-ant-…"
-                defaultValue={getApiKey()}
-                spellCheck={false}
-                onChange={(e) => setApiKey(e.target.value.trim())}
-              />
-            </div>
-            <div className="field">
-              <label className="label">Modelo padrão</label>
+              <label className="label">Provedor</label>
               <select
                 className="select"
                 style={{ width: '100%' }}
-                defaultValue={getModel()}
-                onChange={(e) => setCopilotModel(e.target.value)}
+                value={copilotKind}
+                onChange={(e) => {
+                  setProviderKind(e.target.value as 'claude' | 'local')
+                  setCopilotKindState(e.target.value as 'claude' | 'local')
+                }}
               >
-                {COPILOT_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
+                <option value="claude">Claude (API da Anthropic) — melhor qualidade</option>
+                <option value="local">Local (Ollama) — grátis, offline e privado</option>
               </select>
             </div>
+
+            {copilotKind === 'claude' ? (
+              <>
+                <div className="field">
+                  <label className="label">Chave da API (console.anthropic.com)</label>
+                  <input
+                    className="input"
+                    style={{ width: '100%', fontFamily: 'var(--mono)' }}
+                    type="password"
+                    placeholder="sk-ant-…"
+                    defaultValue={getApiKey()}
+                    spellCheck={false}
+                    onChange={(e) => setApiKey(e.target.value.trim())}
+                  />
+                </div>
+                <div className="field">
+                  <label className="label">Modelo padrão</label>
+                  <select
+                    className="select"
+                    style={{ width: '100%' }}
+                    defaultValue={getModel()}
+                    onChange={(e) => setCopilotModel(e.target.value)}
+                  >
+                    {COPILOT_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <LocalModelsSettings />
+            )}
             <Note>
-              A chave fica APENAS neste computador (localStorage) — nunca entra no arquivo do
-              projeto. As mudanças propostas pelo copiloto exigem sua aprovação e entram no
-              desfazer (⌘Z). Modelos locais baixáveis no app: no roadmap.
+              Chave/modelos ficam APENAS neste computador — nunca entram no arquivo do projeto.
+              Toda mudança proposta pelo copiloto exige sua aprovação e entra no desfazer (⌘Z).
+              Modelos locais são mais fracos com ferramentas que o Claude.
             </Note>
           </Section>
 
