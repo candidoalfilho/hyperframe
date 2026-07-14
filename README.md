@@ -3,9 +3,9 @@
 **Análise e dimensionamento estrutural de edifícios de concreto armado — normas ABNT.**
 macOS + Windows (Tauri) e navegador. Concorrente moderno de TQS/Eberick.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.3-orange) ![tests](https://img.shields.io/badge/testes-266%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.4-orange) ![tests](https://img.shields.io/badge/testes-266%20passando-brightgreen)
 
-## O que já faz (v0.2.3)
+## O que já faz (v0.2.4)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -56,6 +56,10 @@ macOS + Windows (Tauri) e navegador. Concorrente moderno de TQS/Eberick.
 - **Produtividade**: **diagramas N/V/M por barra no inspetor** (com valores e combinação
   selecionável), **salvar/abrir nativos** (diálogos do SO no desktop, ⌘S/⌘O), **autosave
   com recuperação**, **pé-direito variável por pavimento** no gerenciador de níveis
+- **Copiloto IA (Claude)**: chat integrado que lê o modelo, verifica consistência, roda a
+  análise e **edita a estrutura com aprovação manual** de cada mudança (estilo Claude
+  Code) — **modo planejamento** (só leitura + plano), chave da API guardada localmente,
+  mudanças entram no undo/redo. Modelos locais baixáveis: no roadmap
 
 ## Rodar
 

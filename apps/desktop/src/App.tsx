@@ -17,6 +17,7 @@ import ResultsPanel from './panels/ResultsPanel'
 import WelcomeModal from './panels/WelcomeModal'
 import SettingsModal from './panels/SettingsModal'
 import NewProjectWizard from './wizard/NewProjectWizard'
+import CopilotPanel from './copilot/CopilotPanel'
 
 export default function App() {
   const viewMode = useStore((s) => s.viewMode)
@@ -24,6 +25,8 @@ export default function App() {
   const wizardOpen = useStore((s) => s.wizardOpen)
   const settingsOpen = useStore((s) => s.settingsOpen)
   const resultsOpen = useStore((s) => s.resultsOpen)
+  const copilotOpen = useStore((s) => s.copilotOpen)
+  const setCopilotOpen = useStore((s) => s.setCopilotOpen)
 
   // atalhos globais
   useEffect(() => {
@@ -149,6 +152,7 @@ export default function App() {
       <StatusBar />
 
       {resultsOpen && <ResultsPanel />}
+      {copilotOpen && <CopilotPanel onClose={() => setCopilotOpen(false)} />}
       {welcomeOpen && <WelcomeModal />}
       {wizardOpen && <NewProjectWizard />}
       {settingsOpen && <SettingsModal />}

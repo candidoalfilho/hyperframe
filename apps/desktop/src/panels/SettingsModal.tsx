@@ -19,6 +19,13 @@ import { NumberField, OptionalNumberField } from './NumberField'
 import { cm, fmt } from './format'
 import { IconClose, IconTrash } from '../components/Icons'
 import type { PileKind, SoilKind, SoilLayerSPT } from '@hyperframe/engine'
+import {
+  COPILOT_MODELS,
+  getApiKey,
+  getModel,
+  setApiKey,
+  setModel as setCopilotModel,
+} from '../copilot/agent'
 
 // ---------------------------------------------------------------------------
 // opções normativas (rótulos pt-BR)
@@ -1028,6 +1035,42 @@ export default function SettingsModal() {
                 })}
               </select>
             </div>
+          </Section>
+
+          {/* ------------------------------------------------ copiloto IA */}
+          <Section title="Copiloto IA (Claude)">
+            <div className="field">
+              <label className="label">Chave da API (console.anthropic.com)</label>
+              <input
+                className="input"
+                style={{ width: '100%', fontFamily: 'var(--mono)' }}
+                type="password"
+                placeholder="sk-ant-…"
+                defaultValue={getApiKey()}
+                spellCheck={false}
+                onChange={(e) => setApiKey(e.target.value.trim())}
+              />
+            </div>
+            <div className="field">
+              <label className="label">Modelo padrão</label>
+              <select
+                className="select"
+                style={{ width: '100%' }}
+                defaultValue={getModel()}
+                onChange={(e) => setCopilotModel(e.target.value)}
+              >
+                {COPILOT_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Note>
+              A chave fica APENAS neste computador (localStorage) — nunca entra no arquivo do
+              projeto. As mudanças propostas pelo copiloto exigem sua aprovação e entram no
+              desfazer (⌘Z). Modelos locais baixáveis no app: no roadmap.
+            </Note>
           </Section>
 
           {/* --------------------------------- identificação (carimbo) */}

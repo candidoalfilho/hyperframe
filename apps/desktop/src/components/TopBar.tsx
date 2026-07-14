@@ -113,6 +113,8 @@ export default function TopBar() {
   const setResultsOpen = useStore((s) => s.setResultsOpen)
   const setWizardOpen = useStore((s) => s.setWizardOpen)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
+  const copilotOpen = useStore((s) => s.copilotOpen)
+  const setCopilotOpen = useStore((s) => s.setCopilotOpen)
   const loadProject = useStore((s) => s.loadProject)
 
   const undo = () => useStore.temporal.getState().undo()
@@ -251,6 +253,14 @@ export default function TopBar() {
         title="Verificar consistência do modelo (pilares, vigas, lajes, cargas)"
       >
         Consistência
+      </button>
+
+      <button
+        className={`btn ${copilotOpen ? '' : 'btn-ghost'}`}
+        onClick={() => setCopilotOpen(!copilotOpen)}
+        title="Copiloto IA — lê, planeja e edita o modelo com sua aprovação"
+      >
+        ✨ Copiloto
       </button>
 
       <button

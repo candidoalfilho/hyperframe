@@ -110,6 +110,21 @@
 - [x] Consistência aponta **laje lisa não modelada** (pilar interno sem viga) e
   **pilar-parede** (b/h ≥ 5 — §15.9)
 
+## v0.2.4 — Copiloto IA ✅ (entregue)
+
+- [x] **Copiloto (Claude API)**: painel de chat com ferramentas de leitura (resumo do
+  projeto, elementos, consistência, resultados, rodar análise) e de mutação (adicionar/
+  atualizar/remover pilares, vigas, lajes; configurações) — **toda mutação exige
+  aprovação manual** (cartão aprovar/recusar) e entra no undo/redo
+- [x] **Modo planejamento**: só ferramentas de leitura + plano numerado (estilo plan mode
+  do Claude Code)
+- [x] Chave da API por máquina (localStorage — nunca no arquivo do projeto), seleção de
+  modelo (Opus 4.8 padrão, Sonnet 5, Haiku 4.5), thinking adaptativo, tratamento de
+  erros/recusas, botão parar
+- [ ] **Modelos locais baixáveis no app** (llama.cpp + gerenciador de download, p/ o
+  release não pesar) → v0.4
+- [ ] Streaming de texto no chat + contexto de seleção (elemento selecionado vai junto) → v0.3
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.

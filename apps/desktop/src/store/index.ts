@@ -95,6 +95,7 @@ export interface HFState {
   welcomeOpen: boolean
   wizardOpen: boolean
   settingsOpen: boolean
+  copilotOpen: boolean
   plansManagerOpen: boolean
   resultsOpen: boolean
   resultsTab: ResultsTab
@@ -132,6 +133,7 @@ export interface HFState {
   setWelcomeOpen: (v: boolean) => void
   setWizardOpen: (v: boolean) => void
   setSettingsOpen: (v: boolean) => void
+  setCopilotOpen: (v: boolean) => void
   setPlansManagerOpen: (v: boolean) => void
   setResultsOpen: (v: boolean) => void
   setResultsTab: (t: ResultsTab) => void
@@ -221,6 +223,7 @@ export const useStore = create<HFState>()(
       welcomeOpen: true,
       wizardOpen: false,
       settingsOpen: false,
+      copilotOpen: false,
       plansManagerOpen: false,
       resultsOpen: false,
       resultsTab: 'estabilidade',
@@ -307,6 +310,7 @@ export const useStore = create<HFState>()(
       setWelcomeOpen: (welcomeOpen) => set({ welcomeOpen }),
       setWizardOpen: (wizardOpen) => set({ wizardOpen }),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+      setCopilotOpen: (copilotOpen) => set({ copilotOpen }),
       setPlansManagerOpen: (plansManagerOpen) => set({ plansManagerOpen }),
       setResultsOpen: (resultsOpen) => set({ resultsOpen }),
       setResultsTab: (resultsTab) => set({ resultsTab }),
