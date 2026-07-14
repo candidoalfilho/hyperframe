@@ -3,6 +3,7 @@ import { createEmptyProject, createSampleProject } from '../src/model/factory'
 import { uid } from '../src/model/uid'
 import { analyze } from '../src/analyze'
 import { buildAnalysisModel } from '../src/analysis/buildModel'
+import { buildMemorialPdf } from '../src/report/memorial'
 import type { Project } from '../src/model/types'
 
 /** prédio com laje LISA: 4 pilares internos, vigas só no perímetro externo maior */
@@ -115,6 +116,15 @@ describe('grelha no pipeline — laje lisa (cogumelo)', () => {
     expect(gd.asX).toBeGreaterThan(0)
     expect(gd.mxSupport).toBeGreaterThan(gd.mxSpan * 0.5) // negativo relevante no cogumelo
     expect(gd.deflectionLimit).toBeCloseTo(9 / 250, 6)
+  })
+
+  it('memorial reporta a grelha e a subseção 9.1 de punção', () => {
+    const bytes = buildMemorialPdf(p, r, { generatedAt: '14/07/2026 12:00' })
+    let s = ''
+    for (const b of bytes) s += String.fromCharCode(b)
+    expect(s).toContain('analogia de grelha') // título da seção 9 + premissas
+    expect(s).toContain('9.1 Pun\\347\\343o') // "9.1 Punção" (ç/ã em octal WinAnsi)
+    for (const name of ['P5', 'P6', 'P7', 'P8']) expect(s).toContain(name)
   })
 })
 

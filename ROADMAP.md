@@ -155,8 +155,21 @@
   (Es médio) > heurística 120·σadm; refino ≤ 0,5 m com molas kz = ks·B·Ltrib em nós
   livres (solver aceita mola fora de apoio), alvenaria de embasamento no nível 0,
   pressão no solo × σadm (aviso) e baldrame dimensionado como viga
-- [ ] Expor na UI: seletor do método de lajes, resultados da grelha no inspetor/memorial
-  e ks dos baldrames nas configurações → v0.3
+- [x] ~~Expor na UI~~ → entregue na v0.2.7
+
+## v0.2.7 — Grelha e baldrames na UI ✅ (entregue)
+
+> A grelha e os baldrames Winkler da v0.2.6 ficam acessíveis sem copiloto. 284 testes.
+
+- [x] **Configurações**: seletor do método de lajes maciças (Marcus × grelha) na seção
+  Análise; ks de Winkler dos baldrames (manual ou automático) na seção Fundações
+- [x] **Aba Lajes**: tabela própria da grelha — momentos por metro (vão/apoio, X/Y),
+  malhas, punção por pilar interno (τSd/τRd2 e τSd/τRd1 no hover), flecha × limite —
+  + malhas da grelha no resumo do relatório imprimível
+- [x] **Memorial**: título da seção 9 ciente do método, subseção **9.1 Punção** (Fsd
+  real, contornos C/C′, studs × dispensada) e premissas atualizadas
+- [x] **Copiloto**: resumo do projeto informa o método de lajes; exemplos da ferramenta
+  de configurações incluem `slabMethod`/`groundBeamKs`
 
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
@@ -171,7 +184,7 @@
 | Pilares metálicos / mistos / madeira | ❌ | NBR 8800 (aço) → v0.4 · mistos/NBR 7190 → v1.x |
 | Vigas de concreto | ✅ flexão/corte/torção/pele/furos | — |
 | Vigas metálicas e mistas | ❌ | NBR 8800 + conectores → v0.4 |
-| Lajes maciças | ✅ Marcus ou grelha (v0.2.6) + flechas + ELS-W | expor grelha na UI → v0.3 |
+| Lajes maciças | ✅ Marcus ou grelha (v0.2.6/7) + flechas + ELS-W | — |
 | Lajes nervuradas | ✅ v0.2.3 (in loco, bi/uni) | vigotas/treliçadas → v0.5 |
 | Lajes cogumelo/lisas | ✅ grelha c/ pilar interno + punção §19.5 (v0.2.6) | faixas §14.7.8 + armadura de punção detalhada → v0.5 |
 | Lajes alveolares / steel-deck | ❌ | catálogos de fornecedores → v1.x |

@@ -580,7 +580,11 @@ export function buildMemorialPdf(
   )
 
   // ---------------------------------------------------------------- 9. lajes
-  L.h1('9. Lajes (Marcus — maciças e nervuradas)')
+  L.h1(
+    st.slabMethod === 'grelha'
+      ? '9. Lajes (analogia de grelha — maciças; nervuradas por Marcus)'
+      : '9. Lajes (Marcus — maciças e nervuradas)',
+  )
   L.table(
     [
       { t: 'Laje', w: 16 },
@@ -598,8 +602,12 @@ export function buildMemorialPdf(
       s.levelName,
       cmDim(s.thickness),
       s.rectangular ? `${fmt(s.spanA, 2)}×${fmt(s.spanB, 2)}` : 'não ret.',
-      s.design?.dirA.spanSpec ?? (s.ribbedDesign ? `${s.ribbedDesign.dirA.ribBars}/nerv.` : 'manual'),
-      s.design?.dirB.spanSpec ?? (s.ribbedDesign ? `${s.ribbedDesign.dirB.ribBars}/nerv.` : '—'),
+      s.design?.dirA.spanSpec ??
+        s.gridDesign?.specX ??
+        (s.ribbedDesign ? `${s.ribbedDesign.dirA.ribBars}/nerv.` : 'manual'),
+      s.design?.dirB.spanSpec ??
+        s.gridDesign?.specY ??
+        (s.ribbedDesign ? `${s.ribbedDesign.dirB.ribBars}/nerv.` : '—'),
       s.design
         ? [
             s.design.dirA.mSupportD > 0 ? `A: ${s.design.dirA.supportSpec}` : '',
@@ -607,18 +615,29 @@ export function buildMemorialPdf(
           ]
             .filter(Boolean)
             .join(' · ') || '—'
-        : s.ribbedDesign
-          ? s.ribbedDesign.dirA.stirrup ?? 'estribo disp.'
-          : '—',
+        : s.gridDesign
+          ? [
+              s.gridDesign.specXSup !== '—' ? `X: ${s.gridDesign.specXSup}` : '',
+              s.gridDesign.specYSup !== '—' ? `Y: ${s.gridDesign.specYSup}` : '',
+            ]
+              .filter(Boolean)
+              .join(' · ') || '—'
+          : s.ribbedDesign
+            ? s.ribbedDesign.dirA.stirrup ?? 'estribo disp.'
+            : '—',
       s.design
         ? s.design.deflectionOk
           ? 'OK'
           : 'excede'
-        : s.ribbedDesign
-          ? s.ribbedDesign.deflectionOk
+        : s.gridDesign
+          ? s.gridDesign.deflectionOk
             ? 'OK'
             : 'excede'
-          : '—',
+          : s.ribbedDesign
+            ? s.ribbedDesign.deflectionOk
+              ? 'OK'
+              : 'excede'
+            : '—',
       STATUS_TXT[s.status],
     ]),
     7.0,
@@ -628,6 +647,51 @@ export function buildMemorialPdf(
       'Nervuradas (§13.2.4.2): peso próprio real (capa + nervuras + enchimento); momento por ' +
         'nervura = Marcus × espaçamento, positivo como seção T (bloco na capa verificado); ' +
         'cisalhamento sem estribos quando l0 ≤ 65 cm e VSd ≤ VRd1 (§19.4.1).',
+      7.8,
+      'I',
+      0.3,
+    )
+  }
+  if (results.slabDesign.some((s) => s.gridDesign)) {
+    L.para(
+      'Maciças pela analogia de grelha: malha regular de barras cruzadas (3 GDL/nó, flexão + ' +
+        'torção) apoiada nas bordas com viga e nos pilares internos; momentos POR METRO ' +
+        '(vão/apoio, X/Y) e reações reais substituem os quinhões a 45°; negativas nas bordas ' +
+        'contínuas e sobre pilares; flecha com Branson + fluência (αf = 1,32).',
+      7.8,
+      'I',
+      0.3,
+    )
+  }
+  const gridPunch = results.slabDesign.flatMap((s) =>
+    (s.gridDesign?.punching ?? []).map((p) => ({ slab: s, p })),
+  )
+  if (gridPunch.length > 0) {
+    L.h2('9.1 Punção nas lajes lisas (§19.5 — reação real da grelha)')
+    L.table(
+      [
+        { t: 'Laje', w: 14 },
+        { t: 'Pilar', w: 12 },
+        { t: 'Fsd (kN)', w: 13, align: 'r' },
+        { t: 'τSd/τRd2 — C (kPa)', w: 25, align: 'c' },
+        { t: 'τSd/τRd1 — C′ (kPa)', w: 25, align: 'c' },
+        { t: 'Arm. punção', w: 17, align: 'c' },
+        { t: 'Status', w: 11, align: 'c' },
+      ],
+      gridPunch.map(({ slab, p }) => [
+        slab.name,
+        p.name,
+        fmt(p.fsd, 0),
+        `${fmt(p.check.tauSd0, 0)} / ${fmt(p.check.tauRd2, 0)}`,
+        `${fmt(p.check.tauSd1, 0)} / ${fmt(p.check.tauRd1, 0)}`,
+        p.check.needsShearReinf ? 'studs' : 'dispensada',
+        STATUS_TXT[!p.check.okC ? 'falha' : p.check.needsShearReinf ? 'atencao' : 'ok'],
+      ]),
+      7.0,
+    )
+    L.para(
+      'Contorno C (face do pilar): τSd ≤ τRd2 (esmagamento da biela). Contorno C′ (2d): ' +
+        'τSd ≤ τRd1 dispensa armadura de punção; acima, prever studs/estribos (detalhar à parte).',
       7.8,
       'I',
       0.3,
@@ -997,7 +1061,11 @@ export function buildMemorialPdf(
   }
   L.vspace(4)
   L.para(
-    'Premissas: quinhões de laje por área de influência (45°); lajes não participam da rigidez ' +
+    'Premissas: ' +
+      (st.slabMethod === 'grelha'
+        ? 'cargas de laje pelas reações da analogia de grelha (bordas apoiadas e pilares internos); '
+        : 'quinhões de laje por área de influência (45°); ') +
+      'lajes não participam da rigidez ' +
       '(apenas carga e diafragma); ' +
       (results.soilInteraction.enabled
         ? 'apoios sobre molas estimadas da sondagem (interação solo-estrutura); '

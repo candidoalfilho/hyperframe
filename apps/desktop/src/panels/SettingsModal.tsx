@@ -621,6 +621,23 @@ export default function SettingsModal() {
                 </div>
               </>
             ) : null}
+            <div className="field">
+              <label className="label">Baldrames — ks de Winkler (kN/m³; vazio = automático)</label>
+              <OptionalNumberField
+                value={st.groundBeamKs}
+                digits={0}
+                min={500}
+                max={200000}
+                placeholder="automático (sondagem ou 120·σadm)"
+                style={{ width: '100%' }}
+                onCommit={(v) => updateSettings({ groundBeamKs: v })}
+              />
+            </div>
+            <Note>
+              Vigas lançadas na planta do nível da fundação (baldrames) apoiam no solo por molas
+              de Winkler (nós a cada ≤ 0,5 m). Sem valor manual, ks vem do Es médio da sondagem
+              (se ativa) ou da heurística 120·σadm; a pressão no solo é comparada a σadm.
+            </Note>
             <Note>
               Valores geotécnicos orientativos — o projeto executivo exige sondagem SPT e laudo
               geotécnico (NBR 6122).
@@ -947,6 +964,28 @@ export default function SettingsModal() {
               </div>
             </div>
             <Note>NBR 6118 §15.7.3 — análise global ELU (padrão: vigas 0,4 · pilares 0,8).</Note>
+
+            <div className="field">
+              <label className="label">Método das lajes maciças</label>
+              <select
+                className="select"
+                style={{ width: '100%' }}
+                value={st.slabMethod}
+                onChange={(e) =>
+                  updateSettings({ slabMethod: e.target.value as 'marcus' | 'grelha' })
+                }
+              >
+                <option value="marcus">Marcus (quinhões a 45°) — lajes retangulares</option>
+                <option value="grelha">
+                  Analogia de grelha — contorno qualquer, furos e lajes lisas
+                </option>
+              </select>
+            </div>
+            <Note>
+              A grelha substitui os quinhões a 45° pelas reações reais nas vigas e leva carga a
+              pilares internos sem viga (laje lisa/cogumelo), com punção §19.5 verificada com a
+              reação real de cada pilar.
+            </Note>
 
             <label
               style={{

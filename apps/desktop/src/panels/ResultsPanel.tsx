@@ -681,7 +681,8 @@ function LajesTab({ results }: { results: AnalysisResults }) {
     [results],
   )
 
-  const macicas = items.filter((i) => i.kind !== 'nervurada')
+  const grelhas = items.filter((i) => i.gridDesign)
+  const macicas = items.filter((i) => i.kind !== 'nervurada' && !i.gridDesign)
   const nervuradas = items.filter((i) => i.kind === 'nervurada')
 
   if (items.length === 0) return <Empty text="Nenhuma laje no modelo." />
@@ -829,6 +830,94 @@ function LajesTab({ results }: { results: AnalysisResults }) {
           Marcus sem redução por torção (a favor da segurança); flecha com Branson + fluência
           (αf=1,32).
         </Footnote>
+      )}
+
+      {grelhas.length > 0 && (
+        <>
+          <h4 style={{ margin: '18px 0 8px' }}>Lajes maciças — analogia de grelha</h4>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Laje</th>
+                <th>Pavimento</th>
+                <th>lx×ly (m)</th>
+                <th>h (cm)</th>
+                <th>Md vão X/Y (kN·m/m)</th>
+                <th>Md apoio X/Y</th>
+                <th>Malha vão X/Y</th>
+                <th>Malha neg. X/Y</th>
+                <th>Punção</th>
+                <th>Flecha (mm)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {grelhas.map((s) => {
+                const gd = s.gridDesign!
+                const title = s.notes.length > 0 ? s.notes.join(' · ') : undefined
+                const punchFail = gd.punching.some((p) => !p.check.okC)
+                const punchReinf = gd.punching.some((p) => p.check.needsShearReinf)
+                const punchTitle = gd.punching
+                  .map(
+                    (p) =>
+                      `${p.name}: Fsd ${fmt(p.fsd, 0)} kN · τSd ${fmt(p.check.tauSd0, 0)}/${fmt(
+                        p.check.tauRd2,
+                        0,
+                      )} (C) · ${fmt(p.check.tauSd1, 0)}/${fmt(p.check.tauRd1, 0)} (C′) kPa`,
+                  )
+                  .join(' · ')
+                return (
+                  <tr key={s.slabId} title={title}>
+                    <td style={{ fontWeight: 600 }}>{s.name}</td>
+                    <td style={{ fontFamily: 'var(--sans)' }}>{s.levelName}</td>
+                    <td>
+                      {fmt(s.spanA, 2)}×{fmt(s.spanB, 2)}
+                    </td>
+                    <td>{fmtCmDim(s.thickness)}</td>
+                    <td>
+                      {fmt(gd.mxSpan, 1)} / {fmt(gd.mySpan, 1)}
+                    </td>
+                    <td>
+                      {fmt(gd.mxSupport, 1)} / {fmt(gd.mySupport, 1)}
+                    </td>
+                    <td>
+                      {gd.specX} / {gd.specY}
+                    </td>
+                    <td>
+                      {gd.specXSup} / {gd.specYSup}
+                    </td>
+                    <td title={punchTitle || undefined}>
+                      {gd.punching.length === 0 ? (
+                        <span className="faint">—</span>
+                      ) : punchFail ? (
+                        <span className="chip err">{gd.punching.length}× τSd &gt; τRd2</span>
+                      ) : punchReinf ? (
+                        <span className="chip warn">{gd.punching.length}× studs</span>
+                      ) : (
+                        <span className="chip ok">{gd.punching.length}× OK</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`chip ${gd.deflectionOk ? 'ok' : 'err'}`}>
+                        {fmt(gd.deflection * 1000, 1)} {gd.deflectionOk ? '≤' : '>'}{' '}
+                        {fmt(gd.deflectionLimit * 1000, 1)}
+                      </span>
+                    </td>
+                    <td>
+                      <StatusChip s={s.status} />
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <Footnote>
+            Analogia de grelha (3 GDL/nó, flexão + torção): momentos por metro e reações reais —
+            pilares internos sem viga (laje lisa) recebem a carga e têm punção §19.5 verificada
+            (passe o mouse na célula de punção p/ ver τSd/τRd por pilar); flecha com Branson +
+            fluência (αf=1,32). Malha negativa nas bordas contínuas e sobre pilares internos.
+          </Footnote>
+        </>
       )}
     </>
   )
@@ -1721,7 +1810,8 @@ function QuantitativosTab({ results, project }: { results: AnalysisResults; proj
 
       <Footnote>
         Aço de vigas e pilares dimensionado (detalhamento preliminar); lajes com malhas
-        dimensionadas pelo método de Marcus. Valores para orçamento preliminar.
+        dimensionadas pelo método de Marcus ou pela grelha (conforme configuração). Valores para
+        orçamento preliminar.
       </Footnote>
     </>
   )
@@ -2120,6 +2210,14 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
                       <td style={rTd}>{sl.design.dirA.spanSpec}</td>
                       <td style={rTd}>{sl.design.dirB.spanSpec}</td>
                       <td style={rTd}>{slabNegatives(sl.design)}</td>
+                    </>
+                  ) : sl.gridDesign ? (
+                    <>
+                      <td style={rTd}>{sl.gridDesign.specX}</td>
+                      <td style={rTd}>{sl.gridDesign.specY}</td>
+                      <td style={rTd}>
+                        {sl.gridDesign.specXSup} / {sl.gridDesign.specYSup}
+                      </td>
                     </>
                   ) : (
                     <td colSpan={3} style={{ ...rTd, fontFamily: 'inherit' }}>

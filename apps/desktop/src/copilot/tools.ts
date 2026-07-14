@@ -175,7 +175,7 @@ export const COPILOT_TOOLS: Anthropic.Tool[] = [
   {
     name: 'atualizar_configuracoes',
     description:
-      'Atualiza configurações do projeto (exige aprovação). patch parcial de ProjectSettings — ex.: {"concrete":{"fck":35000}}, {"foundation":{"type":"tubulao"}}, {"soilInteraction":{"enabled":true}}. Unidades: kPa, m, kN.',
+      'Atualiza configurações do projeto (exige aprovação). patch parcial de ProjectSettings — ex.: {"concrete":{"fck":35000}}, {"foundation":{"type":"tubulao"}}, {"soilInteraction":{"enabled":true}}, {"slabMethod":"grelha"} (lajes lisas/contorno qualquer), {"groundBeamKs":20000} (baldrames Winkler, kN/m³). Unidades: kPa, m, kN.',
     input_schema: {
       type: 'object',
       properties: { patch: { type: 'object', additionalProperties: true } },
@@ -226,7 +226,7 @@ function projectSummary(): string {
   }
   lines.push(`Pilares: ${p.columns.length}`)
   lines.push(
-    `Concreto C${Math.round(st.concrete.fck / 1000)} · CAA ${st.caa} · fundação: ${st.foundation.type} · vento: ${st.wind.enabled ? `V0=${st.wind.v0} m/s` : 'desligado'} · interação solo-estrutura: ${st.soilInteraction.enabled ? 'ligada' : 'desligada'} · incêndio: ${st.fire.enabled ? 'ligado' : 'desligado'}`,
+    `Concreto C${Math.round(st.concrete.fck / 1000)} · CAA ${st.caa} · lajes: ${st.slabMethod === 'grelha' ? 'grelha' : 'Marcus'} · fundação: ${st.foundation.type} · vento: ${st.wind.enabled ? `V0=${st.wind.v0} m/s` : 'desligado'} · interação solo-estrutura: ${st.soilInteraction.enabled ? 'ligada' : 'desligada'} · incêndio: ${st.fire.enabled ? 'ligado' : 'desligado'}`,
   )
   lines.push(`Análise: ${s.analysisStatus}${s.results ? ` (${s.results.warnings.length} avisos)` : ''}`)
   return lines.join('\n')
