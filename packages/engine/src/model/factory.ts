@@ -129,7 +129,7 @@ export function createEmptyProject(params: NewProjectParams): Project {
 export function createSampleProject(): Project {
   const params: NewProjectParams = {
     name: 'Edifício Exemplo — Residencial 8 pav.',
-    author: 'HyperFrame',
+    // sem autor: RESP. TÉCNICO fica "—" até o engenheiro preencher (nunca a marca)
     city: 'São Paulo — SP',
     fck: 30_000,
     aggregate: 'granito',

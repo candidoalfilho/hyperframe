@@ -95,5 +95,6 @@ export function normalizeProject(p: Project): Project {
   if (p.settings.secondOrderGammaZ === undefined) p.settings.secondOrderGammaZ = true
   if (p.settings.slabMethod === undefined) p.settings.slabMethod = 'marcus'
   if (p.underlay === undefined) p.underlay = null
+  if (p.rebarOverrides === undefined) p.rebarOverrides = []
   return p
 }

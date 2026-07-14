@@ -10,6 +10,7 @@ import {
   nextRegionName,
   nextSlabName,
   pointInPolygon,
+  runDetailing,
   uid,
   REGION_PRESETS,
   type AnalysisResults,
@@ -23,6 +24,7 @@ import {
   type NewProjectParams,
   type Project,
   type ProjectSettings,
+  type RebarOverride,
   type SectionRect,
   type Slab,
   type Vec2,
@@ -119,6 +121,13 @@ export interface HFState {
     patch: Partial<Pick<Project, 'name' | 'author' | 'city' | 'client' | 'address'>>,
   ) => void
   updateSettings: (patch: Partial<ProjectSettings>) => void
+  /**
+   * editor de armaduras: upsert do ajuste (sem n/φ/passo ⇒ remove). NÃO
+   * invalida a análise — só o detalhamento é recalculado (é puro e rápido).
+   */
+  setRebarOverride: (ov: RebarOverride) => void
+  /** restaura o detalhamento automático de uma viga inteira */
+  clearRebarOverrides: (beamId: string) => void
 
   // ---- ações: ui ----
   setTool: (t: Tool) => void
@@ -296,6 +305,41 @@ export const useStore = create<HFState>()(
           results: null,
           analysisStatus: 'idle',
         })),
+      setRebarOverride: (ov) =>
+        set((s) => {
+          const list = (s.project.rebarOverrides ?? []).filter(
+            (o) => !(o.beamId === ov.beamId && o.spanIndex === ov.spanIndex && o.slot === ov.slot),
+          )
+          if (ov.n !== undefined || ov.phi !== undefined || ov.spacing !== undefined) list.push(ov)
+          const project = { ...s.project, rebarOverrides: list }
+          return {
+            project,
+            dirty: true,
+            // detalhamento é função pura do projeto + dimensionamento: recalcula
+            // em linha p/ prancha/quadro/quantitativos seguirem o ajuste ao vivo
+            results: s.results
+              ? {
+                  ...s.results,
+                  detailing: runDetailing(project, s.results.beamDesign, s.results.columnDesign),
+                }
+              : s.results,
+          }
+        }),
+      clearRebarOverrides: (beamId) =>
+        set((s) => {
+          const list = (s.project.rebarOverrides ?? []).filter((o) => o.beamId !== beamId)
+          const project = { ...s.project, rebarOverrides: list }
+          return {
+            project,
+            dirty: true,
+            results: s.results
+              ? {
+                  ...s.results,
+                  detailing: runDetailing(project, s.results.beamDesign, s.results.columnDesign),
+                }
+              : s.results,
+          }
+        }),
 
       // ---- ui ----
       setTool: (tool) => set({ tool }),

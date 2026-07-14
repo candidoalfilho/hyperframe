@@ -3,9 +3,9 @@
 **Análise e dimensionamento estrutural de edifícios de concreto armado — normas ABNT.**
 macOS + Windows (Tauri) e navegador. Concorrente moderno de TQS/Eberick.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.8-orange) ![tests](https://img.shields.io/badge/testes-290%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.9-orange) ![tests](https://img.shields.io/badge/testes-295%20passando-brightgreen)
 
-## O que já faz (v0.2.8)
+## O que já faz (v0.2.9)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -50,8 +50,10 @@ macOS + Windows (Tauri) e navegador. Concorrente moderno de TQS/Eberick.
   tabular p/ vigas e lajes, método analítico p/ pilares — aba própria e relatório
 - **Pranchas e detalhamento**: planta de forma (cotas entre eixos), **corte
   esquemático** (níveis, pilares, vigas seccionadas e pé-direito cotado), **planta de
-  cargas**, **armação de vigas com ganchos desenhados, decalagem al (§17.4.2.2),
-  estribos na distribuição real e QUADRO DE FERROS por posição**, seções de pilares —
+  cargas**, **armação de vigas executiva** (ganchos desenhados, **cortes pelo diagrama
+  real** com decalagem al §17.4.2.2 e escalonamento, **emendas por traspasse** §9.5.2,
+  estribos na distribuição real, **QUADRO DE FERROS** por posição e **editor de
+  armaduras** com aviso de As insuficiente), seções de pilares —
   SVG no app, **exportação DXF** (writer R12 próprio), **moldura + carimbo ABNT**
   (A0–A4, escala automática ou fixa; cotas proporcionais à escala), tabela de aço por
   bitola, relatório imprimível e **memorial de cálculo completo em PDF** (writer PDF
@@ -100,7 +102,7 @@ packages/engine     # núcleo puro TypeScript (zero dependências)
   src/drawing       # pranchas (primitivas neutras → SVG/DXF)
   src/dxf           # parser (underlay) e writer (R12) de DXF próprios
   src/report        # memorial de cálculo em PDF (writer PDF próprio, zero deps)
-  test              # 290 testes (âncoras analíticas, normas, equilíbrio global)
+  test              # 295 testes (âncoras analíticas, normas, equilíbrio global)
 apps/desktop        # Tauri 2 + React 19 + three.js
   src/editor2d      # editor de planta SVG (snap, ferramentas, camadas, underlay)
   src/viewer3d      # visualizador 3D (R3F): edifício, deformada, diagramas

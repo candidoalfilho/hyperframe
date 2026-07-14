@@ -189,6 +189,23 @@
   **furos na alma de vigas** agora recortam o sólido 3D (extrusão da elevação c/ holes)
 - [x] **Painel "Exibição" do 3D recolhível** (lajes/escadas/deformada/diagramas)
 
+## v0.2.9 — Cortes reais, emendas e editor de armaduras ✅ (entregue)
+
+> Fatia 2 do detalhamento executivo. 295 testes.
+
+- [x] **Cortes pelo diagrama REAL**: a envoltória de Mz amostrada do vão dá o ponto de
+  momento nulo e o de 50% do momento do apoio (`cutZero`/`cutHalf`); negativos cortam em
+  x₀ + al + lb,nec (§18.3.2.4) e, com ≥ 4 barras, **escalonam** (metade corta a 50%)
+- [x] **Emendas por traspasse** (§9.5.2): barra > 12 m divide em peças iguais com
+  l0t = 2·lb,nec ≥ l0t,mín (0,6·lb; 15φ; 20 cm) — marcas de emenda no desenho e peças
+  no quadro de ferros (`planSplices` com âncoras manuais)
+- [x] **Editor de armaduras** (aba Pranchas → Vigas): n/φ por posição (positivo,
+  negativos) e passo do estribo por vão — ajustes entram no ARQUIVO do projeto
+  (`rebarOverrides`), recalculam o detalhamento ao vivo (sem invalidar a análise) e
+  chip **"As!"** acusa As efetivo < calculado; "Restaurar automático" por viga
+- [x] Projeto de exemplo sem `author` fixo — **RESP. TÉCNICO nunca é preenchido pelo
+  software**; fica "—" até o engenheiro informar o seu nome
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.
@@ -220,9 +237,9 @@
 ## v0.3 — Beta fechado (2–3 meses)
 
 - [ ] 10–15 calculistas convidados; telemetria de erros (opt-in) e feedback in-app
-- [ ] Detalhamento de armaduras de vigas — **fatia 1 entregue (v0.2.8)**: ganchos/dobras,
-  al, estribos reais e quadro de ferros na prancha (SVG/DXF); resta: cortes pelo diagrama
-  real (escalonamento), emendas por traspasse e **editor de armaduras**
+- [x] Detalhamento de armaduras de vigas — v0.2.8 (ganchos, al, quadro de ferros) +
+  v0.2.9 (cortes pelo diagrama real c/ escalonamento, emendas §9.5.2, editor de
+  armaduras); refinamentos futuros: 2ª camada desenhada, emendas alternadas (α0t=1,3)
 - [ ] Núcleo rígido / pilares-parede (elemento de casca simplificado ou pórtico equivalente)
 - [x] ~~Torção de compatibilidade~~ (v0.2.1) · [ ] redistribuição de momentos
 - [x] ~~Desaprumo global (§11.3.3.4.1)~~ (v0.2.1) · [ ] excentricidade de vento (±7,5%)

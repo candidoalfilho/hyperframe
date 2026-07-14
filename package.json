@@ -1,7 +1,7 @@
 {
   "name": "hyperframe",
   "private": true,
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "HyperFrame — Análise e dimensionamento estrutural para edifícios de concreto armado (normas ABNT)",
   "workspaces": [
     "packages/*",

@@ -474,6 +474,25 @@ export interface Project {
   settings: ProjectSettings
   underlay?: DxfUnderlay | null
   notes?: string
+  /** ajustes manuais do editor de armaduras (por vão de viga) */
+  rebarOverrides?: RebarOverride[]
+}
+
+/**
+ * Ajuste manual de uma posição de armadura (editor de armaduras). O
+ * detalhamento usa n/φ do ajuste no lugar do arranjo automático e SINALIZA
+ * quando As efetivo < As calculado — a responsabilidade é do engenheiro.
+ */
+export interface RebarOverride {
+  beamId: string
+  spanIndex: number
+  slot: 'positive' | 'negLeft' | 'negRight' | 'stirrup'
+  /** barras longitudinais: quantidade */
+  n?: number
+  /** barras longitudinais: bitola, m */
+  phi?: number
+  /** estribos: passo, m */
+  spacing?: number
 }
 
 export type ElementKind = 'column' | 'beam' | 'slab' | 'wallLoad' | 'loadRegion'

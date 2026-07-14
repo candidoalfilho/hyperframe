@@ -114,11 +114,22 @@ export function buildBeamDetailDrawing(
       const legE = pos.legEnd ?? 0
       const run = Math.max(pos.length - legS - legE, 0.1)
       bar(mid - run / 2, mid + run / 2, 0.08, legS, legE, 1, h - 0.16)
+      // marcas de emenda por traspasse (peça comercial ≤ 12 m)
+      const nSp = pos.splices ?? 0
+      for (let j = 1; j <= nSp; j++) {
+        const x = mid - run / 2 + (run * j) / (nSp + 1)
+        prims.push({ kind: 'line', x1: x - 0.06, y1: 0.03, x2: x - 0.06, y2: 0.13, layer: 'ARMADURA' })
+        prims.push({ kind: 'line', x1: x + 0.06, y1: 0.03, x2: x + 0.06, y2: 0.13, layer: 'ARMADURA' })
+      }
+      const spliceTxt =
+        nSp > 0 && pos.spliceLap
+          ? ` (${nSp} em. l0t=${Math.round(pos.spliceLap * 100)})`
+          : ''
       prims.push({
         kind: 'text',
         x: mid,
         y: -0.5,
-        text: barLabel(pos.n, pos.phi, pos.length, pos.pos),
+        text: barLabel(pos.n, pos.phi, pos.length, pos.pos) + spliceTxt,
         height: 0.12,
         layer: 'ARMADURA',
         align: 'center',
@@ -128,36 +139,36 @@ export function buildBeamDetailDrawing(
     // ---- negativas: 0,08 m abaixo do topo, cavalgando os apoios, com
     //      pernas p/ baixo; no apoio interno os negativos dos dois vãos
     //      coexistem → pequeno escalonamento vertical ----
-    if (s.negLeft) {
-      const leg = s.negLeft.leg ?? 0
-      const run = Math.max(s.negLeft.length - 2 * leg, 0.1)
-      bar(x0 - run / 2, x0 + run / 2, h - 0.08, leg, leg, -1, h - 0.16)
+    /** negativo com grupo escalonado opcional (barra mais curta logo abaixo) */
+    const negDraw = (
+      f: NonNullable<BeamDetailSpan['negLeft']>,
+      xc: number,
+      yBar: number,
+      yTxt: number,
+    ): void => {
+      const leg = f.leg ?? 0
+      const run = Math.max(f.length - 2 * leg, 0.1)
+      bar(xc - run / 2, xc + run / 2, yBar, leg, leg, -1, yBar - 0.08)
+      let label = barLabel(f.n, f.phi, f.length, f.pos)
+      if (f.cut) {
+        const runC = Math.max(f.cut.length - 2 * leg, 0.1)
+        bar(xc - runC / 2, xc + runC / 2, yBar - 0.07, leg, leg, -1, yBar - 0.15)
+        label += ` + ${barLabel(f.cut.n, f.phi, f.cut.length, f.cut.pos)}`
+      }
       prims.push({
         kind: 'text',
-        x: x0,
-        y: h + 0.1,
-        text: barLabel(s.negLeft.n, s.negLeft.phi, s.negLeft.length, s.negLeft.pos),
+        x: xc,
+        y: yTxt,
+        text: label,
         height: 0.12,
         layer: 'ARMADURA',
         align: 'center',
       })
     }
+    if (s.negLeft) negDraw(s.negLeft, x0, h - 0.08, h + 0.1)
     if (s.negRight) {
       const shared = i + 1 < segs.length && segs[i + 1].s.negLeft !== null
-      const yBar = shared ? h - 0.16 : h - 0.08
-      const yTxt = shared ? h + 0.3 : h + 0.1
-      const leg = s.negRight.leg ?? 0
-      const run = Math.max(s.negRight.length - 2 * leg, 0.1)
-      bar(x1 - run / 2, x1 + run / 2, yBar, leg, leg, -1, yBar - 0.08)
-      prims.push({
-        kind: 'text',
-        x: x1,
-        y: yTxt,
-        text: barLabel(s.negRight.n, s.negRight.phi, s.negRight.length, s.negRight.pos),
-        height: 0.12,
-        layer: 'ARMADURA',
-        align: 'center',
-      })
+      negDraw(s.negRight, x1, shared ? h - 0.16 : h - 0.08, shared ? h + 0.3 : h + 0.1)
     }
 
     // ---- estribos: distribuição REAL (todos os traços, passo s) ----

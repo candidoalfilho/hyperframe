@@ -4,6 +4,7 @@ import { uid } from '../src/model/uid'
 import { analyze } from '../src/analyze'
 import { buildFormworkDrawing } from '../src/drawing/formwork'
 import { buildBeamDetailDrawing } from '../src/drawing/beamDetail'
+import { planSplices } from '../src/design/detailing'
 import { buildColumnDetailDrawing } from '../src/drawing/columnDetail'
 import { writeDxf } from '../src/dxf/write'
 import type { BeamDetailSpan, ColumnDetailInfo } from '../src/analysis/types'
@@ -169,6 +170,61 @@ describe('pranchas a partir de analyze(createSampleProject())', () => {
     expect(st.length).toBeGreaterThanOrEqual(Math.min(spans[0].stirrup.count, 10))
   })
 
+  it('negativos: corte pelo diagrama real presente na envoltória', () => {
+    const negs = results.beamDesign.flatMap((b) => [b.negLeft, b.negRight].filter(Boolean))
+    expect(negs.length).toBeGreaterThan(0)
+    for (const f of negs) {
+      expect(f!.cutZero).toBeDefined()
+      expect(f!.cutHalf).toBeDefined()
+      // ponto de 50% do momento vem antes (ou junto) do momento nulo
+      expect(f!.cutHalf!).toBeLessThanOrEqual(f!.cutZero! + 1e-9)
+    }
+    // num edifício real a região de tração negativa tem extensão relevante
+    expect(negs.some((f) => f!.cutZero! > 0.3)).toBe(true)
+  })
+
+  it('escalonamento: negativo com ≥ 4 barras gera grupo cortado a 50%', () => {
+    const withCut = results.detailing.beams.find((b) => b.negLeft?.cut || b.negRight?.cut)
+    if (withCut) {
+      const f = (withCut.negLeft?.cut ? withCut.negLeft : withCut.negRight)!
+      expect(f.cut!.length).toBeLessThan(f.length)
+      expect(f.cut!.pos).toBeGreaterThan(0)
+    } else {
+      // sem escalonamento só se NENHUM negativo tem 4+ barras (premissa válida)
+      const many = results.detailing.beams.some(
+        (b) =>
+          (b.negLeft?.n ?? 0) + (b.negLeft?.cut?.n ?? 0) >= 4 ||
+          (b.negRight?.n ?? 0) + (b.negRight?.cut?.n ?? 0) >= 4,
+      )
+      expect(many).toBe(false)
+    }
+  })
+
+  it('planSplices (§9.5.2): 18 m → 2 peças de 9,4 m com l0t = 80 cm', () => {
+    const r = planSplices(18, 0.5, 0.4, 0.0125)
+    expect(r.pieces).toBe(2)
+    expect(r.lap).toBeCloseTo(0.8, 9) // máx(2·0,4; 0,6·0,5; 15φ; 0,2)
+    expect(r.pieceLength).toBeCloseTo(9.4, 9) // (18 + 0,8)/2
+    expect(planSplices(11.9, 0.5, 0.4, 0.0125).pieces).toBe(1)
+    const r3 = planSplices(30, 0.5, 0.4, 0.0125)
+    expect(r3.pieces).toBe(3) // (30−0,8)/(12−0,8) = 2,61 → 3
+    expect(r3.pieceLength).toBeCloseTo(10.55, 9) // (30 + 2·0,8)/3 arred. 5 cm
+  })
+
+  it('editor de armaduras: override muda n/φ e sinaliza As insuficiente', () => {
+    const p2 = createSampleProject()
+    const bm = p2.plans[0].beams[0]
+    p2.rebarOverrides = [{ beamId: bm.id, spanIndex: 0, slot: 'positive', n: 2, phi: 0.008 }]
+    const r2 = analyze(p2)
+    const span = r2.detailing.beams.find((b) => b.beamId === bm.id && b.spanIndex === 0)!
+    expect(span.positive.n).toBe(2)
+    expect(span.positive.phi).toBeCloseTo(0.008, 9)
+    const item = r2.detailing.steel.items.find(
+      (it) => it.elementId === bm.id && it.pos === span.positive.pos,
+    )!
+    expect(item.note).toContain('AJUSTE MANUAL') // 2 φ 8 << As calculado
+  })
+
   it('detalhamento executivo: pernas de gancho, al e numeração por viga', () => {
     const beams = results.detailing.beams
     // positivo do 1º vão tem gancho na ponta esquerda (perna ≈ h − 2·cobrimento)
@@ -246,6 +302,29 @@ describe('buildBeamDetailDrawing — dados fabricados', () => {
 
   it('lista vazia de vãos não degenera', () => {
     checkDrawing(buildBeamDetailDrawing('V1', []))
+  })
+
+  it('grupo escalonado e emendas aparecem no desenho', () => {
+    const s2: BeamDetailSpan = {
+      ...span,
+      positive: { ...span.positive, pos: 1, splices: 1, spliceLap: 0.8, length: 13 },
+      negRight: {
+        n: 3,
+        phi: 0.01,
+        length: 3.0,
+        pos: 2,
+        leg: 0.42,
+        cut: { n: 2, length: 2.0, pos: 3 },
+      },
+    }
+    const d = buildBeamDetailDrawing('V9', [s2])
+    checkDrawing(d)
+    const ts = texts(d)
+    expect(ts.some((t) => t.includes('1 em. l0t=80'))).toBe(true)
+    expect(ts.some((t) => t.includes('N2') && t.includes('N3'))).toBe(true)
+    // negativo principal + escalonado: polylines com pernas na camada ARMADURA
+    const pls = d.primitives.filter((p) => p.kind === 'polyline' && p.layer === 'ARMADURA')
+    expect(pls.length).toBeGreaterThanOrEqual(2)
   })
 })
 

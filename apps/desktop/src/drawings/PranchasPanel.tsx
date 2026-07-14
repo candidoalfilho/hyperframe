@@ -12,7 +12,8 @@ import {
 } from '@hyperframe/engine'
 import { useStore } from '../store'
 import DrawingSvg from './DrawingSvg'
-import { IconDownload } from '../components/Icons'
+import { NumberField } from '../panels/NumberField'
+import { IconChevronDown, IconDownload } from '../components/Icons'
 
 /**
  * Aba "Pranchas": planta de forma, corte esquemático, planta de cargas,
@@ -318,6 +319,10 @@ export default function PranchasPanel() {
         )}
       </div>
 
+      {tipo === 'vigas' && results && effectiveBeam && (
+        <RebarEditor beamId={effectiveBeam.id} />
+      )}
+
       {/* área do desenho */}
       <div
         style={{
@@ -368,6 +373,207 @@ export default function PranchasPanel() {
           execução.{withSheet ? ' Prancha em metros de papel; carimbo preenchido dos dados do projeto.' : ''}
         </span>
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// editor de armaduras — ajustes manuais por vão (entram no arquivo do projeto
+// e recalculam o detalhamento na hora, sem invalidar a análise)
+// ---------------------------------------------------------------------------
+
+const PHI_MM = [6.3, 8, 10, 12.5, 16, 20, 25]
+
+function PhiSelect({ value, onChange }: { value: number; onChange: (phi: number) => void }) {
+  return (
+    <select
+      className="select"
+      style={{ height: 22, fontSize: 11 }}
+      value={String(Math.round(value * 10000))}
+      onChange={(e) => onChange(Number(e.target.value) / 10000)}
+    >
+      {PHI_MM.map((mm) => (
+        <option key={mm} value={String(Math.round(mm * 10))}>
+          φ {String(mm).replace('.', ',')}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function SlotEditor(props: {
+  label: string
+  beamId: string
+  spanIndex: number
+  slot: 'positive' | 'negLeft' | 'negRight'
+  n: number
+  phi: number
+  asCalc: number
+}) {
+  const setRebarOverride = useStore((s) => s.setRebarOverride)
+  const { label, beamId, spanIndex, slot, n, phi, asCalc } = props
+  const asProv = (n * Math.PI * phi * phi) / 4
+  const bad = asProv + 1e-12 < asCalc
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <span className="muted" style={{ fontSize: 11 }}>
+        {label}
+      </span>
+      <NumberField
+        value={n}
+        digits={0}
+        min={1}
+        max={24}
+        style={{ width: 38 }}
+        onCommit={(v) =>
+          setRebarOverride({ beamId, spanIndex, slot, n: Math.max(1, Math.round(v)), phi })
+        }
+      />
+      <PhiSelect
+        value={phi}
+        onChange={(p) => setRebarOverride({ beamId, spanIndex, slot, n, phi: p })}
+      />
+      {bad && (
+        <span
+          className="chip err"
+          title={`As efetivo ${(asProv * 1e4).toFixed(2)} cm² < As calculado ${(asCalc * 1e4).toFixed(2)} cm²`}
+        >
+          As!
+        </span>
+      )}
+    </span>
+  )
+}
+
+function RebarEditor({ beamId }: { beamId: string }) {
+  const results = useStore((s) => s.results)
+  const project = useStore((s) => s.project)
+  const setRebarOverride = useStore((s) => s.setRebarOverride)
+  const clearRebarOverrides = useStore((s) => s.clearRebarOverrides)
+  const [open, setOpen] = useState(false)
+  if (!results) return null
+  const spans = results.detailing.beams
+    .filter((b) => b.beamId === beamId)
+    .sort((a, b) => a.spanIndex - b.spanIndex)
+  if (spans.length === 0) return null
+  const overridden = (project.rebarOverrides ?? []).some((o) => o.beamId === beamId)
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        padding: '6px 10px',
+        marginBottom: 8,
+        flex: 'none',
+      }}
+    >
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
+        onClick={() => setOpen(!open)}
+      >
+        <IconChevronDown
+          size={12}
+          style={{ transform: open ? undefined : 'rotate(-90deg)', transition: 'transform 0.15s' }}
+        />
+        <span style={{ fontSize: 12, fontWeight: 600 }}>
+          Editor de armaduras{overridden ? ' — ajustes manuais ativos' : ''}
+        </span>
+        {overridden && (
+          <button
+            className="btn"
+            style={{ fontSize: 11, padding: '1px 8px', marginLeft: 'auto' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              clearRebarOverrides(beamId)
+            }}
+          >
+            Restaurar automático
+          </button>
+        )}
+      </div>
+      {open && (
+        <>
+          {spans.map((sp) => {
+            const bd = results.beamDesign.find(
+              (b) => b.beamId === beamId && b.spanIndex === sp.spanIndex,
+            )
+            return (
+              <div
+                key={sp.spanIndex}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  flexWrap: 'wrap',
+                  padding: '4px 0',
+                }}
+              >
+                <span className="mono" style={{ fontSize: 11, width: 44 }}>
+                  vão {sp.spanIndex + 1}
+                </span>
+                <SlotEditor
+                  label="positivo"
+                  beamId={beamId}
+                  spanIndex={sp.spanIndex}
+                  slot="positive"
+                  n={sp.positive.n}
+                  phi={sp.positive.phi}
+                  asCalc={bd?.positive.as ?? 0}
+                />
+                {sp.negLeft && (
+                  <SlotEditor
+                    label="neg. esq."
+                    beamId={beamId}
+                    spanIndex={sp.spanIndex}
+                    slot="negLeft"
+                    n={sp.negLeft.n + (sp.negLeft.cut?.n ?? 0)}
+                    phi={sp.negLeft.phi}
+                    asCalc={bd?.negLeft?.as ?? 0}
+                  />
+                )}
+                {sp.negRight && (
+                  <SlotEditor
+                    label="neg. dir."
+                    beamId={beamId}
+                    spanIndex={sp.spanIndex}
+                    slot="negRight"
+                    n={sp.negRight.n + (sp.negRight.cut?.n ?? 0)}
+                    phi={sp.negRight.phi}
+                    asCalc={bd?.negRight?.as ?? 0}
+                  />
+                )}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    estribo c/
+                  </span>
+                  <NumberField
+                    value={Math.round(sp.stirrup.spacing * 100)}
+                    digits={0}
+                    min={5}
+                    max={30}
+                    style={{ width: 40 }}
+                    onCommit={(v) =>
+                      setRebarOverride({
+                        beamId,
+                        spanIndex: sp.spanIndex,
+                        slot: 'stirrup',
+                        spacing: Math.max(0.05, v / 100),
+                      })
+                    }
+                  />
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    cm
+                  </span>
+                </span>
+              </div>
+            )
+          })}
+          <div className="faint" style={{ fontSize: 10.5 }}>
+            Ajustes entram no arquivo do projeto e no quadro de ferros. "As!" = As efetivo abaixo
+            do calculado — a decisão (e a responsabilidade) é do engenheiro.
+          </div>
+        </>
+      )}
     </div>
   )
 }

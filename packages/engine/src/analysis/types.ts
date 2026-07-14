@@ -223,6 +223,13 @@ export interface FlexureDesign {
   /** arranjo sugerido, ex.: "3 φ 12.5" */
   bars: string
   barsN: number
+  /**
+   * negativos: distâncias do apoio, pela ENVOLTÓRIA de Mz do vão —
+   * cutZero = ponto de momento nulo; cutHalf = ponto onde |M| cai a 50%
+   * do momento do apoio (escalonamento). Ausentes p/ positivos.
+   */
+  cutZero?: number
+  cutHalf?: number
   /** m */
   barsPhi: number
   ok: boolean
@@ -563,11 +570,35 @@ export interface BeamDetailSpan {
   /**
    * comprimentos são DESENVOLVIDOS (incluem pernas de gancho). pos = número
    * da posição no quadro de ferros; legStart/legEnd/leg = perna vertical do
-   * gancho (m), presente quando a barra é dobrada na(s) extremidade(s).
+   * gancho (m). splices/spliceLap = emendas por traspasse (§9.5.2) quando a
+   * barra excede 12 m. cut = grupo escalonado (corte a 50% do momento).
    */
-  positive: { n: number; phi: number; length: number; pos?: number; legStart?: number; legEnd?: number }
-  negLeft: { n: number; phi: number; length: number; pos?: number; leg?: number } | null
-  negRight: { n: number; phi: number; length: number; pos?: number; leg?: number } | null
+  positive: {
+    n: number
+    phi: number
+    length: number
+    pos?: number
+    legStart?: number
+    legEnd?: number
+    splices?: number
+    spliceLap?: number
+  }
+  negLeft: {
+    n: number
+    phi: number
+    length: number
+    pos?: number
+    leg?: number
+    cut?: { n: number; length: number; pos?: number }
+  } | null
+  negRight: {
+    n: number
+    phi: number
+    length: number
+    pos?: number
+    leg?: number
+    cut?: { n: number; length: number; pos?: number }
+  } | null
   stirrup: { phi: number; spacing: number; count: number; unitLength: number; pos?: number }
 }
 

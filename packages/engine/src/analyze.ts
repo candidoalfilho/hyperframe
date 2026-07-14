@@ -774,6 +774,35 @@ function designBeams(
     const mdNegLeft = Math.max(0, -firstEnv.min[0])
     const mdNegRight = Math.max(0, -lastEnv.min[lastEnv.min.length - 1])
 
+    // envoltória de Mz amostrada ao longo do vão (x desde o apoio esquerdo)
+    // → pontos de corte REAIS dos negativos: momento nulo e 50% do momento
+    // do apoio (§18.3.2.4 — o detalhamento soma al + lb,nec ao corte teórico)
+    const mzMin: { x: number; v: number }[] = []
+    {
+      let xBase = 0
+      for (const mi of memberIds) {
+        const e = env.Mz[mi]
+        const len = model.members[mi].length
+        const nS = e.min.length
+        for (let s = 0; s < nS; s++) {
+          mzMin.push({ x: xBase + (nS > 1 ? (len * s) / (nS - 1) : 0), v: e.min[s] })
+        }
+        xBase += len
+      }
+    }
+    const cutDist = (fromLeft: boolean, mdSup: number): { zero: number; half: number } => {
+      let zero = 0
+      let half = 0
+      for (let i = 0; i < mzMin.length; i++) {
+        const p = mzMin[fromLeft ? i : mzMin.length - 1 - i]
+        const dist = fromLeft ? p.x : length - p.x
+        if (p.v < -1e-6) zero = dist
+        else break // primeiro ponto sem tração em cima: fim da região negativa
+        if (p.v < -0.5 * mdSup) half = dist
+      }
+      return { zero, half }
+    }
+
     const flexInput = { bw, h, d, fcd: cp.fcd, fyd: fydV, fck: cp.fck }
     const mkFlex = (md: number): FlexureDesign => {
       const r = designBeamFlexure({ md, ...flexInput })
@@ -793,8 +822,12 @@ function designBeams(
       }
     }
     const positive = mkFlex(mdPos)
-    const negLeft = mdNegLeft > 0.5 ? mkFlex(mdNegLeft) : null
-    const negRight = mdNegRight > 0.5 ? mkFlex(mdNegRight) : null
+    const withCut = (f: FlexureDesign, fromLeft: boolean, mdSup: number): FlexureDesign => {
+      const c = cutDist(fromLeft, mdSup)
+      return { ...f, cutZero: c.zero, cutHalf: c.half }
+    }
+    const negLeft = mdNegLeft > 0.5 ? withCut(mkFlex(mdNegLeft), true, mdNegLeft) : null
+    const negRight = mdNegRight > 0.5 ? withCut(mkFlex(mdNegRight), false, mdNegRight) : null
 
     const shearR = designBeamShear({
       vd,
