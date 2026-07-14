@@ -105,7 +105,10 @@ export default function PranchasPanel() {
       if (tipo === 'vigas') {
         if (!effectiveBeam) return null
         const spans = results.detailing.beams.filter((b) => b.beamId === effectiveBeam.id)
-        return buildBeamDetailDrawing(effectiveBeam.name, spans)
+        const steelItems = results.detailing.steel.items.filter(
+          (it) => it.elementId === effectiveBeam.id,
+        )
+        return buildBeamDetailDrawing(effectiveBeam.name, spans, undefined, steelItems)
       }
       return buildColumnDetailDrawing(results.detailing.columns)
     } catch {

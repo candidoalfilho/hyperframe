@@ -171,6 +171,24 @@
 - [x] **Copiloto**: resumo do projeto informa o método de lajes; exemplos da ferramenta
   de configurações incluem `slabMethod`/`groundBeamKs`
 
+## v0.2.8 — Armação executiva de vigas (fatia 1) + acabamento de UI ✅ (entregue)
+
+> Primeira fatia do detalhamento executivo + três correções apontadas em uso real.
+> 290 testes.
+
+- [x] **Armação de vigas rumo ao executivo**: decalagem al do diagrama (§17.4.2.2,
+  função com âncora manual), negativos cobrindo 2·(0,25·ℓ + al) com **ganchos
+  verticais** desenhados, positivos com ganchos nas pontas extremas (ancoragem α=0,7
+  §9.4.2), **estribos na distribuição real** e **QUADRO DE FERROS na prancha**
+  (N/φ/quant./C unit./C total/kg) com numeração casada entre desenho e tabela (por viga)
+- [x] **Cotas proporcionais na prancha**: altura de texto explícita no `DDim` escala
+  com o conteúdo (antes o piso legível saturava e a cota travava ~100 mm no papel,
+  gigante em A4/A1); título da forma sem escala fixa (a real fica no carimbo)
+- [x] **Furos no 3D**: furo de laje encostado na borda não some mais (encolhimento
+  ~1,5 cm p/ triangulação robusta do earcut; furo fora do contorno é descartado) e
+  **furos na alma de vigas** agora recortam o sólido 3D (extrusão da elevação c/ holes)
+- [x] **Painel "Exibição" do 3D recolhível** (lajes/escadas/deformada/diagramas)
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.
@@ -202,7 +220,9 @@
 ## v0.3 — Beta fechado (2–3 meses)
 
 - [ ] 10–15 calculistas convidados; telemetria de erros (opt-in) e feedback in-app
-- [ ] Detalhamento de armaduras de vigas (desenho: barras, dobras, tabela de aço) → prancha DXF/PDF
+- [ ] Detalhamento de armaduras de vigas — **fatia 1 entregue (v0.2.8)**: ganchos/dobras,
+  al, estribos reais e quadro de ferros na prancha (SVG/DXF); resta: cortes pelo diagrama
+  real (escalonamento), emendas por traspasse e **editor de armaduras**
 - [ ] Núcleo rígido / pilares-parede (elemento de casca simplificado ou pórtico equivalente)
 - [x] ~~Torção de compatibilidade~~ (v0.2.1) · [ ] redistribuição de momentos
 - [x] ~~Desaprumo global (§11.3.3.4.1)~~ (v0.2.1) · [ ] excentricidade de vento (±7,5%)

@@ -28,3 +28,14 @@ export function requiredAnchorage(
   const lbMin = Math.max(0.3 * lb, 10 * phi, 0.1)
   return Math.max(lbNec, lbMin)
 }
+
+/**
+ * Decalagem do diagrama de momentos — NBR 6118 §17.4.2.2.c (modelo I,
+ * estribos a 90°): al = d·[VSd,máx / (2·(VSd,máx − Vc))], com
+ * 0,5·d ≤ al ≤ d. Corta/estende barras longitudinais pelo diagrama deslocado.
+ */
+export function shiftAl(d: number, vsdMax: number, vc: number): number {
+  if (vsdMax <= vc || vsdMax <= 0) return 0.5 * d
+  const al = (d * vsdMax) / (2 * (vsdMax - vc))
+  return Math.min(d, Math.max(0.5 * d, al))
+}

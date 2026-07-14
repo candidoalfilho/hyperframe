@@ -65,6 +65,12 @@ export interface DDim {
   y2: number
   /** afastamento da linha de cota (perpendicular, m) */
   offset: number
+  /**
+   * altura do texto da cota, m (mesma unidade das coordenadas). Escala junto
+   * com o conteúdo na prancha (composeSheet divide por k, como DText.height).
+   * Ausente: derivada do |offset| (compatibilidade com desenhos antigos).
+   */
+  height?: number
   text: string
   layer: DrawingLayer
 }

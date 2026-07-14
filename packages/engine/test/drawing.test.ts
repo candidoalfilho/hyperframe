@@ -69,7 +69,8 @@ describe('buildFormworkDrawing', () => {
     expect(ts).toContain('h=12')
     expect(ts).toContain('A') // bolacha do eixo A
     expect(ts).toContain('1') // bolacha do eixo 1
-    expect(ts).toContain(`PLANTA DE FORMA — ${project.plans[0].name} — esc. 1:50`)
+    // sem escala fixa no título — a escala real fica no carimbo da prancha
+    expect(ts).toContain(`PLANTA DE FORMA — ${project.plans[0].name}`)
   })
 
   it('cota os vãos entre eixos adjacentes (em cm)', () => {
@@ -146,6 +147,49 @@ describe('pranchas a partir de analyze(createSampleProject())', () => {
       (p) => p.kind === 'circle' && p.layer === 'ARMADURA' && p.filled,
     )
     expect(dots.length).toBeGreaterThanOrEqual(spans[0].positive.n)
+  })
+
+  it('armação executiva: ganchos, estribos distribuídos e quadro de ferros', () => {
+    const first = results.detailing.beams[0]
+    const spans = results.detailing.beams.filter((b) => b.beamId === first.beamId)
+    const items = results.detailing.steel.items.filter((it) => it.elementId === first.beamId)
+    expect(items.length).toBeGreaterThan(0)
+
+    const d = buildBeamDetailDrawing(first.beamName, spans, undefined, items)
+    checkDrawing(d)
+    const ts = texts(d)
+    expect(ts).toContain('QUADRO DE FERROS')
+    expect(ts).toContain('N1') // coluna POS casa com o rótulo N1 do desenho
+    expect(ts).toContain('PESO (kg)')
+    // gancho: barra vira polyline com perna vertical (≥ 3 pontos) na ARMADURA
+    const pls = d.primitives.filter((p) => p.kind === 'polyline' && p.layer === 'ARMADURA')
+    expect(pls.some((p) => p.kind === 'polyline' && p.points.length >= 3)).toBe(true)
+    // estribos: distribuição real (muitos traços, não 3 de amostra)
+    const st = d.primitives.filter((p) => p.kind === 'line' && p.layer === 'ESTRIBOS')
+    expect(st.length).toBeGreaterThanOrEqual(Math.min(spans[0].stirrup.count, 10))
+  })
+
+  it('detalhamento executivo: pernas de gancho, al e numeração por viga', () => {
+    const beams = results.detailing.beams
+    // positivo do 1º vão tem gancho na ponta esquerda (perna ≈ h − 2·cobrimento)
+    const first = beams[0]
+    expect(first.positive.legStart).toBeGreaterThan(0.1)
+    // negativos carregam perna e cobrem além de 2·0,25·ℓ (inclui al + ganchos)
+    const withNeg = beams.find((b) => b.negLeft || b.negRight)!
+    const neg = (withNeg.negLeft ?? withNeg.negRight)!
+    expect(neg.leg).toBeGreaterThan(0.1)
+    expect(neg.length).toBeGreaterThan(0.5 * withNeg.length)
+    // numeração reinicia por viga: o 1º vão de cada viga começa em N1
+    const firstSpans = new Map<string, (typeof beams)[number]>()
+    for (const b of beams) {
+      const cur = firstSpans.get(b.beamId)
+      if (!cur || b.spanIndex < cur.spanIndex) firstSpans.set(b.beamId, b)
+    }
+    for (const b of firstSpans.values()) {
+      if (b.positive.n > 0) expect(b.positive.pos).toBe(1)
+    }
+    // todo item do quadro tem elementId (filtro da prancha por viga/pilar)
+    expect(results.detailing.steel.items.every((it) => it.elementId)).toBe(true)
   })
 
   it('prancha de pilares real: 12 seções, barras e textos', () => {

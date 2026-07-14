@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { designBeamTorsion, skinReinforcement } from '../src/nbr/nbr6118/beamDesign'
 import { crackLimit, crackWidth, stadium2NeutralAxis } from '../src/nbr/nbr6118/cracking'
+import { shiftAl } from '../src/nbr/nbr6118/anchorage'
 
 function relErr(actual: number, expected: number): number {
   return Math.abs(actual / expected - 1)
@@ -115,5 +116,25 @@ describe('crackWidth (§17.3.3.2)', () => {
     expect(crackLimit('II')).toBeCloseTo(0.3e-3, 12)
     expect(crackLimit('III')).toBeCloseTo(0.3e-3, 12)
     expect(crackLimit('IV')).toBeCloseTo(0.2e-3, 12)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Decalagem al — NBR 6118 §17.4.2.2.c (modelo I, estribos a 90°)
+// ---------------------------------------------------------------------------
+
+describe('decalagem al do diagrama (§17.4.2.2)', () => {
+  it('âncora manual: d=0,45 m, VSd=200 kN, Vc=80 kN → al = 0,45·200/(2·120) = 0,375 m', () => {
+    expect(shiftAl(0.45, 200, 80)).toBeCloseTo(0.375, 9)
+  })
+
+  it('clampa no teto d quando VSd se aproxima de Vc', () => {
+    // 0,45·100/(2·20) = 1,125 m > d ⇒ al = d
+    expect(shiftAl(0.45, 100, 80)).toBeCloseTo(0.45, 9)
+  })
+
+  it('piso 0,5·d quando VSd ≤ Vc (ou nulo)', () => {
+    expect(shiftAl(0.45, 70, 80)).toBeCloseTo(0.225, 9)
+    expect(shiftAl(0.45, 0, 80)).toBeCloseTo(0.225, 9)
   })
 })

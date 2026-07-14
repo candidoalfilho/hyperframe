@@ -540,6 +540,7 @@ export interface BeamServiceResult {
 // ---------------------------------------------------------------------------
 
 export interface RebarItem {
+  /** número da posição DENTRO do elemento (N1, N2… reinicia por viga/pilar) */
   pos: number
   /** m */
   phi: number
@@ -548,6 +549,8 @@ export interface RebarItem {
   totalLength: number
   kg: number
   element: string
+  /** id do elemento de modelagem (filtra o quadro de ferros da prancha) */
+  elementId?: string
   note?: string
 }
 
@@ -557,10 +560,15 @@ export interface BeamDetailSpan {
   spanIndex: number
   length: number
   section: SectionRect
-  positive: { n: number; phi: number; length: number }
-  negLeft: { n: number; phi: number; length: number } | null
-  negRight: { n: number; phi: number; length: number } | null
-  stirrup: { phi: number; spacing: number; count: number; unitLength: number }
+  /**
+   * comprimentos são DESENVOLVIDOS (incluem pernas de gancho). pos = número
+   * da posição no quadro de ferros; legStart/legEnd/leg = perna vertical do
+   * gancho (m), presente quando a barra é dobrada na(s) extremidade(s).
+   */
+  positive: { n: number; phi: number; length: number; pos?: number; legStart?: number; legEnd?: number }
+  negLeft: { n: number; phi: number; length: number; pos?: number; leg?: number } | null
+  negRight: { n: number; phi: number; length: number; pos?: number; leg?: number } | null
+  stirrup: { phi: number; spacing: number; count: number; unitLength: number; pos?: number }
 }
 
 export interface ColumnDetailInfo {

@@ -83,6 +83,9 @@ function mapPrimitive(p: DrawingPrimitive, k: number, ox: number, oy: number): D
         x2: mx(p.x2),
         y2: my(p.y2),
         offset: p.offset / k,
+        // altura explícita escala como DText.height; sem ela o renderer
+        // derivaria do offset JÁ dividido e o piso legível saturaria (texto gigante)
+        height: p.height !== undefined ? p.height / k : undefined,
       }
   }
 }

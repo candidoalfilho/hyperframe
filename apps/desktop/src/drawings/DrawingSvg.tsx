@@ -75,7 +75,7 @@ function decomposeDim(d: DDim): DimParts {
   const dx = d.x2 - d.x1
   const dy = d.y2 - d.y1
   const len = Math.hypot(dx, dy)
-  const height = Math.min(0.3, Math.max(0.1, Math.abs(d.offset) * 0.55))
+  const height = d.height ?? Math.min(0.3, Math.max(0.1, Math.abs(d.offset) * 0.55))
   if (len < 1e-9) {
     return { lines: [], text: { x: d.x1, y: d.y1, text: d.text, height, rotation: 0 } }
   }

@@ -237,6 +237,7 @@ export function buildFormworkDrawing(project: Project, planId: string): Drawing 
       x2: b.pos,
       y2: cMinY,
       offset: -1.0, // linha de cota abaixo do conteúdo (normal +y → offset negativo)
+      height: 0.3, // m de modelo — escala junto com o conteúdo na prancha
       text: String(Math.round((b.pos - a.pos) * 100)),
       layer: 'COTAS',
     })
@@ -252,6 +253,7 @@ export function buildFormworkDrawing(project: Project, planId: string): Drawing 
       x2: cMinX,
       y2: b.pos,
       offset: 1.0, // segmento p/ +y tem normal −x → offset positivo joga p/ a esquerda
+      height: 0.3,
       text: String(Math.round((b.pos - a.pos) * 100)),
       layer: 'COTAS',
     })
@@ -469,7 +471,7 @@ export function buildFormworkDrawing(project: Project, planId: string): Drawing 
 
   // ---- título no canto inferior esquerdo ----
   const b0 = boundsOfPrimitives(prims, 0)
-  const title = `PLANTA DE FORMA — ${plan.name} — esc. 1:50`
+  const title = `PLANTA DE FORMA — ${plan.name}` // escala real fica no carimbo da prancha
   prims.push({
     kind: 'text',
     x: b0.minX,

@@ -94,8 +94,9 @@ export function writeDxf(drawing: Drawing): string {
     const dx = d.x2 - d.x1
     const dy = d.y2 - d.y1
     const len = Math.hypot(dx, dy)
-    // altura do texto proporcional ao afastamento, dentro de limites legíveis
-    const height = Math.min(0.3, Math.max(0.1, Math.abs(d.offset) * 0.55))
+    // altura explícita (escala com a prancha) ou, na ausência, proporcional
+    // ao afastamento dentro de limites legíveis — mesma regra do DrawingSvg
+    const height = d.height ?? Math.min(0.3, Math.max(0.1, Math.abs(d.offset) * 0.55))
     if (len < 1e-9) {
       emitText(d.x1, d.y1, d.text, height, d.layer, 0, 'center')
       return // cota degenerada: só o texto

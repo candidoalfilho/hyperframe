@@ -1,6 +1,7 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import type { LoadCombo } from '@hyperframe/engine'
 import { useStore, type Diagram3D } from '../store'
+import { IconChevronDown } from '../components/Icons'
 
 /** Painel de controle do 3D (HTML sobreposto, canto superior esquerdo). */
 
@@ -37,6 +38,16 @@ const panelStyle: CSSProperties = {
 }
 
 const rowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }
+const headerStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 6,
+  cursor: 'pointer',
+  userSelect: 'none',
+  fontWeight: 600,
+  color: 'var(--text-dim)',
+}
 const checkStyle: CSSProperties = { accentColor: 'var(--accent)', margin: 0 }
 const dimStyle: CSSProperties = { color: 'var(--text-dim)', marginBottom: 2 }
 const selectStyle: CSSProperties = {
@@ -55,13 +66,31 @@ export default function ControlPanel() {
   const d3 = useStore((s) => s.d3)
   const setD3 = useStore((s) => s.setD3)
   const results = useStore((s) => s.results)
+  const [collapsed, setCollapsed] = useState(false)
 
   const combos: LoadCombo[] = results?.combos ?? []
   const elu = combos.filter((c) => c.type === 'ELU')
   const els = combos.filter((c) => c.type !== 'ELU')
 
   return (
-    <div style={panelStyle}>
+    <div style={{ ...panelStyle, minWidth: collapsed ? 0 : panelStyle.minWidth }}>
+      <div
+        style={headerStyle}
+        title={collapsed ? 'Expandir painel' : 'Recolher painel'}
+        onClick={() => setCollapsed((c) => !c)}
+      >
+        <span>Exibição</span>
+        <IconChevronDown
+          size={12}
+          style={{
+            transform: collapsed ? 'rotate(-90deg)' : undefined,
+            transition: 'transform 0.15s',
+            flexShrink: 0,
+          }}
+        />
+      </div>
+      {collapsed ? null : (
+        <>
       <label style={rowStyle}>
         <input
           type="checkbox"
@@ -158,6 +187,8 @@ export default function ControlPanel() {
               )}
             </select>
           </div>
+        </>
+      )}
         </>
       )}
     </div>

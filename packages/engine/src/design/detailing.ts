@@ -9,13 +9,15 @@ import type {
   SteelSummary,
 } from '../analysis/types'
 import { concreteProps, coverFor, fyd as fydOf } from '../nbr/nbr6118/materials'
-import { basicAnchorage, fbd, requiredAnchorage } from '../nbr/nbr6118/anchorage'
+import { basicAnchorage, fbd, requiredAnchorage, shiftAl } from '../nbr/nbr6118/anchorage'
 import { columnSectionInfo, insetRectilinear } from '../model/columnSection'
 
 /**
- * Detalhamento PRELIMINAR (posições retas + estribos) e tabela de aço.
- * Comprimentos de negativos pela regra prática 0,25·ℓ de cada lado do apoio;
- * ancoragens pela NBR 6118 §9.4. Revisão manual indicada nas pranchas.
+ * Detalhamento de vigas e pilares + tabela de aço por posição.
+ * Vigas: positivos com ancoragem §9.4 e gancho vertical nas pontas extremas
+ * (α=0,7); negativos cobrindo 0,25·ℓ + decalagem al (§17.4.2.2) p/ cada lado
+ * do apoio, com ganchos; numeração N reinicia por elemento (casa com a
+ * prancha). Revisão de engenheiro continua obrigatória.
  */
 
 const STEEL_DENSITY = 7850
@@ -46,17 +48,21 @@ export function runDetailing(
   }
 
   const items: RebarItem[] = []
-  let pos = 0
+  // numeração N reinicia por elemento (viga/pilar) p/ casar com a prancha
+  const posByGroup = new Map<string, number>()
   const pushItem = (
+    group: string,
+    elementId: string | undefined,
     phi: number,
     n: number,
     unitLength: number,
     element: string,
     reps: number,
     note?: string,
-  ) => {
-    if (n <= 0 || phi <= 0 || unitLength <= 0) return
-    pos++
+  ): number => {
+    if (n <= 0 || phi <= 0 || unitLength <= 0) return 0
+    const pos = (posByGroup.get(group) ?? 0) + 1
+    posByGroup.set(group, pos)
     const total = unitLength * n * reps
     const kg = total * ((Math.PI * phi * phi) / 4) * STEEL_DENSITY
     items.push({
@@ -67,35 +73,80 @@ export function runDetailing(
       totalLength: total,
       kg,
       element,
+      elementId,
       note,
     })
+    return pos
   }
 
   // ---------------------------------------------------------------- vigas
+  // último vão de cada viga: define onde o positivo ganha gancho de ponta
+  const lastSpanIdx = new Map<string, number>()
+  for (const bd of beamDesign) {
+    lastSpanIdx.set(bd.beamId, Math.max(lastSpanIdx.get(bd.beamId) ?? 0, bd.spanIndex))
+  }
+
   const beams: BeamDetailSpan[] = []
   for (const bd of beamDesign) {
     const reps = levelsPerPlan.get(planOfBeam.get(bd.beamId) ?? '') ?? 1
     const { bw, h } = bd.section
     const L = bd.length
+    // numeração por beamId: o mesmo NOME (V1) pode repetir em plantas distintas
+    const group = bd.beamId
     const el = `Viga ${bd.beamName} vão ${bd.spanIndex + 1}`
+    // perna do gancho vertical: altura da viga menos os cobrimentos
+    const leg = round5(Math.max(h - 2 * coverBeam, 0.1))
 
-    const lbOf = (phi: number, asCalc: number, asEf: number) =>
-      requiredAnchorage(basicAnchorage(phi, fydV, fbdGood), asCalc, asEf, phi)
+    const lbOf = (phi: number, asCalc: number, asEf: number, hook: boolean) =>
+      requiredAnchorage(basicAnchorage(phi, fydV, fbdGood), asCalc, asEf, phi, hook)
 
-    // positivos: vão inteiro + ancoragem nos dois apoios
+    // decalagem al do diagrama (§17.4.2.2, modelo I) com o VSd da envoltória
     const posPhi = bd.positive.barsPhi
-    const posN = bd.positive.barsN
-    const posLen = round5(
-      L + 2 * lbOf(posPhi, bd.positive.as, bd.positive.asProvided || bd.positive.as),
-    )
-    pushItem(posPhi, posN, posLen, el, reps)
+    const dUtil = Math.max(h - coverBeam - 0.005 - posPhi / 2, 0.5 * h)
+    const al = shiftAl(dUtil, bd.shear.vd, bd.shear.vc)
 
-    // negativos: 0,25·ℓ p/ cada lado do apoio + ancoragem
+    // positivos: vão + ancoragem; gancho vertical (α=0,7) nas pontas EXTREMAS
+    const posN = bd.positive.barsN
+    const hookStart = bd.spanIndex === 0
+    const hookEnd = bd.spanIndex === (lastSpanIdx.get(bd.beamId) ?? bd.spanIndex)
+    const asEfPos = bd.positive.asProvided || bd.positive.as
+    const legStart = hookStart ? leg : 0
+    const legEnd = hookEnd ? leg : 0
+    const posLen = round5(
+      L +
+        lbOf(posPhi, bd.positive.as, asEfPos, hookStart) +
+        lbOf(posPhi, bd.positive.as, asEfPos, hookEnd) +
+        legStart +
+        legEnd,
+    )
+    const posPos = pushItem(
+      group,
+      bd.beamId,
+      posPhi,
+      posN,
+      posLen,
+      el,
+      reps,
+      hookStart || hookEnd ? 'gancho vertical na(s) extremidade(s)' : undefined,
+    )
+
+    // negativos: (0,25·ℓ + al) p/ cada lado do apoio + ganchos verticais
     const negOf = (f: BeamSpanDesign['negLeft']) => {
       if (!f || f.barsN <= 0) return null
-      const len = round5(0.5 * L + lbOf(f.barsPhi, f.as, f.asProvided || f.as))
-      pushItem(f.barsPhi, f.barsN, len, el, reps, 'negativo — cobrir diagrama na revisão')
-      return { n: f.barsN, phi: f.barsPhi, length: len }
+      const lbHook = lbOf(f.barsPhi, f.as, f.asProvided || f.as, true)
+      const run = round5(Math.max(2 * (0.25 * L + al), 2 * lbHook))
+      const len = round5(run + 2 * leg)
+      const p = pushItem(
+        group,
+        bd.beamId,
+        f.barsPhi,
+        f.barsN,
+        len,
+        el,
+        reps,
+        'negativo: 2·(0,25·ℓ + al) + ganchos — cobrir o diagrama na revisão',
+      )
+      return { n: f.barsN, phi: f.barsPhi, length: len, pos: p, leg }
     }
     const negLeft = negOf(bd.negLeft)
     const negRight = negOf(bd.negRight)
@@ -105,7 +156,7 @@ export function runDetailing(
     const spacing = spacingMatch ? Number(spacingMatch[1]) / 100 : 0.15
     const count = Math.max(2, Math.ceil((L - 0.1) / spacing) + 1)
     const stirrupUnit = round5(2 * (bw - 2 * coverBeam + (h - 2 * coverBeam)) + 0.15)
-    pushItem(0.005, count, stirrupUnit, el, reps)
+    const stPos = pushItem(group, bd.beamId, 0.005, count, stirrupUnit, el, reps)
 
     beams.push({
       beamId: bd.beamId,
@@ -113,10 +164,17 @@ export function runDetailing(
       spanIndex: bd.spanIndex,
       length: L,
       section: bd.section,
-      positive: { n: posN, phi: posPhi, length: posLen },
+      positive: {
+        n: posN,
+        phi: posPhi,
+        length: posLen,
+        pos: posPos,
+        legStart: legStart > 0 ? legStart : undefined,
+        legEnd: legEnd > 0 ? legEnd : undefined,
+      },
       negLeft,
       negRight,
-      stirrup: { phi: 0.005, spacing, count, unitLength: stirrupUnit },
+      stirrup: { phi: 0.005, spacing, count, unitLength: stirrupUnit, pos: stPos },
     })
   }
 
@@ -150,10 +208,10 @@ export function runDetailing(
       }
     }
     for (const hs of storyHeights) {
-      pushItem(cd.barsPhi, cd.barsN, round5(hs + lap), el, 1)
+      pushItem(el, cd.columnId, cd.barsPhi, cd.barsN, round5(hs + lap), el, 1)
       const nStirrups = Math.max(2, Math.ceil(hs / cd.stirrupSpacing))
       const su = round5(stirrupPerim + 0.15)
-      pushItem(cd.stirrupPhi, nStirrups, su, el, 1)
+      pushItem(el, cd.columnId, cd.stirrupPhi, nStirrups, su, el, 1)
     }
     columns.push({
       columnId: cd.columnId,

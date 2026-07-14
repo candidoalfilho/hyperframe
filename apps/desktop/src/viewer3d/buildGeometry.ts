@@ -3,6 +3,7 @@ import {
   TANK_DEFAULTS,
   columnFootprint,
   columnHalfExtents,
+  pointInPolygon,
   slabOpeningPolygons,
   type Project,
   type Vec2,
@@ -29,6 +30,12 @@ export interface BoxInstance {
   round?: { d: number }
   /** pilar em L: prisma extrudado do contorno em planta (coords absolutas) */
   prism?: { polygon: Vec2[] }
+  /**
+   * furos na alma (vigas): retângulos no plano da elevação LOCAL do trecho —
+   * x ao longo do eixo e y na altura, ambos a partir do CENTRO do box, m.
+   * Presente ⇒ o box vira extrusão com holes em vez de boxGeometry.
+   */
+  webHoles?: { x: number; y: number; w: number; h: number }[]
 }
 
 export interface SlabInstance {
@@ -82,6 +89,7 @@ export function buildBoxes(project: Project): BoxInstance[] {
     const plan = project.plans.find((p) => p.id === level.planId)
     if (!plan) return
     for (const beam of plan.beams) {
+      let cum = 0 // distância acumulada — BeamOpening.x é medido desde o 1º vértice
       for (let s = 0; s + 1 < beam.path.length; s++) {
         const { bw, h } = beam.segmentSections?.[s] ?? beam.section
         const a = beam.path[s]
@@ -90,6 +98,20 @@ export function buildBoxes(project: Project): BoxInstance[] {
         const dy = b.y - a.y
         const len = Math.hypot(dx, dy)
         if (len <= 1e-6) continue
+        // furos na alma deste trecho (§13.2.5) — recorte real na elevação local
+        const webHoles: { x: number; y: number; w: number; h: number }[] = []
+        for (const op of beam.openings ?? []) {
+          if (op.x < cum - 1e-9 || op.x > cum + len + 1e-9) continue
+          const cx = op.x - cum - len / 2
+          // clampa dentro do trecho/altura: furo mal posicionado não corrompe o mesh
+          const x0 = Math.max(cx - op.width / 2, -len / 2 + 0.01)
+          const x1 = Math.min(cx + op.width / 2, len / 2 - 0.01)
+          const y0 = Math.max(op.yOffset - op.height / 2, -h / 2 + 0.01)
+          const y1 = Math.min(op.yOffset + op.height / 2, h / 2 - 0.01)
+          if (x1 - x0 > 0.005 && y1 - y0 > 0.005) {
+            webHoles.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 })
+          }
+        }
         boxes.push({
           key: `bm:${level.id}:${beam.id}:${s}`,
           kind: 'beam',
@@ -99,7 +121,9 @@ export function buildBoxes(project: Project): BoxInstance[] {
           // eixo X local do box aponta p/ (cosθ, 0, -sinθ) em three ⇒ θ = atan2(dy, dx)
           rotationY: Math.atan2(dy, dx),
           size: [len, h, bw],
+          webHoles: webHoles.length > 0 ? webHoles : undefined,
         })
+        cum += len
       }
     }
   })
@@ -282,6 +306,26 @@ export function buildRegionSolids(project: Project): RegionSolidInstance[] {
   return out
 }
 
+/** move cada vértice ~1,5 cm em direção ao centro do furo (limitado a 25% da distância) */
+function shrinkHole(poly: Vec2[]): Vec2[] {
+  let cx = 0
+  let cy = 0
+  for (const p of poly) {
+    cx += p.x
+    cy += p.y
+  }
+  cx /= poly.length
+  cy /= poly.length
+  return poly.map((p) => {
+    const dx = cx - p.x
+    const dy = cy - p.y
+    const d = Math.hypot(dx, dy)
+    if (d < 1e-9) return p
+    const eps = Math.min(0.015, 0.25 * d)
+    return { x: p.x + (dx / d) * eps, y: p.y + (dy / d) * eps }
+  })
+}
+
 export function buildSlabs(project: Project): SlabInstance[] {
   const out: SlabInstance[] = []
   project.levels.forEach((level, li) => {
@@ -290,12 +334,19 @@ export function buildSlabs(project: Project): SlabInstance[] {
     if (!plan) return
     for (const slab of plan.slabs) {
       if (slab.polygon.length < 3) continue
+      // encolhe cada furo ~1,5 cm p/ dentro: a triangulação (earcut) falha e
+      // PREENCHE o furo quando ele encosta/coincide com o contorno da laje
+      // (poço rente à viga de borda). Furos com vértice fora do contorno
+      // (laje não-convexa recortada pelo bbox) são descartados no 3D.
+      const holes = slabOpeningPolygons(plan, slab)
+        .map(shrinkHole)
+        .filter((hole) => hole.every((p) => pointInPolygon(p, slab.polygon)))
       out.push({
         key: `sl:${level.id}:${slab.id}`,
         id: slab.id,
         levelIndex: li,
         polygon: slab.polygon,
-        holes: slabOpeningPolygons(plan, slab),
+        holes,
         thickness: slab.thickness,
         elevation: level.elevation,
       })

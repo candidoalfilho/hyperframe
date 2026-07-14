@@ -107,6 +107,7 @@ export function buildSectionCutDrawing(project: Project, opts: SectionCutOptions
       x2: hMin - 1.2,
       y2: z1,
       offset: 0.8, // p/ a esquerda (segmento +y tem normal −x)
+      height: 0.3,
       text: String(Math.round((z1 - z0) * 100)),
       layer: 'COTAS',
     })

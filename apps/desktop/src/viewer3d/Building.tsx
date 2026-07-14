@@ -124,6 +124,21 @@ export default function Building() {
             />
           )
         }
+        if (b.webHoles && b.webHoles.length > 0) {
+          return (
+            <WebBoxMesh
+              key={b.key}
+              box={b}
+              paint={paint}
+              opacity={opacity}
+              solid={solid}
+              faded={faded}
+              onClick={faded ? undefined : handleClick(b.kind, b.id)}
+              onPointerOver={faded ? undefined : handleOver(b.kind, b.id)}
+              onPointerOut={faded ? undefined : handleOut(b.kind, b.id)}
+            />
+          )
+        }
         return (
           <mesh
             key={b.key}
@@ -259,6 +274,69 @@ function PrismMesh({
       geometry={geometry}
       rotation-x={-Math.PI / 2}
       position={[0, zBot, 0]}
+      castShadow={solid}
+      receiveShadow
+      userData={{ kind: box.kind, id: box.id }}
+      raycast={faded ? NO_RAYCAST : DEFAULT_RAYCAST}
+      onClick={onClick}
+      onPointerOver={onPointerOver}
+      onPointerOut={onPointerOut}
+    >
+      <meshStandardMaterial
+        color={paint.color}
+        roughness={0.9}
+        metalness={0.05}
+        transparent={!solid}
+        opacity={opacity}
+        depthWrite={solid}
+        emissive={paint.emissive}
+        emissiveIntensity={paint.emissiveIntensity}
+      />
+      {solid && <Edges threshold={20} color={EDGE_COLOR} />}
+    </mesh>
+  )
+}
+
+/** viga com furos na alma: elevação local (x ao longo, y na altura) com holes,
+ *  extrudada pela largura bw — mesma pose do boxGeometry que substitui */
+function WebBoxMesh({
+  box,
+  paint,
+  opacity,
+  solid,
+  faded,
+  onClick,
+  onPointerOver,
+  onPointerOut,
+}: PrismMeshProps) {
+  const geometry = useMemo(() => {
+    const [len, h, bw] = box.size
+    const shape = new THREE.Shape()
+    shape.moveTo(-len / 2, -h / 2)
+    shape.lineTo(len / 2, -h / 2)
+    shape.lineTo(len / 2, h / 2)
+    shape.lineTo(-len / 2, h / 2)
+    shape.closePath()
+    for (const o of box.webHoles!) {
+      const path = new THREE.Path()
+      path.moveTo(o.x - o.w / 2, o.y - o.h / 2)
+      path.lineTo(o.x + o.w / 2, o.y - o.h / 2)
+      path.lineTo(o.x + o.w / 2, o.y + o.h / 2)
+      path.lineTo(o.x - o.w / 2, o.y + o.h / 2)
+      path.closePath()
+      shape.holes.push(path)
+    }
+    const g = new THREE.ExtrudeGeometry(shape, { depth: bw, bevelEnabled: false })
+    g.translate(0, 0, -bw / 2) // centra a extrusão como o boxGeometry
+    return g
+  }, [box.size, box.webHoles])
+  useEffect(() => () => geometry.dispose(), [geometry])
+
+  return (
+    <mesh
+      geometry={geometry}
+      position={box.position}
+      rotation-y={box.rotationY}
       castShadow={solid}
       receiveShadow
       userData={{ kind: box.kind, id: box.id }}

@@ -125,4 +125,26 @@ describe('prancha com moldura e carimbo', () => {
     expect(sheet.scale).toBe(50)
     expect(sheet.drawing.bounds.maxX).toBeCloseTo(1.189, 6)
   })
+
+  it('cotas escalam com a prancha (altura explícita ÷ escala, sem saturar no piso)', () => {
+    const project = createSampleProject()
+    const content = buildFormworkDrawing(project, project.plans[0].id)
+    const isDim = (p: { kind: string }): p is import('../src/drawing/types').DDim =>
+      p.kind === 'dim'
+    const rawDims = content.primitives.filter(isDim)
+    expect(rawDims.length).toBeGreaterThan(0)
+    for (const d of rawDims) expect(d.height).toBeCloseTo(0.3, 9)
+    const sheet = composeSheet(content, {
+      format: 'A1',
+      info: { projectName: 'X', title1: 'Forma' },
+    })
+    const dims = sheet.drawing.primitives.filter(isDim)
+    expect(dims.length).toBe(rawDims.length)
+    for (const d of dims) {
+      // em papel: 0,3 m de modelo ÷ k — antes o piso de 0,1 m (modelo) saturava
+      // e o texto da cota travava em ~100 mm no papel, gigante vs conteúdo
+      expect(d.height).toBeCloseTo(0.3 / sheet.scale, 9)
+      expect(d.height!).toBeLessThan(0.02)
+    }
+  })
 })

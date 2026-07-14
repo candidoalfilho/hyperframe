@@ -3,9 +3,9 @@
 **Análise e dimensionamento estrutural de edifícios de concreto armado — normas ABNT.**
 macOS + Windows (Tauri) e navegador. Concorrente moderno de TQS/Eberick.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.7-orange) ![tests](https://img.shields.io/badge/testes-284%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.8-orange) ![tests](https://img.shields.io/badge/testes-290%20passando-brightgreen)
 
-## O que já faz (v0.2.7)
+## O que já faz (v0.2.8)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -19,7 +19,8 @@ macOS + Windows (Tauri) e navegador. Concorrente moderno de TQS/Eberick.
 - **3D sincronizado**: seleção cruzada 2D↔3D, isolamento de pavimento, sombras, deformada
   (interpolação de Hermite), diagramas N/My/Mz em fita sobre as barras, **escadas e
   reservatórios como sólidos** (lance com degraus, laje inclinada e patamar; caixa com
-  paredes e tampa) e **lajes com furos reais** sobre as escadas/aberturas
+  paredes e tampa), **lajes com furos reais** sobre as escadas/aberturas e **furos na
+  alma das vigas** recortados no sólido (§13.2.5)
 - **Análise**: pórtico espacial (6 GDL/nó) gerado automaticamente, diafragma rígido
   mestre-escravo por pavimento, solver skyline LDLᵀ próprio, dois passes de rigidez
   (ELU com 0,4/0,8·Eci·Ic — NBR 6118 §15.7.3 — e ELS integral)
@@ -47,12 +48,14 @@ macOS + Windows (Tauri) e navegador. Concorrente moderno de TQS/Eberick.
   do pórtico sobre apoios elásticos, **recalques ELS-QP** e distorções angulares
 - **Incêndio (NBR 14432 + NBR 15200)**: TRRF automático por ocupação×altura, método
   tabular p/ vigas e lajes, método analítico p/ pilares — aba própria e relatório
-- **Pranchas e detalhamento (preliminar)**: planta de forma (cotas entre eixos), **corte
+- **Pranchas e detalhamento**: planta de forma (cotas entre eixos), **corte
   esquemático** (níveis, pilares, vigas seccionadas e pé-direito cotado), **planta de
-  cargas**, armação de vigas, seções de pilares — SVG no app, **exportação DXF** (writer
-  R12 próprio), **moldura + carimbo ABNT** (A0–A4, escala automática ou fixa), tabela de
-  aço por bitola, relatório imprimível e **memorial de cálculo completo em PDF** (writer
-  PDF próprio, 15 seções + furos/solo/custo, multipágina)
+  cargas**, **armação de vigas com ganchos desenhados, decalagem al (§17.4.2.2),
+  estribos na distribuição real e QUADRO DE FERROS por posição**, seções de pilares —
+  SVG no app, **exportação DXF** (writer R12 próprio), **moldura + carimbo ABNT**
+  (A0–A4, escala automática ou fixa; cotas proporcionais à escala), tabela de aço por
+  bitola, relatório imprimível e **memorial de cálculo completo em PDF** (writer PDF
+  próprio, 15 seções + furos/solo/custo, multipágina)
 - **Quantitativos com custo**: concreto, fôrma e aço por elemento + **estimativa de
   custo** (R$/m³, R$/kg, R$/m² editáveis) e custo por m² de laje
 - **Produtividade**: **diagramas N/V/M por barra no inspetor** (com valores e combinação
@@ -97,7 +100,7 @@ packages/engine     # núcleo puro TypeScript (zero dependências)
   src/drawing       # pranchas (primitivas neutras → SVG/DXF)
   src/dxf           # parser (underlay) e writer (R12) de DXF próprios
   src/report        # memorial de cálculo em PDF (writer PDF próprio, zero deps)
-  test              # 284 testes (âncoras analíticas, normas, equilíbrio global)
+  test              # 290 testes (âncoras analíticas, normas, equilíbrio global)
 apps/desktop        # Tauri 2 + React 19 + three.js
   src/editor2d      # editor de planta SVG (snap, ferramentas, camadas, underlay)
   src/viewer3d      # visualizador 3D (R3F): edifício, deformada, diagramas

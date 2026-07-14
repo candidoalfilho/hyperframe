@@ -1,14 +1,15 @@
 /**
- * Detalhamento de viga (armação em elevação) no estilo de prancha BR:
- * vãos em sequência no comprimento real, apoios hachurados, armaduras
- * positivas/negativas com rótulos "N{i} {n} φ {mm} C={cm}", estribos
- * amostrados, corte da seção ao lado e cotas dos vãos.
+ * Armação de viga em elevação no estilo de prancha BR: vãos em sequência no
+ * comprimento real, apoios hachurados, barras com GANCHOS desenhados
+ * (pernas verticais) e rótulos "N{i} {n} φ {mm} C={cm}" casados com o quadro
+ * de ferros, TODOS os estribos na distribuição real, corte da seção ao lado,
+ * cotas dos vãos e QUADRO DE FERROS por posição (φ, quant., C unit./total, kg).
  *
  * Coordenadas em METROS, y para CIMA. Zero dependências e zero DOM.
- * Detalhamento PRELIMINAR — a prancha exige revisão de engenheiro.
+ * A prancha continua exigindo revisão/assinatura de engenheiro.
  */
 
-import type { BeamDetailSpan } from '../analysis/types'
+import type { BeamDetailSpan, RebarItem } from '../analysis/types'
 import type { Drawing, DrawingPrimitive } from './types'
 import { boundsOfPrimitives } from './formwork'
 
@@ -28,10 +29,11 @@ export function buildBeamDetailDrawing(
   beamName: string,
   spans: BeamDetailSpan[],
   sectionScale?: number,
+  steelItems?: RebarItem[],
 ): Drawing {
   const k = sectionScale ?? 2
   const prims: DrawingPrimitive[] = []
-  const title = `VIGA ${beamName} — DETALHAMENTO PRELIMINAR (rev. obrigatória)`
+  const title = `VIGA ${beamName} — ARMAÇÃO (revisão obrigatória)`
 
   const ordered = [...spans].sort((a, b) => a.spanIndex - b.spanIndex)
   if (ordered.length === 0) {
@@ -58,10 +60,34 @@ export function buildBeamDetailDrawing(
   support(segs[0].x0)
   for (const seg of segs) support(seg.x1)
 
-  // numeração sequencial das posições de armadura (N1, N2, …)
+  // numeração das posições: usa a do detalhamento (casa com o quadro de
+  // ferros); dados fabricados sem `pos` caem na sequência local
   let nPos = 0
-  const barLabel = (n: number, phi: number, len: number): string =>
-    `N${++nPos} ${n} φ ${mmTxt(phi)} C=${Math.round(len * 100)}`
+  const barLabel = (n: number, phi: number, len: number, pos?: number): string =>
+    `N${pos ?? ++nPos} ${n} φ ${mmTxt(phi)} C=${Math.round(len * 100)}`
+
+  /** barra em elevação com pernas de gancho opcionais (p/ baixo ou p/ cima) */
+  const bar = (
+    xa: number,
+    xb: number,
+    y: number,
+    legA: number,
+    legB: number,
+    dir: 1 | -1,
+    hMax: number,
+  ): void => {
+    const la = Math.min(legA, hMax)
+    const lb = Math.min(legB, hMax)
+    if (la <= 0 && lb <= 0) {
+      prims.push({ kind: 'line', x1: xa, y1: y, x2: xb, y2: y, layer: 'ARMADURA' })
+      return
+    }
+    const points = []
+    if (la > 0) points.push({ x: xa, y: y + dir * la })
+    points.push({ x: xa, y }, { x: xb, y })
+    if (lb > 0) points.push({ x: xb, y: y + dir * lb })
+    prims.push({ kind: 'polyline', points, closed: false, layer: 'ARMADURA' })
+  }
 
   segs.forEach(({ s, x0, x1 }, i) => {
     const h = s.section.h
@@ -80,33 +106,37 @@ export function buildBeamDetailDrawing(
       layer: 'VIGAS',
     })
 
-    // ---- armadura positiva: 0,08 m acima do fundo, centrada no vão ----
+    // ---- armadura positiva: 0,08 m acima do fundo, centrada no vão,
+    //      ganchos VERTICAIS p/ cima nas pontas extremas da viga ----
     const pos = s.positive
     if (pos.n > 0) {
-      const half = pos.length / 2
-      prims.push({ kind: 'line', x1: mid - half, y1: 0.08, x2: mid + half, y2: 0.08, layer: 'ARMADURA' })
+      const legS = pos.legStart ?? 0
+      const legE = pos.legEnd ?? 0
+      const run = Math.max(pos.length - legS - legE, 0.1)
+      bar(mid - run / 2, mid + run / 2, 0.08, legS, legE, 1, h - 0.16)
       prims.push({
         kind: 'text',
         x: mid,
         y: -0.5,
-        text: barLabel(pos.n, pos.phi, pos.length),
+        text: barLabel(pos.n, pos.phi, pos.length, pos.pos),
         height: 0.12,
         layer: 'ARMADURA',
         align: 'center',
       })
     }
 
-    // ---- negativas: 0,08 m abaixo do topo, cavalgando os apoios ----
-    // no apoio interno os negativos dos dois vãos coexistem → pequeno
-    // escalonamento vertical p/ ambos permanecerem visíveis
+    // ---- negativas: 0,08 m abaixo do topo, cavalgando os apoios, com
+    //      pernas p/ baixo; no apoio interno os negativos dos dois vãos
+    //      coexistem → pequeno escalonamento vertical ----
     if (s.negLeft) {
-      const half = s.negLeft.length / 2
-      prims.push({ kind: 'line', x1: x0 - half, y1: h - 0.08, x2: x0 + half, y2: h - 0.08, layer: 'ARMADURA' })
+      const leg = s.negLeft.leg ?? 0
+      const run = Math.max(s.negLeft.length - 2 * leg, 0.1)
+      bar(x0 - run / 2, x0 + run / 2, h - 0.08, leg, leg, -1, h - 0.16)
       prims.push({
         kind: 'text',
         x: x0,
         y: h + 0.1,
-        text: barLabel(s.negLeft.n, s.negLeft.phi, s.negLeft.length),
+        text: barLabel(s.negLeft.n, s.negLeft.phi, s.negLeft.length, s.negLeft.pos),
         height: 0.12,
         layer: 'ARMADURA',
         align: 'center',
@@ -116,30 +146,35 @@ export function buildBeamDetailDrawing(
       const shared = i + 1 < segs.length && segs[i + 1].s.negLeft !== null
       const yBar = shared ? h - 0.16 : h - 0.08
       const yTxt = shared ? h + 0.3 : h + 0.1
-      const half = s.negRight.length / 2
-      prims.push({ kind: 'line', x1: x1 - half, y1: yBar, x2: x1 + half, y2: yBar, layer: 'ARMADURA' })
+      const leg = s.negRight.leg ?? 0
+      const run = Math.max(s.negRight.length - 2 * leg, 0.1)
+      bar(x1 - run / 2, x1 + run / 2, yBar, leg, leg, -1, yBar - 0.08)
       prims.push({
         kind: 'text',
         x: x1,
         y: yTxt,
-        text: barLabel(s.negRight.n, s.negRight.phi, s.negRight.length),
+        text: barLabel(s.negRight.n, s.negRight.phi, s.negRight.length, s.negRight.pos),
         height: 0.12,
         layer: 'ARMADURA',
         align: 'center',
       })
     }
 
-    // ---- estribos: 3 traços verticais de amostra + especificação ----
+    // ---- estribos: distribuição REAL (todos os traços, passo s) ----
     const st = s.stirrup
-    const dx = Math.min(Math.max(st.spacing, 0.05), s.length / 4)
-    for (const off of [-dx, 0, dx]) {
-      prims.push({ kind: 'line', x1: mid + off, y1: 0.05, x2: mid + off, y2: h - 0.05, layer: 'ESTRIBOS' })
+    const step = Math.max(st.spacing, 0.03)
+    const xs0 = x0 + 0.05
+    const xs1 = x1 - 0.05
+    const nDraw = Math.max(2, Math.min(st.count, Math.floor((xs1 - xs0) / step) + 1))
+    for (let j = 0; j < nDraw; j++) {
+      const x = Math.min(xs0 + j * step, xs1)
+      prims.push({ kind: 'line', x1: x, y1: 0.05, x2: x, y2: h - 0.05, layer: 'ESTRIBOS' })
     }
     prims.push({
       kind: 'text',
       x: mid,
       y: h + 0.5,
-      text: `${st.count}×φ${mmTxt(st.phi)} c/${Math.round(st.spacing * 100)}`,
+      text: `${st.pos ? `N${st.pos} ` : ''}${st.count}×φ${mmTxt(st.phi)} c/${Math.round(st.spacing * 100)}`,
       height: 0.12,
       layer: 'ESTRIBOS',
       align: 'center',
@@ -153,6 +188,7 @@ export function buildBeamDetailDrawing(
       x2: x1,
       y2: -0.55,
       offset: -0.45,
+      height: 0.16,
       text: String(Math.round(s.length * 100)),
       layer: 'COTAS',
     })
@@ -250,6 +286,80 @@ export function buildBeamDetailDrawing(
     height: 0.2,
     layer: 'TEXTOS',
   })
+
+  // ---- QUADRO DE FERROS (posições do detalhamento desta viga) ----
+  if (steelItems && steelItems.length > 0) {
+    const rows = [...steelItems].sort((a, b) => a.pos - b.pos)
+    const fmt1 = (v: number): string => v.toFixed(1).replace('.', ',')
+    const cols = [0.7, 0.9, 1.0, 1.4, 1.4, 1.2] // larguras das colunas, m
+    const header = ['POS', 'φ (mm)', 'QUANT.', 'C.UNIT (cm)', 'C.TOTAL (m)', 'PESO (kg)']
+    const rowH = 0.3
+    const tx = b0.minX
+    const ty = b0.minY - 1.1 // topo da grade (título do quadro logo acima)
+    const totalW = cols.reduce((s, w) => s + w, 0)
+    const nRows = rows.length + 2 // cabeçalho + linhas + total
+    prims.push({
+      kind: 'text',
+      x: tx,
+      y: ty + 0.1,
+      text: 'QUADRO DE FERROS',
+      height: 0.16,
+      layer: 'TEXTOS',
+    })
+    for (let r = 0; r <= nRows; r++) {
+      prims.push({
+        kind: 'line',
+        x1: tx,
+        y1: ty - r * rowH,
+        x2: tx + totalW,
+        y2: ty - r * rowH,
+        layer: 'CONTORNO',
+      })
+    }
+    let vx = tx
+    for (let c = 0; c <= cols.length; c++) {
+      prims.push({
+        kind: 'line',
+        x1: vx,
+        y1: ty,
+        x2: vx,
+        y2: ty - nRows * rowH,
+        layer: 'CONTORNO',
+      })
+      if (c < cols.length) vx += cols[c]
+    }
+    const cell = (col: number, row: number, text: string): void => {
+      const x = tx + cols.slice(0, col).reduce((s, w) => s + w, 0) + cols[col] / 2
+      prims.push({
+        kind: 'text',
+        x,
+        y: ty - (row + 1) * rowH + 0.09,
+        text,
+        height: 0.12,
+        layer: 'TEXTOS',
+        align: 'center',
+      })
+    }
+    header.forEach((t, c) => cell(c, 0, t))
+    rows.forEach((it, r) => {
+      cell(0, r + 1, `N${it.pos}`)
+      cell(1, r + 1, mmTxt(it.phi))
+      cell(2, r + 1, String(it.n))
+      cell(3, r + 1, String(Math.round(it.unitLength * 100)))
+      cell(4, r + 1, fmt1(it.totalLength))
+      cell(5, r + 1, fmt1(it.kg))
+    })
+    cell(0, rows.length + 1, 'TOTAL')
+    cell(5, rows.length + 1, fmt1(rows.reduce((s, it) => s + it.kg, 0)))
+    prims.push({
+      kind: 'text',
+      x: tx,
+      y: ty - nRows * rowH - 0.28,
+      text: 'Quantidades somam os pavimentos que repetem a planta.',
+      height: 0.11,
+      layer: 'TEXTOS',
+    })
+  }
 
   return { title, primitives: prims, bounds: boundsOfPrimitives(prims, 1) }
 }
