@@ -74,6 +74,7 @@ export function defaultSettings(p: NewProjectParams): ProjectSettings {
     psiWind: { ...PSI_PRESETS.vento },
     notionalImperfections: true,
     secondOrderGammaZ: true,
+    slabMethod: 'marcus',
   }
 }
 

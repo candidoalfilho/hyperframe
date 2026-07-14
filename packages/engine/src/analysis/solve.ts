@@ -170,9 +170,9 @@ export function solvePass(
       }
     }
   }
-  // molas de apoio (interação solo-estrutura): rigidez na diagonal
+  // molas nodais: apoios elásticos (ISS) e Winkler em nós LIVRES (baldrames)
   for (const node of model.nodes) {
-    if (!node.support || !node.springs) continue
+    if (!node.springs) continue
     for (let d = 0; d < 6; d++) {
       const k = node.springs[d]
       if (k <= 0) continue

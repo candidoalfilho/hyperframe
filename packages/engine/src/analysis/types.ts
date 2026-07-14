@@ -137,6 +137,10 @@ export interface AnalysisModel {
   } | null
   /** carga vertical total característica por nível (G, Q), kN — p/ γz */
   levelWeights: { levelIndex: number; z: number; G: number; Q: number }[]
+  /** molas de Winkler dos baldrames (nó, rigidez kz e área de contato) */
+  winkler: { nodeId: number; kz: number; area: number }[] | null
+  /** ks efetivo dos baldrames, kN/m³ (null = sem baldrames) */
+  winklerKs: number | null
   warnings: string[]
   /** estatísticas p/ relatório */
   stats: { nodes: number; members: number; dofs: number }
@@ -324,6 +328,41 @@ export interface SlabEdgeInfo {
   fixedEndsB: 0 | 1 | 2
 }
 
+/** punção verificada num pilar interno (laje lisa via grelha) */
+export interface SlabGridPunchingItem {
+  columnId: string
+  name: string
+  /** força de punção de cálculo, kN */
+  fsd: number
+  check: import('../nbr/nbr6118/punching').PunchingOutput
+}
+
+/** dimensionamento de laje pelo método da GRELHA (qualquer contorno) */
+export interface SlabGridDesign {
+  /** momentos de cálculo POR METRO (grelha × 1,4·(g+q)), kN·m/m */
+  mxSpan: number
+  mxSupport: number
+  mySpan: number
+  mySupport: number
+  /** armaduras por metro, m²/m + malhas escolhidas */
+  asX: number
+  asXSup: number
+  asY: number
+  asYSup: number
+  specX: string
+  specXSup: string
+  specY: string
+  specYSup: string
+  deflection: number
+  deflectionLimit: number
+  deflectionOk: boolean
+  /** punção nos pilares internos (com a reação real da grelha) */
+  punching: SlabGridPunchingItem[]
+  stats: { nodes: number; members: number }
+  ok: boolean
+  notes: string[]
+}
+
 export interface SlabDesignResultItem {
   slabId: string
   name: string
@@ -335,10 +374,12 @@ export interface SlabDesignResultItem {
   rectangular: boolean
   /** tipologia da laje */
   kind: 'macica' | 'nervurada'
-  /** presente apenas p/ lajes MACIÇAS retangulares */
+  /** presente apenas p/ lajes MACIÇAS retangulares (método de Marcus) */
   design: import('../nbr/nbr6118/slabDesign').SlabDesignOutput | null
   /** presente apenas p/ lajes NERVURADAS retangulares */
   ribbedDesign: import('../nbr/nbr6118/ribbedSlab').RibbedDesignOutput | null
+  /** presente quando o método de lajes é GRELHA (maciças de qualquer forma) */
+  gridDesign: SlabGridDesign | null
   status: 'ok' | 'atencao' | 'falha'
   notes: string[]
 }

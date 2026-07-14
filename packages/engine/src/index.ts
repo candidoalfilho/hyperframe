@@ -24,6 +24,15 @@ export * from './drawing/types'
 
 export * from './analysis/types'
 export { buildAnalysisModel } from './analysis/buildModel'
+export {
+  analyzeSlabGrid,
+  buildGridMesh,
+  solveGrid,
+  type GridModel,
+  type GridResult,
+  type SlabGridInput,
+  type SlabGridOutput,
+} from './analysis/grid'
 export { analyze, comboDisplacements, comboDiagrams, comboReactions } from './analyze'
 
 export * from './nbr/api'

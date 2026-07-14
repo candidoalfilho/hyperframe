@@ -437,6 +437,17 @@ export interface ProjectSettings {
   notionalImperfections: boolean
   /** majoração 0,95·γz dos esforços horizontais ELU quando 1,1 < γz ≤ 1,3 (§15.7.2) */
   secondOrderGammaZ: boolean
+  /**
+   * Método de análise/dimensionamento de lajes maciças:
+   * 'marcus' (quinhões a 45° + Marcus) ou 'grelha' (analogia de grelha —
+   * suporta lajes não retangulares, furos e LAJES LISAS com pilar interno).
+   */
+  slabMethod: 'marcus' | 'grelha'
+  /**
+   * Vigas no nível da fundação (baldrames) sobre apoio elástico de Winkler.
+   * ks em kN/m³; 0/ausente = estimado da sondagem (Es médio).
+   */
+  groundBeamKs?: number
 }
 
 // ---------------------------------------------------------------------------

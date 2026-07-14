@@ -136,6 +136,28 @@
 - [ ] Runtime embutido (llama.cpp sidecar, sem depender do Ollama) → v0.4
 - [ ] Streaming de texto no chat + contexto de seleção (elemento selecionado vai junto) → v0.3
 
+## v0.2.6 — Grelha de lajes + baldrames Winkler ✅ (engine entregue)
+
+> Analogia de grelha p/ lajes maciças (contorno qualquer, furos e **lajes lisas**) e
+> vigas baldrame sobre apoio elástico de Winkler. Núcleo no engine — falta expor na UI.
+> 283 testes.
+
+- [x] **Grelha de pavimento** (`analysis/grid.ts`): malha regular de barras cruzadas com
+  3 GDL/nó (w, θx, θy), flexão EI + torção GJ, mesmo solver skyline LDLᵀ do pórtico —
+  âncoras: faixa unidirecional = viga (exata) e placa quadrada apoiada (Timoshenko)
+- [x] **`slabMethod: 'marcus' | 'grelha'`** nas configurações do projeto: no modo grelha
+  os quinhões a 45° dão lugar às reações reais por borda (força conservada) e pilares
+  **internos** à laje recebem carga nodal direta — laje lisa/cogumelo funciona
+- [x] **Dimensionamento pela grelha**: momentos por metro (vão/apoio, X/Y), malhas
+  escolhidas, flecha com I_eq (Branson) + fluência e **punção §19.5 com o Fsd real** de
+  cada pilar interno; consistência orienta a troca de método (aviso vira leve na grelha)
+- [x] **Baldrames sobre Winkler** (vigas no nível da fundação): ks manual > sondagem
+  (Es médio) > heurística 120·σadm; refino ≤ 0,5 m com molas kz = ks·B·Ltrib em nós
+  livres (solver aceita mola fora de apoio), alvenaria de embasamento no nível 0,
+  pressão no solo × σadm (aviso) e baldrame dimensionado como viga
+- [ ] Expor na UI: seletor do método de lajes, resultados da grelha no inspetor/memorial
+  e ks dos baldrames nas configurações → v0.3
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.
@@ -149,17 +171,17 @@
 | Pilares metálicos / mistos / madeira | ❌ | NBR 8800 (aço) → v0.4 · mistos/NBR 7190 → v1.x |
 | Vigas de concreto | ✅ flexão/corte/torção/pele/furos | — |
 | Vigas metálicas e mistas | ❌ | NBR 8800 + conectores → v0.4 |
-| Lajes maciças | ✅ Marcus + flechas + ELS-W | grelha própria → v0.3 |
+| Lajes maciças | ✅ Marcus ou grelha (v0.2.6) + flechas + ELS-W | expor grelha na UI → v0.3 |
 | Lajes nervuradas | ✅ v0.2.3 (in loco, bi/uni) | vigotas/treliçadas → v0.5 |
-| Lajes cogumelo/lisas | ⚠️ punção §19.5 pronta | pórtico equivalente §14.7.8 → v0.5 |
+| Lajes cogumelo/lisas | ✅ grelha c/ pilar interno + punção §19.5 (v0.2.6) | faixas §14.7.8 + armadura de punção detalhada → v0.5 |
 | Lajes alveolares / steel-deck | ❌ | catálogos de fornecedores → v1.x |
 | Protensão (lajes) | ❌ | perdas + eq. de carga + hiperestático → v1.x |
 | Sapatas | ✅ rígidas c/ excentricidade | associadas/corridas → v0.5 |
 | Blocos sobre estacas | ✅ Blévot 1–5 | ≥ 6 estacas (CEB) → v0.5 |
 | Tubulões | ✅ v0.2.3 | — |
-| Radier / vigas sobre apoio elástico | ⚠️ molas nodais prontas no solver | baldrames Winkler → v0.3 · radier (placa) → v1.x |
+| Radier / vigas sobre apoio elástico | ✅ baldrames Winkler (v0.2.6) | radier (placa) → v1.x |
 | Interação solo-estrutura | ✅ SPT → CRV/CRH + recalques | molas por camada em estacas → v0.5 |
-| Fundação + superestrutura integrada | ✅ 2 passes c/ molas | baldrames/travamentos → v0.3 |
+| Fundação + superestrutura integrada | ✅ 2 passes c/ molas + baldrames (v0.2.6) | — |
 | Cortinas e reservatórios enterrados | ⚠️ reservatórios elevados | empuxo de terra → v0.5 |
 | Lançamento automático BIM/IFC | ⚠️ underlay DXF | import/export IFC → v1.0 |
 | Cargas de paredes (BIM) | ✅ manuais (inteiras/por trecho) | do IFC → v1.0 |
@@ -197,8 +219,8 @@
 | Item | Impacto | Plano |
 |---|---|---|
 | Ca do vento: grade aproximada da Fig. 4 | ±10% na força de vento; usuário pode sobrescrever | Digitalizar a figura da norma (v0.3) |
-| Quinhões de laje: uniforme equivalente (não trapezoidal) | Momentos de viga ligeiramente suavizados | Cargas trapezoidais exatas (v0.3) |
-| Lajes não entram na rigidez (só carga + diafragma) | Conservador p/ vigas | Grelha/casca opcional (v0.3) |
+| Quinhões de laje: uniforme equivalente (não trapezoidal) | Momentos de viga ligeiramente suavizados | Atenuado (v0.2.6): grelha dá o quinhão exato por borda; trapezoidal no Marcus (v0.3) |
+| Lajes não entram na rigidez (só carga + diafragma) | Conservador p/ vigas | Grelha (v0.2.6) cobre distribuição/flechas; rigidez no pórtico → casca (v0.4) |
 | Apoios sempre engastados na fundação | Usual, mas não configurável | Molas/rotulado (v0.3) |
 | V0 das cidades: aproximado das isopletas | Usuário confirma na UI | Mapa interativo (v0.3) |
 | ~~Pilar: verificação simplificada~~ | — | ✅ resolvido (v0.2: flexo-compressão oblíqua) |

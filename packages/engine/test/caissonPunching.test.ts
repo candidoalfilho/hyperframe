@@ -117,8 +117,13 @@ describe('consistência — laje lisa e pilar-parede', () => {
     })
     const issues = checkConsistency(p)
     expect(
-      issues.some((i) => i.message.includes('P99') && i.message.includes('laje lisa')),
+      issues.some((i) => i.message.includes('P99') && i.message.includes('GRELHA')),
     ).toBe(true)
+    // com o método da grelha o apontamento vira informativo (leve)
+    p.settings.slabMethod = 'grelha'
+    const issues2 = checkConsistency(p)
+    const flat = issues2.find((i) => i.message.includes('P99') && i.message.includes('punção'))
+    expect(flat?.severity).toBe('leve')
   })
 
   it('pilar-parede (b/h ≥ 5) recebe aviso do §15.9', () => {

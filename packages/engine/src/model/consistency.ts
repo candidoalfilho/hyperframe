@@ -219,12 +219,21 @@ export function checkConsistency(project: Project): ConsistencyIssue[] {
             return false
           })
           if (!onBeam) {
-            push(
-              'media',
-              `Pilar ${col.name} interno à laje ${slab.name} (${where}) sem viga — laje lisa/cogumelo (punção §19.5 e pórtico equivalente) ainda não modelada; a carga da laje NÃO chega ao pilar por este caminho.`,
-              { kind: 'column', id: col.id },
-              where,
-            )
+            if (project.settings.slabMethod === 'grelha') {
+              push(
+                'leve',
+                `Pilar ${col.name} interno à laje ${slab.name} (${where}): laje lisa — a GRELHA leva a carga ao pilar e verifica a punção (§19.5).`,
+                { kind: 'column', id: col.id },
+                where,
+              )
+            } else {
+              push(
+                'media',
+                `Pilar ${col.name} interno à laje ${slab.name} (${where}) sem viga — no método de Marcus a carga NÃO chega ao pilar; mude p/ o método da GRELHA nas configurações (lajes lisas + punção).`,
+                { kind: 'column', id: col.id },
+                where,
+              )
+            }
           }
         }
       }

@@ -93,6 +93,7 @@ export function normalizeProject(p: Project): Project {
   }
   if (p.settings.notionalImperfections === undefined) p.settings.notionalImperfections = true
   if (p.settings.secondOrderGammaZ === undefined) p.settings.secondOrderGammaZ = true
+  if (p.settings.slabMethod === undefined) p.settings.slabMethod = 'marcus'
   if (p.underlay === undefined) p.underlay = null
   return p
 }

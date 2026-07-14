@@ -172,6 +172,27 @@ export function analyze(project: Project): AnalysisResults {
   // ----------------------------------------- recalques (ELS-QP, molas ativas)
   finishSoilResults(project, model, combos, casesEls, soilInteraction)
 
+  // ------------------------- pressão no solo sob baldrames (Winkler, G+Q)
+  if (model.winkler && model.winkler.length > 0) {
+    const g = casesEls.G
+    const q = casesEls.Q
+    let pMax = 0
+    for (const w of model.winkler) {
+      const uz = (g?.displacements[w.nodeId][2] ?? 0) + (q?.displacements[w.nodeId][2] ?? 0)
+      if (w.area > 1e-9) pMax = Math.max(pMax, (-uz * w.kz) / w.area)
+    }
+    const sigmaAdm = project.settings.soil.sigmaAdm
+    if (pMax > sigmaAdm) {
+      model.warnings.push(
+        `Baldrames: pressão máxima no solo ${pMax.toFixed(0)} kPa > σadm = ${sigmaAdm.toFixed(0)} kPa — alargue a base ou revise o ks.`,
+      )
+    } else if (pMax > 0) {
+      model.warnings.push(
+        `Baldrames: pressão máxima no solo ${pMax.toFixed(0)} kPa ≤ σadm = ${sigmaAdm.toFixed(0)} kPa (serviço G+Q).`,
+      )
+    }
+  }
+
   // --------------------------------------------- planta de cargas (fundação)
   const foundationLoads = computeFoundationLoads(project, model, combos, cases)
 

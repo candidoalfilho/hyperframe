@@ -1,11 +1,14 @@
 import type { FloorPlan, Project, SectionRect, Slab, Vec2 } from '../model/types'
 import { columnSectionInfo, columnWorldDirs } from '../model/columnSection'
 import { ribbedSelfWeight } from '../nbr/nbr6118/ribbedSlab'
+import { analyzeSlabGrid, slabGridCacheKey, type SlabGridOutput } from './grid'
+import { averageModulus } from '../geotech/soil'
 import {
   TOL,
   bbox,
   cross,
   dist,
+  pointInPolygon,
   pointKey,
   polygonArea,
   polygonCentroid,
@@ -98,6 +101,27 @@ export function buildAnalysisModel(project: Project): {
   /** pieces por índice de nível */
   const piecesByLevel = new Map<number, Piece[]>()
 
+  // ks p/ baldrames (vigas no nível 0) sobre apoio elástico de Winkler:
+  // override manual > sondagem (Es médio, faixa B) > heurística 120·σadm
+  const level0HasBeams = (() => {
+    const l0 = levels[0]
+    if (!l0?.planId) return false
+    const plan = project.plans.find((p) => p.id === l0.planId)
+    return (plan?.beams.length ?? 0) > 0
+  })()
+  let ksGround = 0
+  if (level0HasBeams) {
+    const si = project.settings.soilInteraction
+    if (project.settings.groundBeamKs && project.settings.groundBeamKs > 0) {
+      ksGround = project.settings.groundBeamKs
+    } else if (si.enabled && si.layers.length > 0) {
+      const es = averageModulus(si.layers, 2 * 0.3) // faixa ~30 cm
+      ksGround = es / (0.3 * (1 - si.poisson * si.poisson))
+    } else {
+      ksGround = 120 * project.settings.soil.sigmaAdm // heurística usual (Bowles)
+    }
+  }
+
   for (let li = 0; li < levels.length; li++) {
     const level = levels[li]
     if (!level.planId) continue
@@ -139,7 +163,21 @@ export function buildAnalysisModel(project: Project): {
           const { t, d } = projectOnSegment(cp, a, b)
           if (d <= TOL * 2) cuts.add(Math.round((t * L) / TOL) * (TOL / L))
         }
-        const ts = [...cuts].sort((x, y) => x - y)
+        let ts = [...cuts].sort((x, y) => x - y)
+        // baldrames (nível 0) sobre Winkler: refina em segmentos ≤ 0,5 m
+        if (li === 0 && ksGround > 0) {
+          const refined: number[] = []
+          for (let k = 0; k + 1 < ts.length; k++) {
+            refined.push(ts[k])
+            const segLen = (ts[k + 1] - ts[k]) * L
+            const nSub = Math.ceil(segLen / 0.5)
+            for (let s2 = 1; s2 < nSub; s2++) {
+              refined.push(ts[k] + ((ts[k + 1] - ts[k]) * s2) / nSub)
+            }
+          }
+          refined.push(ts[ts.length - 1])
+          ts = refined
+        }
         for (let k = 0; k + 1 < ts.length; k++) {
           const t0 = ts[k]
           const t1 = ts[k + 1]
@@ -279,6 +317,35 @@ export function buildAnalysisModel(project: Project): {
     }
   }
 
+  // ------------------------------------ molas de Winkler nos baldrames
+  const winkler: { nodeId: number; kz: number; area: number }[] = []
+  if (ksGround > 0) {
+    const acc = new Map<number, { kz: number; area: number }>()
+    for (const m of members) {
+      if (m.ref.kind !== 'beam') continue
+      if (nodes[m.ni].levelIndex !== 0) continue
+      for (const nid of [m.ni, m.nj]) {
+        if (nodes[nid].support) continue // base de pilar tem a própria fundação
+        const area = (m.section.bw * m.length) / 2
+        const cur = acc.get(nid) ?? { kz: 0, area: 0 }
+        cur.kz += ksGround * area
+        cur.area += area
+        acc.set(nid, cur)
+      }
+    }
+    for (const [nid, v] of acc) {
+      const springs = nodes[nid].springs ?? [0, 0, 0, 0, 0, 0]
+      springs[2] += v.kz
+      nodes[nid].springs = springs
+      winkler.push({ nodeId: nid, kz: v.kz, area: v.area })
+    }
+    if (winkler.length > 0) {
+      warnings.push(
+        `Baldrames sobre apoio elástico (Winkler): ks = ${Math.round(ksGround)} kN/m³ em ${winkler.length} nós.`,
+      )
+    }
+  }
+
   // ------------------------------------------------------------- diafragmas
   const masters: { levelIndex: number; nodeId: number }[] = []
   for (let li = 1; li < levels.length; li++) {
@@ -345,8 +412,9 @@ export function buildAnalysisModel(project: Project): {
     byBeam.set(m.ref.sourceId, list)
   }
 
-  // alvenaria (cargas de linha permanentes) — viga inteira ou trecho [x0, x1]
-  for (let li = 1; li < levels.length; li++) {
+  // alvenaria (cargas de linha permanentes) — viga inteira ou trecho [x0, x1];
+  // inclui o nível 0 (alvenaria de embasamento sobre baldrames)
+  for (let li = 0; li < levels.length; li++) {
     const level = levels[li]
     if (!level.planId) continue
     const plan = project.plans.find((p) => p.id === level.planId)
@@ -379,7 +447,17 @@ export function buildAnalysisModel(project: Project): {
     }
   }
 
-  // lajes: quinhões de carga por área de influência
+  // lajes: quinhões por área de influência (Marcus) ou reações da GRELHA
+  const useGrid = project.settings.slabMethod === 'grelha'
+  const gridCache = new Map<string, SlabGridOutput>()
+  const levelIndexOfColumn = (colId: string): [number, number] => {
+    const col = project.columns.find((c) => c.id === colId)
+    if (!col) return [0, -1]
+    return [
+      levelIndexById.get(col.baseLevelId) ?? 0,
+      levelIndexById.get(col.topLevelId) ?? levels.length - 1,
+    ]
+  }
   for (let li = 1; li < levels.length; li++) {
     const level = levels[li]
     if (!level.planId) continue
@@ -436,6 +514,7 @@ export function buildAnalysisModel(project: Project): {
         onEdge: number[]
         covered: number
         edgeLen: number
+        edgeIndex: number
       }
       const supported: EdgeSupport[] = []
       let freeTrib = 0
@@ -465,7 +544,7 @@ export function buildAnalysisModel(project: Project): {
           freeTrib += aTrib
           continue
         }
-        supported.push({ aTrib, onEdge, covered, edgeLen })
+        supported.push({ aTrib, onEdge, covered, edgeLen, edgeIndex: e })
         if (covered < edgeLen - 10 * TOL) {
           warnings.push(
             `Laje ${slab.name} (${level.name}): borda parcialmente apoiada (${covered.toFixed(
@@ -474,6 +553,80 @@ export function buildAnalysisModel(project: Project): {
           )
         }
       }
+      // ---------------- método da GRELHA: reações reais por borda + pilares
+      if (useGrid) {
+        // pilares internos à laje SEM viga sob o ponto (lajes lisas)
+        const interior: { id: string; pos: Vec2 }[] = []
+        for (const col of project.columns) {
+          const [ib, it] = levelIndexOfColumn(col.id)
+          if (li < ib || li > it) continue
+          if (!pointInPolygon(col.pos, slab.polygon)) continue
+          const onBeam = levelMembers.some((m) => {
+            const na = nodes[m.ni]
+            const nb = nodes[m.nj]
+            return (
+              projectOnSegment(col.pos, { x: na.x, y: na.y }, { x: nb.x, y: nb.y }).d <= TOL * 2
+            )
+          })
+          if (!onBeam) interior.push({ id: col.id, pos: col.pos })
+        }
+        const supportedEdgeIdx = supported.map((ed) => ed.edgeIndex)
+        if (supportedEdgeIdx.length + interior.length > 0) {
+          try {
+            const key = slabGridCacheKey({
+              polygon: slab.polygon,
+              holes: slabOpeningPolygons(plan, slab),
+              supportedEdges: supportedEdgeIdx,
+              interiorColumns: interior,
+              thickness: slab.thickness,
+            })
+            let grid = gridCache.get(key)
+            if (!grid) {
+              grid = analyzeSlabGrid({
+                polygon: slab.polygon,
+                holes: slabOpeningPolygons(plan, slab),
+                supportedEdges: supportedEdgeIdx,
+                interiorColumns: interior,
+                thickness: slab.thickness,
+                e: 25e6, // distribuição independe de E (uniforme na laje)
+                q: 1,
+              })
+              gridCache.set(key, grid)
+            }
+            const totalG = gArea * area
+            const totalQ = qArea * area
+            for (const ed of supported) {
+              const share = grid.edgeShares.get(ed.edgeIndex) ?? 0
+              if (share <= 0) continue
+              const wLineG = (share * totalG) / ed.covered
+              const wLineQ = (share * totalQ) / ed.covered
+              for (const mid of ed.onEdge) {
+                memberLoads.G[mid].wy -= wLineG
+                memberLoads.Q[mid].wy -= wLineQ
+              }
+            }
+            for (const [colId, fUnit] of grid.columnLoads) {
+              const col = project.columns.find((c) => c.id === colId)
+              if (!col) continue
+              const frac = fUnit / Math.max(grid.result.totalReaction, 1e-9)
+              const node = getNode(li, col.pos)
+              nodalLoads.G.push({ node, dof: 2, value: -frac * totalG })
+              nodalLoads.Q.push({ node, dof: 2, value: -frac * totalQ })
+            }
+            if (interior.length > 0) {
+              warnings.push(
+                `Laje ${slab.name} (${level.name}): grelha com ${interior.length} pilar(es) interno(s) — laje lisa; punção verificada no dimensionamento.`,
+              )
+            }
+            continue // não usa o caminho de quinhões a 45°
+          } catch (err) {
+            warnings.push(
+              `Laje ${slab.name} (${level.name}): grelha falhou (${err instanceof Error ? err.message : 'erro'}) — usando quinhões a 45°.`,
+            )
+          }
+        }
+      }
+
       // 2º passe: aplica quinhões; bordas livres redistribuem às apoiadas
       const tribSupported = supported.reduce((s, ed) => s + ed.aTrib, 0)
       if (freeTrib > 1e-9) {
@@ -625,6 +778,8 @@ export function buildAnalysisModel(project: Project): {
     wind,
     imperfections,
     levelWeights,
+    winkler: winkler.length > 0 ? winkler : null,
+    winklerKs: ksGround > 0 ? ksGround : null,
     warnings,
     stats: { nodes: nodes.length, members: members.length, dofs: 0 },
   }
