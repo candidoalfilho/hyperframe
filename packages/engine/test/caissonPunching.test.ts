@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { designCaisson } from '../src/nbr/nbr6122/caisson'
-import { checkPunching } from '../src/nbr/nbr6118/punching'
+import { checkPunching, openingPerimeterReduction } from '../src/nbr/nbr6118/punching'
 import { checkConsistency } from '../src/model/consistency'
 import { createSampleProject } from '../src/model/factory'
 import { analyze } from '../src/analyze'
@@ -131,5 +131,63 @@ describe('consistência — laje lisa e pilar-parede', () => {
     p.columns[0].section = { bw: 0.2, h: 1.2 }
     const issues = checkConsistency(p)
     expect(issues.some((i) => i.message.includes('pilar-parede'))).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Aberturas próximas ao pilar — §19.5.1 (desconto do perímetro crítico)
+// ---------------------------------------------------------------------------
+
+describe('openingPerimeterReduction (§19.5.1)', () => {
+  // furo quadrado 0,4×0,4 centrado em (1; 0), pilar na origem:
+  // tangentes ≈ vértices (0,8; ±0,2) → semiângulo atan(0,2/0,8) = 14,04°
+  // ⇒ setor 28,07° ⇒ fração 28,07/360 = 0,078
+  const hole = [
+    { x: 0.8, y: -0.2 },
+    { x: 1.2, y: -0.2 },
+    { x: 1.2, y: 0.2 },
+    { x: 0.8, y: 0.2 },
+  ]
+
+  it('âncora manual do setor angular subtendido', () => {
+    const f = openingPerimeterReduction({ x: 0, y: 0 }, [hole], 0.16) // 8d = 1,28 m
+    expect(f).toBeCloseTo(0.078, 3)
+  })
+
+  it('furo além de 8d não desconta nada', () => {
+    expect(openingPerimeterReduction({ x: 0, y: 0 }, [hole], 0.05)).toBe(0) // 8d = 0,40 m
+  })
+
+  it('desconto satura em 50% (vários furos ao redor)', () => {
+    const ring = [0, 90, 180, 270].map((deg) => {
+      const a = (deg * Math.PI) / 180
+      return hole.map((p) => {
+        // gira o furo p/ os 4 quadrantes
+        const r = Math.hypot(p.x, p.y)
+        const t = Math.atan2(p.y, p.x) + a
+        return { x: r * Math.cos(t), y: r * Math.sin(t) }
+      })
+    })
+    const f = openingPerimeterReduction({ x: 0, y: 0 }, ring, 0.2)
+    expect(f).toBeGreaterThan(0.2)
+    expect(f).toBeLessThanOrEqual(0.5)
+  })
+
+  it('checkPunching aplica a fração aos dois perímetros', () => {
+    const base = {
+      fsd: 300,
+      column: { shape: 'rect', c1: 0.35, c2: 0.35 },
+      d: 0.16,
+      rhoX: 0.005,
+      rhoY: 0.005,
+      fck: 30000,
+      gammaC: 1.4,
+    } as const
+    const cheio = checkPunching({ ...base })
+    const furado = checkPunching({ ...base, openingFraction: 0.2 })
+    expect(furado.u0).toBeCloseTo(cheio.u0 * 0.8, 9)
+    expect(furado.u1).toBeCloseTo(cheio.u1 * 0.8, 9)
+    expect(furado.tauSd1).toBeCloseTo(cheio.tauSd1 / 0.8, 6)
+    expect(furado.notes.some((n) => n.includes('§19.5.1'))).toBe(true)
   })
 })

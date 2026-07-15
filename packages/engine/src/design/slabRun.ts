@@ -5,7 +5,7 @@ import { concreteProps, coverFor, fyd as fydOf } from '../nbr/nbr6118/materials'
 import { designSlab, pickSlabBars, type EdgeCondition } from '../nbr/nbr6118/slabDesign'
 import { designBeamFlexure } from '../nbr/nbr6118/beamDesign'
 import { designRibbedSlab, ribbedSelfWeight } from '../nbr/nbr6118/ribbedSlab'
-import { checkPunching } from '../nbr/nbr6118/punching'
+import { checkPunching, openingPerimeterReduction } from '../nbr/nbr6118/punching'
 import { analyzeSlabGrid } from '../analysis/grid'
 import { columnSectionInfo } from '../model/columnSection'
 import { slabExtraLoads, slabOpeningPolygons, slabOpeningsArea } from '../analysis/buildModel'
@@ -282,11 +282,12 @@ function designSlabByGrid(
   const wd = 1.4 * (g + q)
   const wQp = g + project.settings.psiLive.psi2 * q
 
+  const holes = slabOpeningPolygons(plan, slab)
   let grid
   try {
     grid = analyzeSlabGrid({
       polygon: slab.polygon,
-      holes: slabOpeningPolygons(plan, slab),
+      holes,
       supportedEdges,
       interiorColumns: interior,
       thickness: slab.thickness,
@@ -356,6 +357,8 @@ function designSlabByGrid(
     const fsd = fUnit * wd
     const info = columnSectionInfo(col.section)
     const rho = Math.min(Math.max(fXSup.as, fYSup.as) / d, 0.02)
+    // furo a menos de 8d do pilar desconta o trecho entre tangentes (§19.5.1)
+    const openingFraction = openingPerimeterReduction(col.pos, holes, d)
     const check = checkPunching({
       fsd,
       column:
@@ -367,9 +370,41 @@ function designSlabByGrid(
       rhoY: rho,
       fck: mat.fck,
       gammaC: project.settings.concrete.gammaC,
+      openingFraction,
     })
+    if (openingFraction > 1e-9) {
+      notes.push(
+        `Punção de ${col.name}: abertura a menos de 8d — perímetros reduzidos em ${Math.round(openingFraction * 100)}% (§19.5.1).`,
+      )
+    }
     punching.push({ columnId: colId, name: col.name, fsd, check })
   }
+
+  // reforço de borda dos furos: repõe a armadura interrompida (metade por
+  // lado, barras paralelas à borda) + diagonais de canto contra fissuração
+  const aPhi10 = (Math.PI * 0.01 * 0.01) / 4
+  holes.forEach((hole, i) => {
+    let hx0 = Infinity
+    let hx1 = -Infinity
+    let hy0 = Infinity
+    let hy1 = -Infinity
+    for (const p of hole) {
+      hx0 = Math.min(hx0, p.x)
+      hx1 = Math.max(hx1, p.x)
+      hy0 = Math.min(hy0, p.y)
+      hy1 = Math.max(hy1, p.y)
+    }
+    const wx = hx1 - hx0
+    const wy = hy1 - hy0
+    if (wx < 0.05 || wy < 0.05) return
+    const nX = Math.max(2, Math.ceil((fX.as * wy) / 2 / aPhi10))
+    const nY = Math.max(2, Math.ceil((fY.as * wx) / 2 / aPhi10))
+    notes.push(
+      `Furo ${i + 1} (${wx.toFixed(2).replace('.', ',')}×${wy.toFixed(2).replace('.', ',')} m): ` +
+        `repor ${nX} φ 10 por borda paralela a X e ${nY} φ 10 por borda paralela a Y ` +
+        `(comprimento = furo + 2·lb) + 2 φ 10 a 45° por canto (§13.2.5).`,
+    )
+  })
 
   const flexOk = fX.ok && fXSup.ok && fY.ok && fYSup.ok
   const punchFail = punching.some((p) => !p.check.okC)

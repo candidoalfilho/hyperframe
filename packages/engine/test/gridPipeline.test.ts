@@ -4,6 +4,7 @@ import { uid } from '../src/model/uid'
 import { analyze } from '../src/analyze'
 import { buildAnalysisModel } from '../src/analysis/buildModel'
 import { buildMemorialPdf } from '../src/report/memorial'
+import { checkConsistency } from '../src/model/consistency'
 import type { Project } from '../src/model/types'
 
 /** prédio com laje LISA: 4 pilares internos, vigas só no perímetro externo maior */
@@ -142,6 +143,73 @@ describe('grelha no pipeline — edifício exemplo completo', () => {
       expect(sd.gridDesign!.asX).toBeGreaterThan(0)
       expect(sd.gridDesign!.asY).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('furos: punção §19.5.1, reforço de borda e §13.2.5', () => {
+  /** laje lisa 9×9 com furo retangular 1,2×0,8 encostado no pilar interno P5 (3;3) */
+  function withHoleNearColumn(): Project {
+    const p = flatSlabBuilding()
+    p.plans[0].loadRegions.push({
+      id: uid('rg'),
+      name: 'FUR1',
+      kind: 'furo',
+      polygon: [
+        { x: 3.8, y: 2.6 },
+        { x: 5.0, y: 2.6 },
+        { x: 5.0, y: 3.4 },
+        { x: 3.8, y: 3.4 },
+      ],
+      g: 0,
+      q: 0,
+    })
+    return p
+  }
+
+  it('furo a menos de 8d reduz o perímetro de punção do pilar (§19.5.1)', () => {
+    const r = analyze(withHoleNearColumn())
+    const gd = r.slabDesign.find((s) => s.name === 'L1')!.gridDesign!
+    const p5 = gd.punching.find((pu) => pu.name === 'P5')!
+    // P5 em (3;3), vértice mais próximo do furo a 0,89 m < 8d ⇒ desconto
+    expect(p5.check.u0).toBeLessThan(4 * 0.35 - 1e-6)
+    expect(p5.check.notes.some((n) => n.includes('§19.5.1'))).toBe(true)
+    // P7 em (6;6) está além de 8d — perímetro cheio
+    const p7 = gd.punching.find((pu) => pu.name === 'P7')!
+    expect(p7.check.u0).toBeCloseTo(4 * 0.35, 6)
+  })
+
+  it('reforço de borda do furo dimensionado (reposição da armadura cortada)', () => {
+    const r = analyze(withHoleNearColumn())
+    const item = r.slabDesign.find((s) => s.name === 'L1')!
+    expect(item.notes.some((n) => n.includes('repor') && n.includes('φ 10'))).toBe(true)
+    expect(item.notes.some((n) => n.includes('45°'))).toBe(true)
+  })
+
+  it('consistência: furo grande exige verificação; pequeno dispensa (§13.2.5)', () => {
+    // 1,2 m > lx/10 = 0,9 m ⇒ exige (leve no modo grelha, que já considera)
+    const grande = checkConsistency(withHoleNearColumn())
+    const ex = grande.find((i) => i.message.includes('§13.2.5') && i.message.includes('exige'))
+    expect(ex).toBeDefined()
+    expect(ex!.severity).toBe('leve')
+    // furo de 60 cm ≤ 0,9 m ⇒ dispensa
+    const p2 = flatSlabBuilding()
+    p2.plans[0].loadRegions.push({
+      id: uid('rg'),
+      name: 'FUR2',
+      kind: 'furo',
+      polygon: [
+        { x: 7.5, y: 7.5 },
+        { x: 8.1, y: 7.5 },
+        { x: 8.1, y: 8.1 },
+        { x: 7.5, y: 8.1 },
+      ],
+      g: 0,
+      q: 0,
+    })
+    const pequeno = checkConsistency(p2)
+    expect(
+      pequeno.some((i) => i.message.includes('§13.2.5') && i.message.includes('dispensa')),
+    ).toBe(true)
   })
 })
 

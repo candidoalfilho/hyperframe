@@ -206,6 +206,24 @@
 - [x] Projeto de exemplo sem `author` fixo — **RESP. TÉCNICO nunca é preenchido pelo
   software**; fica "—" até o engenheiro informar o seu nome
 
+## v0.2.10 — Furos completos (§19.5.1/§13.2.5) + site open source ✅ (entregue)
+
+> Fecha o tema "furos em laje" e materializa a decisão de 15/07/2026:
+> **HyperFrame é 100% open source** (binários por SO + fonte no site). 302 testes.
+
+- [x] **Punção × aberturas (§19.5.1)**: furo a menos de 8d do pilar desconta o setor
+  entre as tangentes (do centro do pilar) dos perímetros C/C′ —
+  `openingPerimeterReduction` com âncora manual; desconto saturado em 50%; ligado ao
+  pipeline da grelha (nota por pilar afetado)
+- [x] **Reforço de borda de furo dimensionado**: reposição da armadura interrompida
+  (metade por lado, φ10) nas duas direções + diagonais de canto — nas notas da laje
+- [x] **Dispensa §13.2.5 na consistência**: furo ≤ lx/10 → "dispensa verificação";
+  maior → "exige verificação/reposição" (média no Marcus, leve na grelha)
+- [x] **Site**: seção "Código aberto" + downloads por versão (dmg v0.2.9 hospedado no
+  site com sha256; Windows/Linux → GitHub Releases), badge open source no hero/rodapé,
+  link do repositório e **versão em inglês** (`site/en/`) com toggle PT↔EN
+- [x] BUSINESS.md com o pivô open source (supera §4 — licenciamento)
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.

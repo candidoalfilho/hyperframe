@@ -21,6 +21,47 @@ export interface PunchingInput {
   /** fck, kPa */
   fck: number
   gammaC: number
+  /**
+   * fração dos perímetros descontada por ABERTURAS a menos de 8d do pilar
+   * (§19.5.1): trecho entre as tangentes traçadas do centro do pilar à
+   * abertura não conta. Calcule com `openingPerimeterReduction`. 0 = sem furo.
+   */
+  openingFraction?: number
+}
+
+/**
+ * Fração do perímetro crítico descontada por furos próximos (§19.5.1):
+ * p/ cada furo com ponto a menos de 8d do CENTRO do pilar (a favor da
+ * segurança — a norma mede do contorno C), soma o setor angular subtendido
+ * pelo furo visto do centro (tangentes ≈ vértices do polígono do furo).
+ */
+export function openingPerimeterReduction(
+  center: { x: number; y: number },
+  holes: { x: number; y: number }[][],
+  d: number,
+): number {
+  let total = 0
+  for (const hole of holes) {
+    if (hole.length < 3) continue
+    let near = false
+    const angles: number[] = []
+    for (const p of hole) {
+      const dx = p.x - center.x
+      const dy = p.y - center.y
+      if (Math.hypot(dx, dy) <= 8 * d) near = true
+      angles.push(Math.atan2(dy, dx))
+    }
+    if (!near) continue
+    // menor arco que contém todos os vértices = 2π − maior lacuna angular
+    angles.sort((a, b) => a - b)
+    let maxGap = 2 * Math.PI - (angles[angles.length - 1] - angles[0])
+    for (let i = 0; i + 1 < angles.length; i++) {
+      maxGap = Math.max(maxGap, angles[i + 1] - angles[i])
+    }
+    total += 2 * Math.PI - maxGap
+  }
+  // desconto máximo de 50% — acima disso a laje lisa exige estudo dedicado
+  return Math.min(total / (2 * Math.PI), 0.5)
 }
 
 export interface PunchingOutput {
@@ -46,17 +87,26 @@ export function checkPunching(inp: PunchingInput): PunchingOutput {
   const fckMPa = inp.fck / 1000
   const fcd = inp.fck / inp.gammaC
 
+  // §19.5.1: aberturas a menos de 8d descontam o trecho entre as tangentes
+  const red = Math.min(Math.max(inp.openingFraction ?? 0, 0), 0.5)
   const u0 =
-    inp.column.shape === 'rect'
+    (inp.column.shape === 'rect'
       ? 2 * (inp.column.c1 + inp.column.c2)
-      : Math.PI * inp.column.d
+      : Math.PI * inp.column.d) *
+    (1 - red)
   const u1 =
-    inp.column.shape === 'rect'
+    (inp.column.shape === 'rect'
       ? 2 * (inp.column.c1 + inp.column.c2) + 4 * Math.PI * d
-      : Math.PI * (inp.column.d + 4 * d)
+      : Math.PI * (inp.column.d + 4 * d)) *
+    (1 - red)
 
   const tauSd0 = inp.fsd / (u0 * d)
   const tauSd1 = inp.fsd / (u1 * d)
+  if (red > 1e-9) {
+    notes.push(
+      `Abertura a menos de 8d do pilar: perímetros C/C′ reduzidos em ${Math.round(red * 100)}% (§19.5.1).`,
+    )
+  }
 
   // contorno C: τRd2 = 0,27·αv·fcd (§19.5.3.1)
   const alphaV = 1 - fckMPa / 250

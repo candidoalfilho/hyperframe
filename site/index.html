@@ -353,8 +353,10 @@ footer{padding:56px 0 64px;font-size:13px;color:var(--ink-soft)}
     <div class="nav-links">
       <a href="#recursos">Recursos</a>
       <a href="#comparativo">Comparativo</a>
+      <a href="#downloads">Downloads</a>
       <a href="#precos">Preços</a>
       <a href="#faq">FAQ</a>
+      <a href="en/" hreflang="en" aria-label="English version" style="font-family:var(--mono);font-size:11px;letter-spacing:.12em">EN</a>
       <a class="btn" href="#lista" style="margin-left:6px">Entrar na lista <span class="arr">→</span></a>
     </div>
     <button class="nav-burger" aria-label="Abrir menu" aria-expanded="false" onclick="toggleMenu(this)">☰</button>
@@ -362,8 +364,10 @@ footer{padding:56px 0 64px;font-size:13px;color:var(--ink-soft)}
   <div class="nav-menu-mobile" id="mmenu">
     <a href="#recursos">Recursos</a>
     <a href="#comparativo">Comparativo</a>
+    <a href="#downloads">Downloads</a>
     <a href="#precos">Preços</a>
     <a href="#faq">FAQ</a>
+    <a href="en/">English version</a>
     <a href="#lista"><b>Entrar na lista →</b></a>
   </div>
 </nav>
@@ -383,9 +387,13 @@ footer{padding:56px 0 64px;font-size:13px;color:var(--ink-soft)}
           em DXF. Por uma fração do preço de quem parou no tempo.
         </p>
         <div class="hero-ctas">
-          <a class="btn" href="#lista">Quero acesso antecipado <span class="arr">→</span></a>
-          <a class="link-quiet" href="#precos">Ver preços&nbsp;↓</a>
+          <a class="btn" href="#downloads">Baixar grátis <span class="arr">→</span></a>
+          <a class="link-quiet" href="#lista">Entrar na lista&nbsp;↓</a>
         </div>
+        <p style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-top:14px">
+          100% open source ·
+          <a href="https://github.com/candidoalfilho/hyperframe" rel="noopener">código no GitHub&nbsp;↗</a>
+        </p>
       </div>
     </div>
   </div>
@@ -568,6 +576,65 @@ footer{padding:56px 0 64px;font-size:13px;color:var(--ink-soft)}
 </section>
 
 <!-- ======================================================= preços -->
+<!-- ======================================================= open source + downloads -->
+<section class="section hairline-t" id="downloads">
+  <div class="wrap">
+    <p class="eyebrow">Código aberto</p>
+    <h2>100% open source. <em>Sempre.</em></h2>
+    <p class="sub">
+      O código completo — motor de cálculo, interface e este site — é público.
+      Engenharia se confere: audite cada verificação de norma, rode os 300+ testes,
+      contribua. Sem caixa-preta e sem recurso trancado.
+    </p>
+    <div class="hero-ctas" style="margin:18px 0 34px">
+      <a class="btn" href="https://github.com/candidoalfilho/hyperframe" rel="noopener">Ver o código no GitHub <span class="arr">→</span></a>
+      <a class="link-quiet" href="https://github.com/candidoalfilho/hyperframe/releases" rel="noopener">Todas as versões&nbsp;↗</a>
+    </div>
+
+    <div class="plans" role="list" aria-label="Downloads por sistema">
+      <div class="plan" role="listitem">
+        <h3>macOS</h3>
+        <p class="aud">Apple Silicon (M1 ou superior)</p>
+        <div class="price" style="font-size:26px">v0.2.9</div>
+        <p class="per">.dmg · 2,6 MB · grátis</p>
+        <ul>
+          <li>App nativo (Tauri) — leve e offline</li>
+          <li>Primeira abertura: botão direito → Abrir (build ainda sem assinatura)</li>
+          <li class="mono-like" style="font-size:11px;word-break:break-all">sha256 d6c5ea6d…f02c</li>
+        </ul>
+        <a class="btn" href="downloads/HyperFrame_0.2.9_aarch64.dmg" download>Baixar para macOS ↓</a>
+      </div>
+      <div class="plan" role="listitem">
+        <h3>Windows</h3>
+        <p class="aud">x64 — em preparação</p>
+        <div class="price" style="font-size:26px">em breve</div>
+        <p class="per">.msi via GitHub Releases</p>
+        <ul>
+          <li>Build por CI (GitHub Actions)</li>
+          <li>Mesmo código, mesmas normas</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://github.com/candidoalfilho/hyperframe/releases" rel="noopener">Acompanhar releases</a>
+      </div>
+      <div class="plan" role="listitem">
+        <h3>Linux</h3>
+        <p class="aud">AppImage / .deb — em preparação</p>
+        <div class="price" style="font-size:26px">em breve</div>
+        <p class="per">via GitHub Releases</p>
+        <ul>
+          <li>Build por CI (GitHub Actions)</li>
+          <li>Compile do fonte hoje: <span style="font-family:var(--mono);font-size:11.5px">npm run tauri build</span></li>
+        </ul>
+        <a class="btn btn-ghost" href="https://github.com/candidoalfilho/hyperframe/releases" rel="noopener">Acompanhar releases</a>
+      </div>
+    </div>
+    <p class="legal" style="margin-top:14px">
+      Cada versão publica binário + código-fonte + checksum. Histórico completo no
+      <a href="https://github.com/candidoalfilho/hyperframe/releases" rel="noopener">GitHub Releases</a>;
+      o changelog é o próprio ROADMAP do repositório.
+    </p>
+  </div>
+</section>
+
 <section class="section hairline-t" id="precos">
   <div class="wrap">
     <p class="eyebrow">Preços</p>
@@ -720,16 +787,18 @@ footer{padding:56px 0 64px;font-size:13px;color:var(--ink-soft)}
           Hyper<b>Frame</b>
         </a>
         <div style="color:var(--ink-faint);font-size:12.5px;margin-top:10px">
-          Análise e dimensionamento estrutural — ABNT.<br/>Feito no Brasil. 🇧🇷
+          Análise e dimensionamento estrutural — ABNT.<br/>
+          100% open source. Feito no Brasil. 🇧🇷
         </div>
       </div>
       <div class="foot-links">
         <a href="#recursos">Recursos</a>
         <a href="#comparativo">Comparativo</a>
+        <a href="#downloads">Downloads</a>
         <a href="#precos">Preços</a>
         <a href="#faq">FAQ</a>
-        <a href="#">Termos</a>
-        <a href="#">Privacidade</a>
+        <a href="https://github.com/candidoalfilho/hyperframe" rel="noopener">GitHub ↗</a>
+        <a href="en/">English</a>
       </div>
     </div>
     <p class="legal">

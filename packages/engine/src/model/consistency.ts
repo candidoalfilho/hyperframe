@@ -1,6 +1,7 @@
 import type { ElementRef, Project } from '../model/types'
 import { dist, pointInPolygon, polygonArea, projectOnSegment, TOL } from '../geometry/geometry'
 import { columnSectionInfo } from './columnSection'
+import { slabOpeningPolygons } from '../analysis/buildModel'
 
 /**
  * Verificação de consistência do modelo (pré-análise) — no espírito do
@@ -206,6 +207,51 @@ export function checkConsistency(project: Project): ConsistencyIssue[] {
           kind: 'slab',
           id: slab.id,
         }, where)
+      }
+      // furos na laje: dispensa ou exigência de verificação (§13.2.5) —
+      // abertura ≤ lx/10 (menor vão) dispensa; acima disso exige verificação
+      // e reposição de armadura nas bordas (a grelha considera a rigidez)
+      {
+        let sx0 = Infinity
+        let sx1 = -Infinity
+        let sy0 = Infinity
+        let sy1 = -Infinity
+        for (const p of slab.polygon) {
+          sx0 = Math.min(sx0, p.x)
+          sx1 = Math.max(sx1, p.x)
+          sy0 = Math.min(sy0, p.y)
+          sy1 = Math.max(sy1, p.y)
+        }
+        const lx = Math.min(sx1 - sx0, sy1 - sy0)
+        slabOpeningPolygons(plan, slab).forEach((hole, i) => {
+          let hx0 = Infinity
+          let hx1 = -Infinity
+          let hy0 = Infinity
+          let hy1 = -Infinity
+          for (const p of hole) {
+            hx0 = Math.min(hx0, p.x)
+            hx1 = Math.max(hx1, p.x)
+            hy0 = Math.min(hy0, p.y)
+            hy1 = Math.max(hy1, p.y)
+          }
+          const maxDim = Math.max(hx1 - hx0, hy1 - hy0)
+          if (maxDim < 0.05 || lx < 0.1) return
+          if (maxDim <= lx / 10 + 1e-9) {
+            push(
+              'leve',
+              `Laje ${slab.name} (${where}): furo ${i + 1} com ${(maxDim * 100).toFixed(0)} cm ≤ lx/10 — dispensa verificação (§13.2.5); mantenha a armadura de reposição nas bordas.`,
+              { kind: 'slab', id: slab.id },
+              where,
+            )
+          } else {
+            push(
+              project.settings.slabMethod === 'grelha' ? 'leve' : 'media',
+              `Laje ${slab.name} (${where}): furo ${i + 1} com ${(maxDim * 100).toFixed(0)} cm > lx/10 = ${((lx / 10) * 100).toFixed(0)} cm — exige verificação e reposição de armadura nas bordas (§13.2.5)${project.settings.slabMethod === 'grelha' ? '; a GRELHA já considera a abertura na rigidez e o dimensionamento indica o reforço' : '; o método de Marcus NÃO considera o furo — use a GRELHA'}.`,
+              { kind: 'slab', id: slab.id },
+              where,
+            )
+          }
+        })
       }
       // laje lisa/cogumelo: pilar interno à laje sem viga no ponto
       if (inUse) {
