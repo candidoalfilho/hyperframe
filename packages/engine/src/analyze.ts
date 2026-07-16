@@ -148,7 +148,45 @@ export function analyze(project: Project): AnalysisResults {
   // ------------------------------------------------------- dimensionamento
   const beamDesign = designBeams(project, model, envelopeELU)
   const columnDesign = runColumnDesign(project, model, combos, casesElu)
-  const slabDesign = runSlabDesign(project)
+  // momento desbalanceado laje→pilar (envoltória ELU) p/ punção com K·MSd
+  // (§19.5.2): diferença entre os momentos do pilar abaixo (topo) e acima
+  // (base) da ligação; envoltórias tratadas como independentes — conservador
+  const jointMoments = new Map<string, { m1: number; m2: number }>()
+  {
+    const byCol = new Map<string, { li: number; mi: number }[]>()
+    model.members.forEach((m, mi) => {
+      if (m.ref.kind !== 'column') return
+      const li = Math.min(model.nodes[m.ni].levelIndex, model.nodes[m.nj].levelIndex)
+      const list = byCol.get(m.ref.sourceId) ?? []
+      list.push({ li, mi })
+      byCol.set(m.ref.sourceId, list)
+    })
+    const unbal = (
+      e: { min: number[]; max: number[] }[],
+      belowMi: number,
+      aboveMi: number | undefined,
+    ): number => {
+      const eb = e[belowMi]
+      const nb = eb.max.length - 1
+      if (aboveMi === undefined) return Math.max(Math.abs(eb.max[nb]), Math.abs(eb.min[nb]))
+      const ea = e[aboveMi]
+      return Math.max(Math.abs(eb.max[nb] - ea.min[0]), Math.abs(ea.max[0] - eb.min[nb]))
+    }
+    for (const [colId, list] of byCol) {
+      list.sort((a, b) => a.li - b.li)
+      for (let i = 0; i < list.length; i++) {
+        const below = list[i]
+        const above = i + 1 < list.length ? list[i + 1] : undefined
+        const my = unbal(envelopeELU.My, below.mi, above?.mi)
+        const mz = unbal(envelopeELU.Mz, below.mi, above?.mi)
+        jointMoments.set(`${colId}|${below.li + 1}`, {
+          m1: Math.max(my, mz),
+          m2: Math.min(my, mz),
+        })
+      }
+    }
+  }
+  const slabDesign = runSlabDesign(project, jointMoments)
   const beamService = runBeamService(project, model, combos, casesEls, beamDesign)
   const stairDesign = runStairDesign(project)
   const tankDesign = runTankDesign(project)

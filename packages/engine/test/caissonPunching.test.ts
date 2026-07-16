@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { designCaisson } from '../src/nbr/nbr6122/caisson'
-import { checkPunching, openingPerimeterReduction } from '../src/nbr/nbr6118/punching'
+import { checkPunching, openingPerimeterReduction, punchingK } from '../src/nbr/nbr6118/punching'
 import { checkConsistency } from '../src/model/consistency'
 import { createSampleProject } from '../src/model/factory'
 import { analyze } from '../src/analyze'
@@ -189,5 +189,76 @@ describe('openingPerimeterReduction (§19.5.1)', () => {
     expect(furado.u1).toBeCloseTo(cheio.u1 * 0.8, 9)
     expect(furado.tauSd1).toBeCloseTo(cheio.tauSd1 / 0.8, 6)
     expect(furado.notes.some((n) => n.includes('§19.5.1'))).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Pilar de borda e de canto — §19.5.2 (u*, e*, K·MSd/Wp)
+// ---------------------------------------------------------------------------
+
+describe('punção §19.5.2 — borda e canto (40×40, d = 16 cm)', () => {
+  const base = {
+    fsd: 800,
+    column: { shape: 'rect', c1: 0.4, c2: 0.4 },
+    d: 0.16,
+    rhoX: 0.008,
+    rhoY: 0.008,
+    fck: 30000,
+    gammaC: 1.4,
+  } as const
+
+  it('Wp por integração bate com as fórmulas fechadas (interno)', () => {
+    // extrai Wp da diferença de τ com/sem momento: parcela = K·MSd/(Wp·d)
+    const semM = checkPunching({ ...base })
+    const comM = checkPunching({ ...base, msd1: 100 })
+    const K = 0.6 // c1/c2 = 1 (tab. 19.2)
+    const wp1 = (K * 100) / ((comM.tauSd1 - semM.tauSd1) * 0.16)
+    // C′: c1²/2 + c1c2 + 4c2d + 16d² + 2πdc1 = 1,3077 m²
+    expect(wp1).toBeCloseTo(
+      0.4 ** 2 / 2 + 0.16 + 4 * 0.4 * 0.16 + 16 * 0.16 ** 2 + 2 * Math.PI * 0.16 * 0.4,
+      2,
+    )
+    const wp0 = (K * 100) / ((comM.tauSd0 - semM.tauSd0) * 0.16)
+    // C: c1²/2 + c1c2 = 0,24 m²
+    expect(wp0).toBeCloseTo(0.24, 2)
+  })
+
+  it('borda: u* = 2a + c2 + 2πd e u0 reduzido (a = mín(1,5d; 0,5c1) = 0,2)', () => {
+    const e = checkPunching({ ...base, position: 'edge' })
+    expect(e.position).toBe('edge')
+    expect(e.u1).toBeCloseTo(2 * 0.2 + 0.4 + Math.PI * 2 * 0.16, 3) // 1,805 m
+    expect(e.u0).toBeCloseTo(2 * 0.2 + 0.4, 3) // 0,80 m
+    // e* > 0 (centroide do perímetro reduzido cai p/ dentro da laje)
+    expect(e.eStar).toBeGreaterThan(0.25)
+    expect(e.eStar!).toBeLessThan(0.4)
+    // com o mesmo FSd, borda é mais crítica que interno
+    const i = checkPunching({ ...base })
+    expect(e.tauSd1).toBeGreaterThan(i.tauSd1)
+  })
+
+  it('borda: MSd1 = FSd·e* não gera parcela de momento (MSd corrigido = 0)', () => {
+    const e0 = checkPunching({ ...base, position: 'edge' })
+    const eM = checkPunching({ ...base, position: 'edge', msd1: 800 * e0.eStar! })
+    expect(eM.tauSd1).toBeCloseTo(e0.tauSd1, 4)
+    // acima disso o momento passa a contar
+    const eM2 = checkPunching({ ...base, position: 'edge', msd1: 800 * e0.eStar! + 50 })
+    expect(eM2.tauSd1).toBeGreaterThan(e0.tauSd1 + 1)
+  })
+
+  it('canto: u* = a1 + a2 + πd — o mais crítico dos três', () => {
+    const c = checkPunching({ ...base, position: 'corner' })
+    expect(c.u1).toBeCloseTo(0.2 + 0.2 + Math.PI * 0.16, 3) // 0,903 m
+    expect(c.u0).toBeCloseTo(0.2 + 0.2, 3)
+    const e = checkPunching({ ...base, position: 'edge' })
+    expect(c.tauSd1).toBeGreaterThan(e.tauSd1)
+  })
+
+  it('K da tabela 19.2 interpola e clampa', () => {
+    expect(punchingK(0.5)).toBeCloseTo(0.45, 9)
+    expect(punchingK(1)).toBeCloseTo(0.6, 9)
+    expect(punchingK(1.5)).toBeCloseTo(0.65, 9)
+    expect(punchingK(2)).toBeCloseTo(0.7, 9)
+    expect(punchingK(0.2)).toBeCloseTo(0.45, 9)
+    expect(punchingK(5)).toBeCloseTo(0.8, 9)
   })
 })

@@ -857,10 +857,11 @@ function LajesTab({ results }: { results: AnalysisResults }) {
                 const title = s.notes.length > 0 ? s.notes.join(' · ') : undefined
                 const punchFail = gd.punching.some((p) => !p.check.okC)
                 const punchReinf = gd.punching.some((p) => p.check.needsShearReinf)
+                const POS_TXT = { internal: 'int.', edge: 'BORDA', corner: 'CANTO' } as const
                 const punchTitle = gd.punching
                   .map(
                     (p) =>
-                      `${p.name}: Fsd ${fmt(p.fsd, 0)} kN · τSd ${fmt(p.check.tauSd0, 0)}/${fmt(
+                      `${p.name} (${POS_TXT[p.check.position]}${p.check.msdUsed ? ` · MSd ${fmt(p.check.msdUsed, 1)} kN·m` : ''}): Fsd ${fmt(p.fsd, 0)} kN · τSd ${fmt(p.check.tauSd0, 0)}/${fmt(
                         p.check.tauRd2,
                         0,
                       )} (C) · ${fmt(p.check.tauSd1, 0)}/${fmt(p.check.tauRd1, 0)} (C′) kPa`,

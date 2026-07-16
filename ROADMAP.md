@@ -224,6 +224,23 @@
   link do repositório e **versão em inglês** (`site/en/`) com toggle PT↔EN
 - [x] BUSINESS.md com o pivô open source (supera §4 — licenciamento)
 
+## v0.2.11 — Punção de borda e canto com K·MSd (§19.5.2) ✅ (entregue)
+
+> Fecha a lacuna nº 1 das lajes lisas. 311 testes.
+
+- [x] **Pilar de BORDA e de CANTO** (§19.5.2.2/19.5.2.3): perímetro crítico REDUZIDO u*
+  (trechos a = mín(1,5d; 0,5c) junto às bordas livres), excentricidade e* e momento
+  corrigido MSd = (MSd1 − FSd·e*) ≥ 0; canto = verificação de borda nas duas direções
+- [x] **Transferência de momento K·MSd** (§19.5.2.1): K interpolado da tab. 19.2
+  (borda: c1/2c2), Wp = ∫|e|·dl por **integração numérica do contorno** — validada nos
+  testes contra as fórmulas fechadas (interno e EC2 6.45); MSd desbalanceado tomado da
+  envoltória ELU do pórtico (pilar acima × abaixo da ligação, a favor da segurança)
+- [x] **Caminho de carga corrigido**: pilar sobre borda LIVRE (sem viga) agora entra na
+  grelha como apoio (antes a reação dele simplesmente não existia) — classificador
+  interno/borda/canto compartilhado entre análise e dimensionamento
+- [x] Composição com §19.5.1 (aberturas reduzem u e Wp), posição/MSd na aba Lajes
+  (hover) e no memorial 9.1 (colunas Pos. e MSd)
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.

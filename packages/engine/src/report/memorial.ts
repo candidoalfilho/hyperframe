@@ -670,28 +670,34 @@ export function buildMemorialPdf(
     L.h2('9.1 Punção nas lajes lisas (§19.5 — reação real da grelha)')
     L.table(
       [
-        { t: 'Laje', w: 14 },
-        { t: 'Pilar', w: 12 },
-        { t: 'Fsd (kN)', w: 13, align: 'r' },
-        { t: 'τSd/τRd2 — C (kPa)', w: 25, align: 'c' },
-        { t: 'τSd/τRd1 — C′ (kPa)', w: 25, align: 'c' },
-        { t: 'Arm. punção', w: 17, align: 'c' },
-        { t: 'Status', w: 11, align: 'c' },
+        { t: 'Laje', w: 12 },
+        { t: 'Pilar', w: 10 },
+        { t: 'Pos.', w: 9, align: 'c' },
+        { t: 'Fsd (kN)', w: 12, align: 'r' },
+        { t: 'MSd (kN·m)', w: 13, align: 'r' },
+        { t: 'τSd/τRd2 — C', w: 19, align: 'c' },
+        { t: 'τSd/τRd1 — C′', w: 19, align: 'c' },
+        { t: 'Arm.', w: 12, align: 'c' },
+        { t: 'Status', w: 10, align: 'c' },
       ],
       gridPunch.map(({ slab, p }) => [
         slab.name,
         p.name,
+        p.check.position === 'edge' ? 'borda' : p.check.position === 'corner' ? 'canto' : 'int.',
         fmt(p.fsd, 0),
+        p.check.msdUsed ? fmt(p.check.msdUsed, 1) : '—',
         `${fmt(p.check.tauSd0, 0)} / ${fmt(p.check.tauRd2, 0)}`,
         `${fmt(p.check.tauSd1, 0)} / ${fmt(p.check.tauRd1, 0)}`,
-        p.check.needsShearReinf ? 'studs' : 'dispensada',
+        p.check.needsShearReinf ? 'studs' : 'disp.',
         STATUS_TXT[!p.check.okC ? 'falha' : p.check.needsShearReinf ? 'atencao' : 'ok'],
       ]),
       7.0,
     )
     L.para(
-      'Contorno C (face do pilar): τSd ≤ τRd2 (esmagamento da biela). Contorno C′ (2d): ' +
-        'τSd ≤ τRd1 dispensa armadura de punção; acima, prever studs/estribos (detalhar à parte).',
+      'Contorno C (face do pilar): τSd ≤ τRd2 (esmagamento). Contorno C′ (2d): τSd ≤ τRd1 ' +
+        'dispensa armadura de punção; acima, prever studs (detalhar à parte). Pilares de ' +
+        'borda/canto: perímetro crítico REDUZIDO u* e momento corrigido MSd = (MSd1 − FSd·e*) ' +
+        '≥ 0, com K da tab. 19.2 (§19.5.2); MSd desbalanceado tomado da envoltória do pórtico.',
       7.8,
       'I',
       0.3,

@@ -146,6 +146,60 @@ describe('grelha no pipeline — edifício exemplo completo', () => {
   })
 })
 
+describe('punção de borda e canto no pipeline (§19.5.2)', () => {
+  /** laje lisa 9×9 SEM as vigas das bordas y=0 e x=0 (bordas livres) e com
+   *  um pilar extra P13 no meio da borda livre y=0 */
+  function flatSlabFreeEdges(): Project {
+    const p = flatSlabBuilding()
+    const plan = p.plans[0]
+    plan.beams = plan.beams.filter((b) => b.name !== 'V1' && b.name !== 'V4')
+    const [base, top] = p.levels
+    p.columns.push({
+      id: uid('col'),
+      name: 'P13',
+      pos: { x: 4.5, y: 0 },
+      section: { bw: 0.35, h: 0.35 },
+      rotationDeg: 0 as const,
+      baseLevelId: base.id,
+      topLevelId: top.id,
+    })
+    return p
+  }
+
+  const r = analyze(flatSlabFreeEdges())
+  const gd = r.slabDesign.find((s) => s.name === 'L1')!.gridDesign!
+  const byName = new Map(gd.punching.map((pu) => [pu.name, pu]))
+
+  it('pilar no meio da borda livre é verificado como BORDA (u* reduzido)', () => {
+    const p13 = byName.get('P13')!
+    expect(p13.check.position).toBe('edge')
+    // d = 0,20 − 0,025 − 0,015 = 0,16 · a = mín(1,5d; 0,5·0,35) = 0,175
+    // u* = 2a + c2 + 2πd = 0,35 + 0,35 + 1,005
+    expect(p13.check.u1).toBeCloseTo(0.35 + 0.35 + Math.PI * 2 * 0.16, 2)
+    expect(p13.check.eStar).toBeGreaterThan(0)
+    expect(p13.fsd).toBeGreaterThan(20) // a grelha agora APOIA o pilar de borda
+  })
+
+  it('pilar no encontro das duas bordas livres é CANTO', () => {
+    const p1 = byName.get('P1')!
+    expect(p1.check.position).toBe('corner')
+    expect(p1.check.u1).toBeCloseTo(0.175 + 0.175 + Math.PI * 0.16, 2)
+  })
+
+  it('pilar interno permanece interno e o equilíbrio global fecha', () => {
+    expect(byName.get('P5')!.check.position).toBe('internal')
+    const g = r.cases.elu.G!
+    const sumFz = g.reactions.reduce((s, x) => s + x.fz, 0)
+    const totalG = r.model.levelWeights.reduce((s, lw) => s + lw.G, 0)
+    expect(sumFz).toBeCloseTo(totalG, 0)
+  })
+
+  it('nota da verificação de borda/canto presente na laje', () => {
+    const item = r.slabDesign.find((s) => s.name === 'L1')!
+    expect(item.notes.some((n) => n.includes('§19.5.2'))).toBe(true)
+  })
+})
+
 describe('furos: punção §19.5.1, reforço de borda e §13.2.5', () => {
   /** laje lisa 9×9 com furo retangular 1,2×0,8 encostado no pilar interno P5 (3;3) */
   function withHoleNearColumn(): Project {

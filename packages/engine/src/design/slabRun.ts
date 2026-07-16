@@ -8,7 +8,13 @@ import { designRibbedSlab, ribbedSelfWeight } from '../nbr/nbr6118/ribbedSlab'
 import { checkPunching, openingPerimeterReduction } from '../nbr/nbr6118/punching'
 import { analyzeSlabGrid } from '../analysis/grid'
 import { columnSectionInfo } from '../model/columnSection'
-import { slabExtraLoads, slabOpeningPolygons, slabOpeningsArea } from '../analysis/buildModel'
+import {
+  classifySlabColumns,
+  slabExtraLoads,
+  slabOpeningPolygons,
+  slabOpeningsArea,
+} from '../analysis/buildModel'
+import { columnHalfExtents } from '../model/columnSection'
 import { polygonArea } from '../geometry/geometry'
 
 /** laje retangular? (4 vértices, lados opostos iguais, ângulos retos) */
@@ -44,7 +50,11 @@ function edgeContinuous(a: Vec2, b: Vec2, others: Slab[]): boolean {
   return false
 }
 
-export function runSlabDesign(project: Project): SlabDesignResultItem[] {
+export function runSlabDesign(
+  project: Project,
+  /** momento desbalanceado ELU laje→pilar por `${columnId}|${levelIndex}` */
+  jointMoments?: Map<string, { m1: number; m2: number }>,
+): SlabDesignResultItem[] {
   const cp = concreteProps(
     project.settings.concrete.fck,
     project.settings.concrete.aggregate,
@@ -84,14 +94,22 @@ export function runSlabDesign(project: Project): SlabDesignResultItem[] {
 
       // ------------------------------ método da GRELHA (maciças, qualquer forma)
       if (!slab.ribbed && project.settings.slabMethod === 'grelha') {
-        const item = designSlabByGrid(project, plan, slab, level.name, levels.indexOf(level), {
-          cover,
-          fcd: cp.fcd,
-          fck: cp.fck,
-          fyd: fydV,
-          fctm: cp.fctm,
-          ecs: cp.ecs,
-        })
+        const item = designSlabByGrid(
+          project,
+          plan,
+          slab,
+          level.name,
+          levels.indexOf(level),
+          {
+            cover,
+            fcd: cp.fcd,
+            fck: cp.fck,
+            fyd: fydV,
+            fctm: cp.fctm,
+            ecs: cp.ecs,
+          },
+          jointMoments,
+        )
         if (item) {
           item.notes.unshift(...notes)
           if (openWarn && item.status === 'ok') item.status = 'atencao'
@@ -234,6 +252,7 @@ function designSlabByGrid(
   levelName: string,
   levelIndex: number,
   mat: GridMat,
+  jointMoments?: Map<string, { m1: number; m2: number }>,
 ): SlabDesignResultItem | null {
   const notes: string[] = []
   const levels = [...project.levels].sort((a, b) => a.elevation - b.elevation)
@@ -259,15 +278,25 @@ function designSlabByGrid(
     if (samples.filter(nearBeam).length >= 2) supportedEdges.push(e)
   }
 
-  // pilares internos sem viga (lajes lisas) presentes neste nível
-  const interior: { id: string; pos: Vec2 }[] = []
-  for (const col of project.columns) {
-    const ib = levelIdxById.get(col.baseLevelId) ?? 0
-    const it = levelIdxById.get(col.topLevelId) ?? levels.length - 1
-    if (levelIndex < ib || levelIndex > it) continue
-    if (!pointInPolygon(col.pos, slab.polygon)) continue
-    if (!nearBeam(col.pos)) interior.push({ id: col.id, pos: col.pos })
-  }
+  // pilares que apoiam a laje direto: internos, de borda livre e de canto
+  const supportedSet = new Set(supportedEdges)
+  const candidates = project.columns
+    .filter((col) => {
+      const ib = levelIdxById.get(col.baseLevelId) ?? 0
+      const it = levelIdxById.get(col.topLevelId) ?? levels.length - 1
+      return levelIndex >= ib && levelIndex <= it
+    })
+    .map((col) => {
+      const info = columnSectionInfo(col.section)
+      return { id: col.id, pos: col.pos, half: Math.hypot(info.bu, info.bv) / 2 }
+    })
+  const interior = classifySlabColumns(
+    candidates,
+    slab.polygon,
+    (e) => supportedSet.has(e),
+    nearBeam,
+  )
+  const classById = new Map(interior.map((c) => [c.id, c]))
 
   if (supportedEdges.length + interior.length === 0) return null
 
@@ -359,19 +388,45 @@ function designSlabByGrid(
     const rho = Math.min(Math.max(fXSup.as, fYSup.as) / d, 0.02)
     // furo a menos de 8d do pilar desconta o trecho entre tangentes (§19.5.1)
     const openingFraction = openingPerimeterReduction(col.pos, holes, d)
+    // posição (§19.5.2): borda/canto orientam c1 PERPENDICULAR à borda livre
+    const cls = classById.get(colId)
+    const position = cls?.position ?? 'internal'
+    const he = columnHalfExtents(col)
+    const dimAlong = (v: Vec2): number => 2 * (Math.abs(v.x) * he.dx + Math.abs(v.y) * he.dy)
+    let column: Parameters<typeof checkPunching>[0]['column']
+    if (info.kind === 'circle') {
+      column = { shape: 'circle', d: info.bu }
+    } else if (position === 'edge' && cls?.inward) {
+      column = {
+        shape: 'rect',
+        c1: dimAlong(cls.inward),
+        c2: dimAlong({ x: -cls.inward.y, y: cls.inward.x }),
+      }
+    } else if (position === 'corner' && cls?.inward && cls?.inward2) {
+      column = { shape: 'rect', c1: dimAlong(cls.inward), c2: dimAlong(cls.inward2) }
+    } else {
+      column = { shape: 'rect', c1: info.bu, c2: info.bv }
+    }
+    // momento desbalanceado laje→pilar da envoltória do pórtico (K·MSd)
+    const jm = jointMoments?.get(`${colId}|${levelIndex}`)
     const check = checkPunching({
       fsd,
-      column:
-        info.kind === 'circle'
-          ? { shape: 'circle', d: info.bu }
-          : { shape: 'rect', c1: info.bu, c2: info.bv },
+      column,
       d,
       rhoX: rho,
       rhoY: rho,
       fck: mat.fck,
       gammaC: project.settings.concrete.gammaC,
       openingFraction,
+      position,
+      msd1: jm?.m1,
+      msd2: jm?.m2,
     })
+    if (position !== 'internal') {
+      notes.push(
+        `Punção de ${col.name}: pilar de ${position === 'edge' ? 'BORDA' : 'CANTO'} — perímetro reduzido u*${jm ? ` e MSd = ${jm.m1.toFixed(1)} kN·m` : ''} (§19.5.2).`,
+      )
+    }
     if (openingFraction > 1e-9) {
       notes.push(
         `Punção de ${col.name}: abertura a menos de 8d — perímetros reduzidos em ${Math.round(openingFraction * 100)}% (§19.5.1).`,

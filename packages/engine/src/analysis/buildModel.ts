@@ -555,22 +555,31 @@ export function buildAnalysisModel(project: Project): {
       }
       // ---------------- método da GRELHA: reações reais por borda + pilares
       if (useGrid) {
-        // pilares internos à laje SEM viga sob o ponto (lajes lisas)
-        const interior: { id: string; pos: Vec2 }[] = []
-        for (const col of project.columns) {
-          const [ib, it] = levelIndexOfColumn(col.id)
-          if (li < ib || li > it) continue
-          if (!pointInPolygon(col.pos, slab.polygon)) continue
-          const onBeam = levelMembers.some((m) => {
+        // pilares que apoiam a laje direto (internos, de borda livre e de
+        // canto — §19.5.2): todos precisam entrar na grelha como apoio
+        const supportedEdgeIdx = supported.map((ed) => ed.edgeIndex)
+        const supportedSet = new Set(supportedEdgeIdx)
+        const onBeamFn = (p: Vec2): boolean =>
+          levelMembers.some((m) => {
             const na = nodes[m.ni]
             const nb = nodes[m.nj]
-            return (
-              projectOnSegment(col.pos, { x: na.x, y: na.y }, { x: nb.x, y: nb.y }).d <= TOL * 2
-            )
+            return projectOnSegment(p, { x: na.x, y: na.y }, { x: nb.x, y: nb.y }).d <= TOL * 2
           })
-          if (!onBeam) interior.push({ id: col.id, pos: col.pos })
-        }
-        const supportedEdgeIdx = supported.map((ed) => ed.edgeIndex)
+        const candidates = project.columns
+          .filter((col) => {
+            const [ib, it] = levelIndexOfColumn(col.id)
+            return li >= ib && li <= it
+          })
+          .map((col) => {
+            const info = columnSectionInfo(col.section)
+            return { id: col.id, pos: col.pos, half: Math.hypot(info.bu, info.bv) / 2 }
+          })
+        const interior = classifySlabColumns(
+          candidates,
+          slab.polygon,
+          (e) => supportedSet.has(e),
+          onBeamFn,
+        )
         if (supportedEdgeIdx.length + interior.length > 0) {
           try {
             const key = slabGridCacheKey({
@@ -812,6 +821,80 @@ export function slabOpeningPolygons(plan: FloorPlan, slab: Slab): Vec2[][] {
     if (!regionOpensSlab(region)) continue
     const cut = clipPolygon(region.polygon, clip)
     if (cut.length >= 3 && polygonArea(cut) > 1e-4) out.push(cut)
+  }
+  return out
+}
+
+export interface SlabColumnSupport {
+  id: string
+  pos: Vec2
+  /** posição p/ punção (§19.5.2): interno, borda ou canto */
+  position: 'internal' | 'edge' | 'corner'
+  /** normal da borda livre apontando p/ DENTRO da laje (borda/canto) */
+  inward?: Vec2
+  /** normal da segunda borda livre (canto) */
+  inward2?: Vec2
+}
+
+/**
+ * Classifica os pilares que apoiam a laje DIRETAMENTE (sem viga no ponto):
+ * internos ao polígono, sobre borda LIVRE (edge) ou no encontro de duas
+ * bordas livres (corner). Pilar encostado em borda COM viga não conta
+ * (a carga desce pela viga). `half` = meia-diagonal da seção (tolerância).
+ */
+export function classifySlabColumns(
+  cols: { id: string; pos: Vec2; half: number }[],
+  polygon: Vec2[],
+  isEdgeSupported: (edgeIndex: number) => boolean,
+  nearBeam: (p: Vec2) => boolean,
+): SlabColumnSupport[] {
+  const out: SlabColumnSupport[] = []
+  const n = polygon.length
+  for (const c of cols) {
+    if (nearBeam(c.pos)) continue
+    const touching: Vec2[] = []
+    let touchesSupported = false
+    for (let e = 0; e < n; e++) {
+      const a = polygon[e]
+      const b = polygon[(e + 1) % n]
+      const { d } = projectOnSegment(c.pos, a, b)
+      if (d > c.half + TOL * 4) continue
+      if (isEdgeSupported(e)) {
+        touchesSupported = true
+        continue
+      }
+      const tx = b.x - a.x
+      const ty = b.y - a.y
+      const len = Math.hypot(tx, ty)
+      if (len < TOL) continue
+      // normal p/ DENTRO: testa qual lado do segmento contém a laje
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+      let nx = -ty / len
+      let ny = tx / len
+      const probe = 0.03 + c.half
+      if (!pointInPolygon({ x: mid.x + nx * probe, y: mid.y + ny * probe }, polygon)) {
+        nx = -nx
+        ny = -ny
+      }
+      touching.push({ x: nx, y: ny })
+    }
+    if (touching.length === 0) {
+      if (!touchesSupported && pointInPolygon(c.pos, polygon)) {
+        out.push({ id: c.id, pos: c.pos, position: 'internal' })
+      }
+      continue
+    }
+    if (touching.length === 1) {
+      out.push({ id: c.id, pos: c.pos, position: 'edge', inward: touching[0] })
+    } else {
+      out.push({
+        id: c.id,
+        pos: c.pos,
+        position: 'corner',
+        inward: touching[0],
+        inward2: touching[1],
+      })
+    }
   }
   return out
 }
