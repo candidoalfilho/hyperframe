@@ -85,6 +85,14 @@ npm run dev              # → http://localhost:5183
 npm run tauri dev        # janela nativa
 npm run tauri build      # gera .app/.dmg em apps/desktop/src-tauri/target/release/bundle/
 
+# instalador WINDOWS a partir do macOS (cross-compile):
+#   brew install llvm lld nsis && cargo install --locked cargo-xwin
+#   rustup target add x86_64-pc-windows-msvc
+PATH="/opt/homebrew/opt/llvm/bin:$PATH" npm run tauri build -- \
+  --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis
+# → target/x86_64-pc-windows-msvc/release/bundle/nsis/HyperFrame_*_x64-setup.exe
+# (CI: .github/workflows/release.yml builda mac/win/linux ao criar tag v*)
+
 # testes e verificação de tipos
 npm test
 npm run typecheck
