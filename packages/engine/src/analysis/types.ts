@@ -335,13 +335,15 @@ export interface SlabEdgeInfo {
   fixedEndsB: 0 | 1 | 2
 }
 
-/** punção verificada num pilar interno (laje lisa via grelha) */
+/** punção verificada num pilar interno/borda/canto (laje lisa via grelha) */
 export interface SlabGridPunchingItem {
   columnId: string
   name: string
   /** força de punção de cálculo, kN */
   fsd: number
   check: import('../nbr/nbr6118/punching').PunchingOutput
+  /** armadura de punção dimensionada (studs) quando τSd1 > τRd1 */
+  reinf?: import('../nbr/nbr6118/punching').PunchingReinfDesign
 }
 
 /** dimensionamento de laje pelo método da GRELHA (qualquer contorno) */

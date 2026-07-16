@@ -146,6 +146,30 @@ describe('grelha no pipeline — edifício exemplo completo', () => {
   })
 })
 
+describe('armadura de punção no pipeline (§19.5.3.3/4)', () => {
+  it('laje lisa fina e pesada: studs dimensionados por linhas até C″', () => {
+    const p = flatSlabBuilding()
+    p.plans[0].slabs[0].thickness = 0.14
+    p.plans[0].slabs[0].liveLoad = 30
+    const r = analyze(p)
+    const gd = r.slabDesign.find((s) => s.name === 'L1')!.gridDesign!
+    const need = gd.punching.filter((pu) => pu.check.needsShearReinf)
+    expect(need.length).toBeGreaterThan(0)
+    for (const pu of need) {
+      expect(pu.reinf).toBeDefined()
+      expect(pu.reinf!.ok).toBe(true)
+      expect(pu.reinf!.lines).toBeGreaterThanOrEqual(2)
+      expect(pu.reinf!.aswProvided).toBeGreaterThanOrEqual(pu.reinf!.aswRequired)
+      expect(pu.reinf!.spec).toContain('conectores')
+    }
+    const item = r.slabDesign.find((s) => s.name === 'L1')!
+    // punção resolvida (studs dimensionados, C e C″ ok) — o status da laje
+    // pode ainda ser 'falha' pela FLEXÃO (14 cm c/ 30 kN/m² é proposital)
+    expect(gd.punching.every((pu) => pu.check.okC && (!pu.reinf || pu.reinf.ok))).toBe(true)
+    expect(item.notes.some((n) => n.includes('§19.5.3.4'))).toBe(true)
+  })
+})
+
 describe('punção de borda e canto no pipeline (§19.5.2)', () => {
   /** laje lisa 9×9 SEM as vigas das bordas y=0 e x=0 (bordas livres) e com
    *  um pilar extra P13 no meio da borda livre y=0 */

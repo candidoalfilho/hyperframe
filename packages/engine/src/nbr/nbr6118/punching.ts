@@ -228,6 +228,177 @@ export interface PunchingOutput {
   notes: string[]
 }
 
+export interface PunchingReinfDesign {
+  /** nº de linhas (contornos paralelos a C′) de conectores */
+  lines: number
+  /** espaçamento radial entre linhas, m (≤ 0,75d) */
+  sr: number
+  /** distância da 1ª linha à face do pilar, m (≤ 0,5d) */
+  s0: number
+  /** conectores por linha (espaçamento na linha ≤ 2d) e bitola, m */
+  studsPerLine: number
+  phi: number
+  /** Asw NECESSÁRIO e fornecido por linha, m² */
+  aswRequired: number
+  aswProvided: number
+  /** fywd adotado (≤ 300 MPa conectores, ajuste §19.4.2 p/ h > 15 cm), kPa */
+  fywdUsed: number
+  /** contorno C″: perímetro efetivo e tensão (deve ficar ≤ τRd1) */
+  uC2: number
+  tauSdC2: number
+  /** distância do último contorno de armadura à face do pilar, m */
+  lastLineAt: number
+  ok: boolean
+  /** ex.: "4 linhas × 14 conectores φ 10 (s0 = 8 cm, sr = 12 cm)" */
+  spec: string
+  notes: string[]
+}
+
+/**
+ * Dimensiona a armadura de punção (conectores tipo pino/studs, α = 90°) —
+ * NBR 6118 §19.5.3.3/§19.5.3.4 e detalhamento da fig. 20.2:
+ *  · Asw por linha a partir de τRd3 = 0,10·(1+√(20/d))·(100ρfck)^⅓ +
+ *    1,5·(d/sr)·(Asw·fywd)/(u·d) ≥ τSd, com u = perímetro (reduzido em
+ *    borda/canto) do contorno C′;
+ *  · linhas estendidas até o contorno C″ (2d além da última linha)
+ *    dispensar armadura: τSd(C″) ≤ τRd1 — u″/Wp″/e*″ integrados no contorno;
+ *  · s0 ≤ 0,5d, sr ≤ 0,75d, espaçamento na linha ≤ 2d;
+ *  · fywd ≤ 300 MPa (conectores), elevado linearmente até 435 MPa p/
+ *    15 cm < h ≤ 35 cm (§19.4.2).
+ * `h` = espessura da laje, m. Momentos/aberturas herdados da verificação.
+ */
+export function designPunchingReinf(
+  inp: PunchingInput & { h: number },
+): PunchingReinfDesign {
+  const notes: string[] = []
+  const { d } = inp
+  const position = inp.position ?? 'internal'
+  const base = checkPunching(inp)
+  const red = Math.min(Math.max(inp.openingFraction ?? 0, 0), 0.5)
+  const fac = 1 - red
+  const fckMPa = inp.fck / 1000
+  const rho = Math.min(Math.sqrt(Math.max(inp.rhoX, 0) * Math.max(inp.rhoY, 0)), 0.02)
+
+  // parcela do concreto de τRd3 (coeficiente 0,10 — não os 0,13 de τRd1)
+  const tauC3 =
+    0.1 * (1 + Math.sqrt(20 / (d * 100))) * Math.cbrt(100 * rho * fckMPa) * 1000
+
+  // fywd: 300 MPa (conectores) com elevação linear do §19.4.2 até 435 MPa
+  const hFac = Math.min(Math.max((inp.h - 0.15) / 0.2, 0), 1)
+  const fywd = (300 + (435 - 300) * hFac) * 1000 // kPa
+
+  // detalhamento: 1ª linha a 0,5d da face; linhas a 0,75d (fig. 20.2)
+  const s0 = 0.5 * d
+  const sr = 0.75 * d
+
+  // Asw por linha p/ τRd3 ≥ τSd no contorno C′ (u efetivo já reduzido)
+  const aswRequired = Math.max(
+    ((base.tauSd1 - tauC3) * base.u1 * d) / (1.5 * (d / sr) * fywd),
+    0,
+  )
+
+  // geometria p/ os contornos C″ (mesma máquina de contornos)
+  const col = inp.column
+  const isCircle = col.shape === 'circle'
+  const c1 = col.shape === 'circle' ? col.d : col.c1
+  const c2 = col.shape === 'circle' ? col.d : col.c2
+  const contourAt = (
+    at: number,
+  ): { u: number; wpx: number; wpy: number; ex: number; ey: number } => {
+    if (isCircle) {
+      const R = c1 / 2 + at
+      return { u: 2 * Math.PI * R * fac, wpx: 4 * R * R * fac, wpy: 4 * R * R * fac, ex: 0, ey: 0 }
+    }
+    const full = integrate(rectContour(c1, c2, at, position, false, d))
+    const redC = integrate(rectContour(c1, c2, at, position, true, d))
+    return {
+      u: redC.u * fac,
+      wpx: full.wpx * fac,
+      wpy: full.wpy * fac,
+      ex: Math.max(redC.sx / redC.u, 0),
+      ey: Math.max(redC.sy / redC.u, 0),
+    }
+  }
+  const m1In = Math.max(inp.msd1 ?? 0, 0)
+  const m2In = Math.max(inp.msd2 ?? 0, 0)
+  const K1 = punchingK(position === 'internal' ? c1 / c2 : c1 / (2 * c2))
+  const K2 = punchingK(position === 'internal' ? c2 / c1 : c2 / (2 * c1))
+  const tauAt = (at: number): { tau: number; u: number } => {
+    const c = contourAt(at)
+    let mom = 0
+    if (position === 'internal') {
+      mom = (K1 * m1In) / c.wpx + (K2 * m2In) / c.wpy
+    } else if (position === 'edge') {
+      const m1 = Math.max(m1In - inp.fsd * c.ex, 0)
+      mom = (K1 * m1) / c.wpx + (K2 * m2In) / c.wpy
+    } else {
+      const mX = Math.max(m1In - inp.fsd * c.ex, 0)
+      const mY = Math.max(m2In - inp.fsd * c.ey, 0)
+      mom = Math.max((K1 * mX) / c.wpx, (K2 * mY) / c.wpy)
+    }
+    return { tau: inp.fsd / (c.u * d) + mom / d, u: c.u }
+  }
+
+  // estende linhas até τSd(C″) ≤ τRd1, com C″ a 2d da última linha (§19.5.3.4)
+  const MAX_LINES = 12
+  let lines = 2 // mínimo prático: duas linhas de conectores
+  let c2Info = tauAt(s0 + (lines - 1) * sr + 2 * d)
+  while (c2Info.tau > base.tauRd1 + 1e-9 && lines < MAX_LINES) {
+    lines++
+    c2Info = tauAt(s0 + (lines - 1) * sr + 2 * d)
+  }
+  const lastLineAt = s0 + (lines - 1) * sr
+  const okC2 = c2Info.tau <= base.tauRd1 + 1e-9
+
+  // conectores por linha: espaçamento ≤ 2d na linha MAIS EXTERNA + Asw
+  const uOuter = isCircle
+    ? 2 * Math.PI * (c1 / 2 + lastLineAt) * fac
+    : integrate(rectContour(c1, c2, lastLineAt, position, true, d)).u * fac
+  const nSpacing = Math.max(2, Math.ceil(uOuter / (2 * d)))
+  const PHIS = [0.008, 0.01, 0.0125, 0.016]
+  let phi = PHIS[PHIS.length - 1]
+  let studsPerLine = nSpacing
+  for (const p of PHIS) {
+    const aP = (Math.PI * p * p) / 4
+    const n = Math.max(nSpacing, Math.ceil(aswRequired / aP))
+    if (n <= Math.max(nSpacing, 30)) {
+      phi = p
+      studsPerLine = n
+      break
+    }
+  }
+  const aswProvided = studsPerLine * ((Math.PI * phi * phi) / 4)
+
+  const ok = okC2 && base.okC && aswProvided + 1e-12 >= aswRequired
+  if (!base.okC) {
+    notes.push('τSd > τRd2 no contorno C — armadura de punção NÃO resolve; usar capitel/maior d.')
+  }
+  if (!okC2) {
+    notes.push(`Contorno C″ não dispensou com ${MAX_LINES} linhas — revisar espessura/capitel.`)
+  }
+  notes.push(
+    'Conectores tipo pino (α = 90°), fig. 20.2: s0 ≤ 0,5d, sr ≤ 0,75d, ≤ 2d na linha; ancorar nas duas faces.',
+  )
+  const mm = Math.round(phi * 1000 * 10) / 10
+  const spec = `${lines} linhas × ${studsPerLine} conectores φ ${String(mm).replace('.', ',')} (s0 = ${Math.round(s0 * 100)} cm, sr = ${Math.round(sr * 100)} cm)`
+  return {
+    lines,
+    sr,
+    s0,
+    studsPerLine,
+    phi,
+    aswRequired,
+    aswProvided,
+    fywdUsed: fywd,
+    uC2: c2Info.u,
+    tauSdC2: c2Info.tau,
+    lastLineAt,
+    ok,
+    spec,
+    notes,
+  }
+}
+
 export function checkPunching(inp: PunchingInput): PunchingOutput {
   const notes: string[] = []
   const { d } = inp

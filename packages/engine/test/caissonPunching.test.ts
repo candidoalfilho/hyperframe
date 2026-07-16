@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { designCaisson } from '../src/nbr/nbr6122/caisson'
-import { checkPunching, openingPerimeterReduction, punchingK } from '../src/nbr/nbr6118/punching'
+import { checkPunching, designPunchingReinf, openingPerimeterReduction, punchingK } from '../src/nbr/nbr6118/punching'
 import { checkConsistency } from '../src/model/consistency'
 import { createSampleProject } from '../src/model/factory'
 import { analyze } from '../src/analyze'
@@ -260,5 +260,57 @@ describe('punção §19.5.2 — borda e canto (40×40, d = 16 cm)', () => {
     expect(punchingK(2)).toBeCloseTo(0.7, 9)
     expect(punchingK(0.2)).toBeCloseTo(0.45, 9)
     expect(punchingK(5)).toBeCloseTo(0.8, 9)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Armadura de punção — §19.5.3.3 (τRd3) e §19.5.3.4 (contorno C″)
+// ---------------------------------------------------------------------------
+
+describe('designPunchingReinf (studs, α = 90°)', () => {
+  const base = {
+    fsd: 800,
+    column: { shape: 'rect', c1: 0.4, c2: 0.4 },
+    d: 0.16,
+    rhoX: 0.008,
+    rhoY: 0.008,
+    fck: 30000,
+    gammaC: 1.4,
+    h: 0.2,
+  } as const
+
+  it('âncora manual: 4 linhas × 14 φ8, Asw = 6,70 cm²/linha, C″ dispensa', () => {
+    const r = designPunchingReinf({ ...base })
+    // detalhamento fig. 20.2: s0 = 0,5d = 8 cm · sr = 0,75d = 12 cm
+    expect(r.s0).toBeCloseTo(0.08, 9)
+    expect(r.sr).toBeCloseTo(0.12, 9)
+    // fywd = 300 + (435−300)·(0,20−0,15)/0,20 = 333,75 MPa (§19.4.2)
+    expect(r.fywdUsed).toBeCloseTo(333_750, 0)
+    // Asw = (τSd1 − 0,10/0,13·τRd1)·u1·d / (1,5·(d/sr)·fywd) = 6,70 cm²
+    expect(r.aswRequired).toBeCloseTo(6.7e-4, 5)
+    // C″: u″ ≥ FSd/(τRd1·d) = 6,30 m ⇒ última linha a 44 cm ⇒ 4 linhas
+    expect(r.lines).toBe(4)
+    expect(r.lastLineAt).toBeCloseTo(0.44, 6)
+    expect(r.tauSdC2).toBeLessThanOrEqual(795)
+    // linha externa: u = 1,6 + 2π·0,44 = 4,36 m ⇒ ≤ 2d na linha ⇒ 14 conectores
+    expect(r.studsPerLine).toBe(14)
+    expect(r.phi).toBeCloseTo(0.008, 9)
+    expect(r.aswProvided).toBeGreaterThanOrEqual(r.aswRequired)
+    expect(r.ok).toBe(true)
+    expect(r.spec).toContain('4 linhas × 14 conectores')
+  })
+
+  it('borda usa perímetros reduzidos também no C″ (mais linhas p/ mesmo FSd)', () => {
+    const i = designPunchingReinf({ ...base, fsd: 400 })
+    const e = designPunchingReinf({ ...base, fsd: 400, position: 'edge' })
+    expect(e.uC2).toBeLessThan(i.uC2)
+    expect(e.lines).toBeGreaterThan(i.lines)
+    expect(e.ok).toBe(true)
+  })
+
+  it('esmagamento no contorno C não se resolve com armadura', () => {
+    const r = designPunchingReinf({ ...base, fsd: 1600 }) // τSd0 = 6250 > τRd2
+    expect(r.ok).toBe(false)
+    expect(r.notes.some((n) => n.includes('NÃO resolve'))).toBe(true)
   })
 })

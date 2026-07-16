@@ -5,7 +5,11 @@ import { concreteProps, coverFor, fyd as fydOf } from '../nbr/nbr6118/materials'
 import { designSlab, pickSlabBars, type EdgeCondition } from '../nbr/nbr6118/slabDesign'
 import { designBeamFlexure } from '../nbr/nbr6118/beamDesign'
 import { designRibbedSlab, ribbedSelfWeight } from '../nbr/nbr6118/ribbedSlab'
-import { checkPunching, openingPerimeterReduction } from '../nbr/nbr6118/punching'
+import {
+  checkPunching,
+  designPunchingReinf,
+  openingPerimeterReduction,
+} from '../nbr/nbr6118/punching'
 import { analyzeSlabGrid } from '../analysis/grid'
 import { columnSectionInfo } from '../model/columnSection'
 import {
@@ -409,7 +413,7 @@ function designSlabByGrid(
     }
     // momento desbalanceado laje→pilar da envoltória do pórtico (K·MSd)
     const jm = jointMoments?.get(`${colId}|${levelIndex}`)
-    const check = checkPunching({
+    const punchInput = {
       fsd,
       column,
       d,
@@ -421,7 +425,13 @@ function designSlabByGrid(
       position,
       msd1: jm?.m1,
       msd2: jm?.m2,
-    })
+    }
+    const check = checkPunching(punchInput)
+    // τSd1 > τRd1: dimensiona os conectores (studs) até o contorno C″
+    const reinf =
+      check.needsShearReinf && check.okC
+        ? designPunchingReinf({ ...punchInput, h: slab.thickness })
+        : undefined
     if (position !== 'internal') {
       notes.push(
         `Punção de ${col.name}: pilar de ${position === 'edge' ? 'BORDA' : 'CANTO'} — perímetro reduzido u*${jm ? ` e MSd = ${jm.m1.toFixed(1)} kN·m` : ''} (§19.5.2).`,
@@ -432,7 +442,12 @@ function designSlabByGrid(
         `Punção de ${col.name}: abertura a menos de 8d — perímetros reduzidos em ${Math.round(openingFraction * 100)}% (§19.5.1).`,
       )
     }
-    punching.push({ columnId: colId, name: col.name, fsd, check })
+    if (reinf) {
+      notes.push(
+        `Punção de ${col.name}: armadura dimensionada — ${reinf.spec}; contorno C″ ${reinf.ok ? 'dispensa' : 'NÃO dispensa'} (τSd = ${reinf.tauSdC2.toFixed(0)} × τRd1 = ${check.tauRd1.toFixed(0)} kPa, §19.5.3.4).`,
+      )
+    }
+    punching.push({ columnId: colId, name: col.name, fsd, check, reinf })
   }
 
   // reforço de borda dos furos: repõe a armadura interrompida (metade por
@@ -462,15 +477,12 @@ function designSlabByGrid(
   })
 
   const flexOk = fX.ok && fXSup.ok && fY.ok && fYSup.ok
-  const punchFail = punching.some((p) => !p.check.okC)
+  const punchFail = punching.some((p) => !p.check.okC || (p.reinf && !p.reinf.ok))
   const punchReinf = punching.some((p) => p.check.needsShearReinf)
   const deflectionOk = deflection <= deflectionLimit
   let status: SlabDesignResultItem['status'] = 'ok'
   if (!flexOk || punchFail) status = 'falha'
   else if (!deflectionOk || punchReinf) status = 'atencao'
-  if (punchReinf) {
-    notes.push('Punção: τSd > τRd1 em pilar interno — prever armadura de punção (studs).')
-  }
   notes.push(
     `Grelha: ${grid.stats.nodes} nós, ${grid.stats.members} barras; ` +
       `${supportedEdges.length} borda(s) apoiada(s)${interior.length > 0 ? `, ${interior.length} pilar(es) interno(s)` : ''}.`,

@@ -864,7 +864,7 @@ function LajesTab({ results }: { results: AnalysisResults }) {
                       `${p.name} (${POS_TXT[p.check.position]}${p.check.msdUsed ? ` · MSd ${fmt(p.check.msdUsed, 1)} kN·m` : ''}): Fsd ${fmt(p.fsd, 0)} kN · τSd ${fmt(p.check.tauSd0, 0)}/${fmt(
                         p.check.tauRd2,
                         0,
-                      )} (C) · ${fmt(p.check.tauSd1, 0)}/${fmt(p.check.tauRd1, 0)} (C′) kPa`,
+                      )} (C) · ${fmt(p.check.tauSd1, 0)}/${fmt(p.check.tauRd1, 0)} (C′) kPa${p.reinf ? ` · ${p.reinf.spec}` : ''}`,
                   )
                   .join(' · ')
                 return (

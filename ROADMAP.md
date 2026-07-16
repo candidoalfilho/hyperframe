@@ -241,6 +241,24 @@
 - [x] Composição com §19.5.1 (aberturas reduzem u e Wp), posição/MSd na aba Lajes
   (hover) e no memorial 9.1 (colunas Pos. e MSd)
 
+## v0.2.12 — Armadura de punção dimensionada (§19.5.3.3/4) ✅ (entregue)
+
+> Fecha o pacote "laje lisa profissional". 315 testes.
+
+- [x] **Conectores (studs, α = 90°) dimensionados**: Asw por linha a partir de
+  τRd3 = 0,10·(1+√(20/d))·(100ρfck)^⅓ + 1,5·(d/sr)·Asw·fywd/(u·d), com fywd ≤ 300 MPa
+  elevado linearmente até 435 MPa p/ 15 < h ≤ 35 cm (§19.4.2) e u reduzido em
+  borda/canto — âncora manual: 40×40, d=16, F=800 ⇒ 4 linhas × 14 φ8
+- [x] **Extensão até o contorno C″** (§19.5.3.4): linhas adicionadas até
+  τSd(C″) ≤ τRd1, com u″/Wp″/e*″ integrados no contorno a 2d da última linha
+  (mesma máquina de contornos — funciona em interno/borda/canto e compõe com
+  furos §19.5.1 e momento K·MSd)
+- [x] **Detalhamento fig. 20.2**: s0 ≤ 0,5d, sr ≤ 0,75d, espaçamento ≤ 2d na linha
+  externa; bitola escolhida (φ8–16); esmagamento em C não se "resolve" com armadura
+  (nota manda p/ capitel/maior d)
+- [x] Spec nas notas da laje, hover da aba Lajes e memorial 9.1 (Arm. = linhas ×
+  conectores × φ; falha se C″ não dispensar)
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.

@@ -688,16 +688,28 @@ export function buildMemorialPdf(
         p.check.msdUsed ? fmt(p.check.msdUsed, 1) : '—',
         `${fmt(p.check.tauSd0, 0)} / ${fmt(p.check.tauRd2, 0)}`,
         `${fmt(p.check.tauSd1, 0)} / ${fmt(p.check.tauRd1, 0)}`,
-        p.check.needsShearReinf ? 'studs' : 'disp.',
-        STATUS_TXT[!p.check.okC ? 'falha' : p.check.needsShearReinf ? 'atencao' : 'ok'],
+        p.reinf
+          ? `${p.reinf.lines}×${p.reinf.studsPerLine} φ${Math.round(p.reinf.phi * 1000)}`
+          : p.check.needsShearReinf
+            ? 'studs'
+            : 'disp.',
+        STATUS_TXT[
+          !p.check.okC || (p.reinf && !p.reinf.ok)
+            ? 'falha'
+            : p.check.needsShearReinf
+              ? 'atencao'
+              : 'ok'
+        ],
       ]),
       7.0,
     )
     L.para(
       'Contorno C (face do pilar): τSd ≤ τRd2 (esmagamento). Contorno C′ (2d): τSd ≤ τRd1 ' +
-        'dispensa armadura de punção; acima, prever studs (detalhar à parte). Pilares de ' +
-        'borda/canto: perímetro crítico REDUZIDO u* e momento corrigido MSd = (MSd1 − FSd·e*) ' +
-        '≥ 0, com K da tab. 19.2 (§19.5.2); MSd desbalanceado tomado da envoltória do pórtico.',
+        'dispensa armadura; acima, os CONECTORES são dimensionados (coluna Arm.: linhas × ' +
+        'conectores φ) por τRd3 (§19.5.3.3, α = 90°, s0 ≤ 0,5d, sr ≤ 0,75d, ≤ 2d na linha) e ' +
+        'estendidos até o contorno C″ dispensar (§19.5.3.4). Pilares de borda/canto: perímetro ' +
+        'REDUZIDO u* e MSd corrigido por e* com K da tab. 19.2 (§19.5.2); MSd desbalanceado ' +
+        'tomado da envoltória do pórtico.',
       7.8,
       'I',
       0.3,
