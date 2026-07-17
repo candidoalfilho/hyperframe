@@ -67,9 +67,11 @@ h1{font-family:var(--serif);font-weight:400;font-size:clamp(30px,4.4vw,44px);
     100% gratuito e open source. Confira o SHA-256 após baixar
     (<span class="sha" style="font-size:11px">shasum -a 256 arquivo</span> no macOS ·
     <span class="sha" style="font-size:11px">certutil -hashfile arquivo SHA256</span> no Windows).
-    Builds ainda sem assinatura: macOS → botão direito → Abrir; Windows/SmartScreen →
-    "Mais informações" → "Executar assim mesmo". Linux: compile do fonte
-    (<span class="sha" style="font-size:11px">npm i && npm run tauri build</span>).
+    Builds sem notarização Apple: na 1ª abertura use Ajustes do Sistema → Privacidade e
+    Segurança → "Abrir Assim Mesmo"; se o macOS disser "danificado" (versões ≤ 0.2.12 ou
+    download antigo), rode <span class="sha" style="font-size:11px">xattr -cr /Applications/HyperFrame.app</span>
+    no Terminal. Windows/SmartScreen → "Mais informações" → "Executar assim mesmo".
+    Linux: compile do fonte (<span class="sha" style="font-size:11px">npm i && npm run tauri build</span>).
   </p>
 
   <div class="ver">
@@ -79,7 +81,7 @@ h1{font-family:var(--serif);font-weight:400;font-size:clamp(30px,4.4vw,44px);
       (studs até o contorno C″) e colapso progressivo §19.5.4.</p>
     <div class="row">
       <a class="btn" href="HyperFrame_0.2.13_aarch64.dmg" download>macOS (Apple Silicon) ↓</a>
-      <span class="sha">6f88d7c56235670e6e4b7c1d93cffbb32fab199d1a9a8a4284597dcc92859ed8</span>
+      <span class="sha">c773350fa8a009709a63099ddfdbe4fb8339667a1178a81799e7677f5623cf25</span>
     </div>
     <div class="row">
       <a class="btn" href="HyperFrame_0.2.13_x64-setup.exe" download>Windows 10/11 (x64) ↓</a>
