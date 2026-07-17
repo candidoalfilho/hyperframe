@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Downloads — HyperFrame (todas as versões)</title>
+<meta name="description" content="Todas as versões do HyperFrame para macOS e Windows, com checksums SHA-256. 100% gratuito e open source." />
+<style>
+:root{
+  --paper:#f6f4ee; --card:#fbfaf6; --ink:#1a1912; --ink-soft:#514d41;
+  --ink-faint:#8a8574; --hairline:#e0dbcc; --hairline-strong:#cfc9b6;
+  --accent:#ffa028; --accent-deep:#a86400;
+  --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,Roboto,'Helvetica Neue',Arial,sans-serif;
+  --mono:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--accent-deep);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+.wrap{max-width:980px;margin:0 auto;padding:0 22px}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;
+  max-width:980px;margin:0 auto;border-bottom:1px solid var(--hairline)}
+.brand{display:inline-flex;align-items:center;gap:8px;color:var(--ink);font-weight:700}
+.brand b{color:var(--accent-deep)}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--ink-faint);margin:42px 0 8px}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(30px,4.4vw,44px);
+  letter-spacing:-.015em;margin:0 0 10px}
+.sub{color:var(--ink-soft);max-width:640px;margin:0 0 28px}
+.ver{background:var(--card);border:1px solid var(--hairline);border-radius:14px;
+  padding:20px 22px;margin:0 0 14px}
+.ver h2{font-family:var(--serif);font-weight:400;font-size:24px;margin:0 0 2px}
+.ver .meta{color:var(--ink-faint);font-size:12.5px;margin:0 0 10px}
+.ver .hl{color:var(--ink-soft);font-size:14px;margin:0 0 14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);
+  color:#241a06;border:1px solid #e08b12;font-weight:700;font-size:13px;
+  padding:8px 15px;border-radius:999px;white-space:nowrap}
+.btn:hover{background:#ffb14e;text-decoration:none}
+.btn.ghost{background:transparent;border:1px solid var(--hairline-strong);color:var(--ink);font-weight:600}
+.sha{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);word-break:break-all}
+.legal{color:var(--ink-faint);font-size:12.5px;line-height:1.6;margin:26px 0 60px}
+.badge{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;border:1px solid var(--hairline-strong);border-radius:999px;
+  padding:2px 9px;color:var(--ink-soft);margin-left:8px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="brand" href="../">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7l9-5z"/><path d="M12 12l9-5M12 12L3 7M12 12v10"/></svg>
+    Hyper<b>Frame</b>
+  </a>
+  <div style="display:flex;gap:16px;font-size:13.5px">
+    <a href="../">← Página inicial</a>
+    <a href="https://github.com/candidoalfilho/hyperframe" rel="noopener">GitHub ↗</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <p class="eyebrow">Downloads</p>
+  <h1>Todas as versões.</h1>
+  <p class="sub">
+    100% gratuito e open source. Confira o SHA-256 após baixar
+    (<span class="sha" style="font-size:11px">shasum -a 256 arquivo</span> no macOS ·
+    <span class="sha" style="font-size:11px">certutil -hashfile arquivo SHA256</span> no Windows).
+    Builds ainda sem assinatura: macOS → botão direito → Abrir; Windows/SmartScreen →
+    "Mais informações" → "Executar assim mesmo". Linux: compile do fonte
+    (<span class="sha" style="font-size:11px">npm i && npm run tauri build</span>).
+  </p>
+
+  <div class="ver">
+    <h2>v0.2.13 <span class="badge">atual</span></h2>
+    <p class="meta">16/07/2026 · 316 testes</p>
+    <p class="hl">Punção §19.5 completa: pilares de borda/canto com K·MSd, armadura de punção
+      (studs até o contorno C″) e colapso progressivo §19.5.4.</p>
+    <div class="row">
+      <a class="btn" href="HyperFrame_0.2.13_aarch64.dmg" download>macOS (Apple Silicon) ↓</a>
+      <span class="sha">6f88d7c56235670e6e4b7c1d93cffbb32fab199d1a9a8a4284597dcc92859ed8</span>
+    </div>
+    <div class="row">
+      <a class="btn" href="HyperFrame_0.2.13_x64-setup.exe" download>Windows 10/11 (x64) ↓</a>
+      <span class="sha">1096120792f608afad7d62d859959d9a08b67dc80167480bd963d12047db47e5</span>
+    </div>
+  </div>
+
+  <div class="ver">
+    <h2>v0.2.12</h2>
+    <p class="meta">15/07/2026</p>
+    <p class="hl">Armadura de punção dimensionada (linhas de conectores, §19.5.3.3/4).</p>
+    <div class="row">
+      <a class="btn ghost" href="HyperFrame_0.2.12_aarch64.dmg" download>macOS ↓</a>
+      <span class="sha">d3b5bb3064e1233b052b3938ee30942b24ae756264c119ca122d0d1cb390f1e2</span>
+    </div>
+  </div>
+
+  <div class="ver">
+    <h2>v0.2.11</h2>
+    <p class="meta">15/07/2026</p>
+    <p class="hl">Punção de pilares de borda e canto com K·MSd (§19.5.2).</p>
+    <div class="row">
+      <a class="btn ghost" href="HyperFrame_0.2.11_aarch64.dmg" download>macOS ↓</a>
+      <span class="sha">b09dde497f681443bdad3dac9413f8107bb6d196ab4464b6bc1be833894818e6</span>
+    </div>
+  </div>
+
+  <div class="ver">
+    <h2>v0.2.10</h2>
+    <p class="meta">15/07/2026</p>
+    <p class="hl">Furos em lajes completos (§19.5.1 + reforço de borda + §13.2.5); site open source.</p>
+    <div class="row">
+      <a class="btn ghost" href="HyperFrame_0.2.10_aarch64.dmg" download>macOS ↓</a>
+      <span class="sha">45f77ed6a6966d8888a30edc63a2d4ad84b822fedf72d984546498eb10028e19</span>
+    </div>
+  </div>
+
+  <div class="ver">
+    <h2>v0.2.9</h2>
+    <p class="meta">14/07/2026</p>
+    <p class="hl">Armação executiva: cortes pelo diagrama real, emendas por traspasse e editor de armaduras.</p>
+    <div class="row">
+      <a class="btn ghost" href="HyperFrame_0.2.9_aarch64.dmg" download>macOS ↓</a>
+      <span class="sha">d6c5ea6d546321611dbf6c7e22d735e32b9b90943df0e2268b67845e927ff02c</span>
+    </div>
+  </div>
+
+  <p class="legal">
+    O changelog completo é o <a href="https://github.com/candidoalfilho/hyperframe" rel="noopener">ROADMAP
+    do repositório</a>. Software em desenvolvimento — os resultados não substituem a análise,
+    o julgamento e a responsabilidade técnica de engenheiro habilitado (ART/CREA).
+  </p>
+</main>
+
+</body>
+</html>
