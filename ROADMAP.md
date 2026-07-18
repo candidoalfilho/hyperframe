@@ -291,6 +291,30 @@
 - [x] `site/tools/publish.mjs`: publicação de versão automatizada com asserts
   (binários, sha256 e patch das 3 páginas) — fim dos seds manuais
 
+## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
+
+> Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
+> de cálculo — sem edição de geometria, posição, planta ou 3D). Vibração (§23.3)
+> explicitamente adiada p/ o futuro.
+
+1. **Fundações editáveis**: elemento por pilar (tipo, B×L/estacas/fuste, cota de
+   assentamento, excentricidade/offset de divisa), desenhadas no 2D e 3D, com
+   **planta de fundações** (locação/dimensões) — e o pacote de cálculo junto:
+   sapata de divisa + viga alavanca, sapatas associadas/corridas, blocos ≥ 6
+   estacas (CEB), armadura de sapatas/blocos detalhada
+2. Armação de LAJES em planta (dados prontos; falta o desenho)
+3. **Grelha de pavimento unificada**: hoje a grelha é POR LAJE com bordas
+   rotuladas nas vigas — a continuidade entre lajes vizinhas só é considerada no
+   Marcus (engaste por continuidade); unificar o pavimento (lajes + vigas
+   flexíveis numa grelha só) captura negativos de continuidade e alivia vãos
+4. Mesa colaborante das vigas (seção T, §14.6.2.2) — economia real de armadura
+5. Núcleo rígido / pilar-parede (§15.9) — a maior parede funcional
+6. Pilares executivos (arranques, emendas por tramo, croqui)
+7. Refinamentos de análise: P-Δ real, excentricidade de vento ±7,5%,
+   redistribuição (§14.6.4.3), Ca da Fig. 4 digitalizado, trapezoidal no Marcus
+8. FUTURO (decisão 18/07): vibração de piso §23.3, vento dinâmico (cap. 9),
+   sismo NBR 15421, treliçadas, protensão, aço NBR 8800
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.
