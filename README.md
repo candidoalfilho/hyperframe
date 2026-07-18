@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.17-orange) ![tests](https://img.shields.io/badge/testes-327%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.18-orange) ![tests](https://img.shields.io/badge/testes-332%20passando-brightgreen)
 
-## O que já faz (v0.2.17)
+## O que já faz (v0.2.18)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -46,8 +46,12 @@ sistema e código-fonte no site.
   estacas** (método das bielas — Blévot, 1–5 estacas, presets) ou **tubulões a céu
   aberto** (fuste + base alargada, NBR 6122), **editáveis por pilar** (tipo, a×b ou nº
   de estacas fixados ⇒ o programa VERIFICA em vez de dimensionar; offset de divisa vira
-  momento N·e; cota de assentamento), **desenhadas no 2D e no 3D**, **planta de
-  fundações** (locação, contornos, estacas e resumo) e **planta de cargas** (reações
+  momento N·e; cota de assentamento), **sapata de divisa com VIGA ALAVANCA** (R1
+  amplificada, sapata centrada, alívio no pilar interno, viga dimensionada à flexão e
+  cisalhamento com armadura superior + estribos), **desenhadas no 2D e no 3D**, **planta
+  de fundações** (locação, contornos, estacas, eixo das alavancas e resumo),
+  **detalhamento de fundações** (armaduras da sapata/bloco + quadro das VAs) e **planta
+  de cargas** (reações
   características por pilar), **baldrames sobre apoio elástico de Winkler** (ks manual,
   da sondagem ou 120·σadm; pressão no solo × σadm)
 - **Interação solo-estrutura**: sondagem SPT por camadas → **molas de apoio CRV/CRH**
@@ -117,7 +121,7 @@ packages/engine     # núcleo puro TypeScript (zero dependências)
   src/drawing       # pranchas (primitivas neutras → SVG/DXF)
   src/dxf           # parser (underlay) e writer (R12) de DXF próprios
   src/report        # memorial de cálculo em PDF (writer PDF próprio, zero deps)
-  test              # 327 testes (âncoras analíticas, normas, equilíbrio global)
+  test              # 332 testes (âncoras analíticas, normas, equilíbrio global)
 apps/desktop        # Tauri 2 + React 19 + three.js
   src/editor2d      # editor de planta SVG (snap, ferramentas, camadas, underlay)
   src/viewer3d      # visualizador 3D (R3F): edifício, deformada, diagramas

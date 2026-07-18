@@ -760,6 +760,35 @@ function FoundationSection({ col, project }: { col: Column; project: Project }) 
         </div>
       </div>
 
+      {effKind === 'sapata' && ov?.offset && (ov.offset.x !== 0 || ov.offset.y !== 0) && (
+        <div className="field">
+          <label className="label">Viga alavanca até (pilar interno) — divisa</label>
+          <select
+            className="select"
+            style={{ width: '100%' }}
+            value={ov?.strapToColumnId ?? ''}
+            onChange={(e) => patch({ strapToColumnId: e.target.value || undefined })}
+          >
+            <option value="">— (sem alavanca: offset vira N·e)</option>
+            {project.columns
+              .filter((c) => c.id !== col.id)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+          </select>
+          {item?.strap && (
+            <div className="faint" style={{ fontSize: 11, marginTop: 4 }}>
+              VA {col.name}–{item.strap.partnerName}: {Math.round(cm(item.strap.bw))}×
+              {Math.round(cm(item.strap.h))} · sup {item.strap.topSpec} · estribos{' '}
+              {item.strap.stirrupSpec} · R1 {fmt(item.strap.r1, 0)} kN (alívio{' '}
+              {fmt(item.strap.relief, 0)} kN em {item.strap.partnerName})
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="field">
         <label className="label">Prof. de assentamento (m) — desenho/3D</label>
         <NumberField

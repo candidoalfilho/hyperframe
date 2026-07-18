@@ -409,6 +409,13 @@ export interface FoundationResultItem {
   depth?: number
   /** presente quando kind = 'sapata' */
   footing: import('../nbr/nbr6118/foundations').FootingResult | null
+  /** viga alavanca (sapata de divisa) — presente quando strapToColumnId válido */
+  strap?: import('../nbr/nbr6122/strapBeam').StrapBeamResult & {
+    partnerId: string
+    partnerName: string
+    e: number
+    L: number
+  }
   /** presente quando kind = 'bloco' (estacas) */
   pileCap: import('../nbr/nbr6118/pileCaps').PileCapResult | null
   /** presente quando kind = 'tubulao' */

@@ -88,9 +88,35 @@ export function buildFoundationPlanDrawing(
       })
     }
 
+    // viga alavanca: eixo da viga do CG da sapata ao pilar interno
+    if (item.strap) {
+      const p2 = byId.get(item.strap.partnerId)
+      if (p2) {
+        prims.push({
+          kind: 'line',
+          x1: shape.center.x,
+          y1: shape.center.y,
+          x2: p2.pos.x,
+          y2: p2.pos.y,
+          layer: 'CONTORNO',
+        })
+        const mx = (shape.center.x + p2.pos.x) / 2
+        const my = (shape.center.y + p2.pos.y) / 2
+        prims.push({
+          kind: 'text',
+          x: mx,
+          y: my + 0.1,
+          text: `VA ${col.name}–${item.strap.partnerName} ${Math.round(item.strap.bw * 100)}×${Math.round(item.strap.h * 100)}`,
+          height: 0.14,
+          layer: 'TEXTOS',
+          align: 'center',
+        })
+      }
+    }
+
     const detail =
       item.kind === 'sapata' && item.footing
-        ? `h=${Math.round(item.footing.h * 100)} · σmáx=${item.footing.sigmaMax.toFixed(0)} kPa`
+        ? `h=${Math.round(item.footing.h * 100)} · σmáx=${item.footing.sigmaMax.toFixed(0)} kPa${item.strap ? ` · VA→${item.strap.partnerName}` : ''}`
         : item.kind === 'bloco' && item.pileCap
           ? `${item.pileCap.nPiles} est. ø${Math.round(item.pileCap.pileDiameter * 100)} · ${item.pileCap.pileLoad.toFixed(0)} kN/est.`
           : item.caisson

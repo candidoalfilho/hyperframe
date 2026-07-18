@@ -365,6 +365,8 @@ export interface FoundationInstance {
   position: [number, number, number]
   /** box: [sx, sy, sz]; cyl: [d, h, d] */
   size: [number, number, number]
+  /** viga alavanca: box girado no plano (mesma convenção das vigas) */
+  rotationY?: number
   status: FoundationResultItem['status']
 }
 
@@ -430,6 +432,26 @@ export function buildFoundations(
         size: [it.caisson.baseD, s.h, it.caisson.baseD],
         status: it.status,
       })
+    }
+    // viga alavanca: box do CG da sapata ao eixo do pilar interno, topo = topo da sapata
+    if (it.strap) {
+      const p2 = byId.get(it.strap.partnerId)
+      if (p2) {
+        const dx = p2.pos.x - s.center.x
+        const dy = p2.pos.y - s.center.y
+        const len = Math.hypot(dx, dy)
+        if (len > 0.1) {
+          out.push({
+            key: `fnd:${it.columnId}:strap`,
+            columnId: it.columnId,
+            shape: 'box',
+            position: [(s.center.x + p2.pos.x) / 2, top - it.strap.h / 2, -(s.center.y + p2.pos.y) / 2],
+            rotationY: Math.atan2(dy, dx),
+            size: [len, it.strap.h, it.strap.bw],
+            status: it.strap.status,
+          })
+        }
+      }
     }
     // arranque: profundidade > 0 deixa vão entre a base do pilar e o topo da fundação
     if (depth > 0.01) {

@@ -134,6 +134,11 @@ export {
 export { checkPunching, type PunchingInput, type PunchingOutput } from './nbr/nbr6118/punching'
 export { designCaisson, type CaissonInput, type CaissonResult } from './nbr/nbr6122/caisson'
 export {
+  designStrapBeam,
+  type StrapBeamInput,
+  type StrapBeamResult,
+} from './nbr/nbr6122/strapBeam'
+export {
   soilModulus,
   averageModulus,
   pileCapacityAokiVelloso,
@@ -164,6 +169,7 @@ export { buildColumnDetailDrawing } from './drawing/columnDetail'
 export { buildSectionCutDrawing, type SectionCutOptions } from './drawing/sectionCut'
 export { buildLoadPlanDrawing } from './drawing/loadPlan'
 export { buildFoundationPlanDrawing } from './drawing/foundationPlan'
+export { buildFoundationDetailDrawing } from './drawing/foundationDetail'
 export { foundationShape, type FoundationShape } from './design/foundationGeometry'
 export { runFoundationDesign } from './design/foundationRun'
 export {

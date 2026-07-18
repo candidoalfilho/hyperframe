@@ -498,6 +498,8 @@ export interface FoundationOverride {
   nPiles?: number
   /** deslocamento do CG da fundação, m (global x/y) */
   offset?: Vec2
+  /** sapata de divisa: pilar interno que recebe a viga alavanca */
+  strapToColumnId?: string
   /** profundidade do topo abaixo do nível da fundação, m */
   depth?: number
 }

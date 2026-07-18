@@ -311,6 +311,26 @@
 - [ ] Fase 2: sapata de divisa com viga alavanca, sapatas associadas/corridas,
   blocos ≥ 6 estacas (CEB), armadura detalhada de sapatas/blocos em prancha
 
+## v0.2.18 — Viga alavanca + detalhamento de fundações ✅
+
+- [x] `designStrapBeam` (nbr6122/strapBeam.ts): modelo clássico da viga de
+  equilíbrio (Alonso) — R1 = N·L/(L−e), alívio N·e/(L−e), M = N·e com tração
+  superior; seção h = L/8 crescendo até caber, flexão §17 + estribos (mín. φ6,3)
+- [x] `FoundationOverride.strapToColumnId`: no inspetor, sapata com offset ganha
+  select "Viga alavanca até (pilar interno)" — sapata passa a ser dimensionada
+  CENTRADA p/ R1 amplificada (só a componente perpendicular do offset vira N·e);
+  alívio comparado com a reação real do pilar interno (>50% ⇒ atenção) e NÃO
+  descontado da fundação dele (a favor da segurança)
+- [x] Desenhos: planta de fundações traça o eixo da VA com bw×h; nova prancha
+  **Detalhamento de fundações** (célula por fundação com armaduras da sapata
+  dir. a/b, tirantes de bloco, tubulão, cotas de assentamento + QUADRO das VAs
+  com seção/armadura/estribos/R1/alívio) — SVG/DXF/PDF
+- [x] 2D: eixo tracejado da VA com rótulo; 3D: sólido da viga entre a sapata e o
+  pilar interno (topo alinhado ao topo da sapata)
+- [x] 5 testes novos com âncoras à mão (R1/alívio/M, As 19,43 cm² → 4 φ 25,
+  estribo mínimo φ6,3 c/ 20, crescimento de h, e > L/4) — 332 no total
+- [ ] Restante da fase 2: sapatas associadas/corridas, blocos ≥ 6 estacas (CEB)
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
@@ -318,9 +338,9 @@
 > explicitamente adiada p/ o futuro.
 
 1. **Fundações editáveis**: ✅ fase 1 na v0.2.17 (edição por pilar + planta de
-   fundações + 2D/3D). Falta a fase 2 de cálculo: sapata de divisa + viga
-   alavanca, sapatas associadas/corridas, blocos ≥ 6 estacas (CEB), armadura
-   de sapatas/blocos detalhada em prancha
+   fundações + 2D/3D) · ✅ fase 2a na v0.2.18 (viga alavanca de divisa +
+   detalhamento de fundações em prancha). Falta: sapatas associadas/corridas,
+   blocos ≥ 6 estacas (CEB)
 2. Armação de LAJES em planta (dados prontos; falta o desenho)
 3. **Grelha de pavimento unificada**: hoje a grelha é POR LAJE com bordas
    rotuladas nas vigas — a continuidade entre lajes vizinhas só é considerada no

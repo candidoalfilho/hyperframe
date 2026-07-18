@@ -4,6 +4,7 @@ import {
   buildColumnDetailDrawing,
   buildDrawingPdf,
   buildFormworkDrawing,
+  buildFoundationDetailDrawing,
   buildFoundationPlanDrawing,
   buildLoadPlanDrawing,
   buildSectionCutDrawing,
@@ -23,7 +24,7 @@ import { IconChevronDown, IconDownload } from '../components/Icons'
  * (formatos A0–A4, escala automática ou fixa).
  */
 
-type Tipo = 'forma' | 'corte' | 'cargas' | 'fundacoes' | 'vigas' | 'pilares'
+type Tipo = 'forma' | 'corte' | 'cargas' | 'fundacoes' | 'fundacoes-det' | 'vigas' | 'pilares'
 
 /** nome de arquivo seguro: minúsculas, sem acentos, hifens */
 function slug(s: string): string {
@@ -42,6 +43,7 @@ const TITLES: Record<Tipo, string> = {
   corte: 'Corte esquemático',
   cargas: 'Planta de cargas — fundações',
   fundacoes: 'Planta de fundações',
+  'fundacoes-det': 'Detalhamento de fundações',
   vigas: 'Armação de vigas',
   pilares: 'Pilares — seções e armaduras',
 }
@@ -107,6 +109,7 @@ export default function PranchasPanel() {
       if (!results) return null
       if (tipo === 'cargas') return buildLoadPlanDrawing(project, results.foundationLoads)
       if (tipo === 'fundacoes') return buildFoundationPlanDrawing(project, results.foundations)
+      if (tipo === 'fundacoes-det') return buildFoundationDetailDrawing(project, results.foundations)
       if (tipo === 'vigas') {
         if (!effectiveBeam) return null
         const spans = results.detailing.beams.filter((b) => b.beamId === effectiveBeam.id)
@@ -165,7 +168,9 @@ export default function PranchasPanel() {
             ? 'cargas-fundacao'
             : tipo === 'fundacoes'
               ? 'planta-fundacoes'
-              : 'secoes'
+              : tipo === 'fundacoes-det'
+                ? 'detalhamento-fundacoes'
+                : 'secoes'
 
   const saveBlob = (blob: Blob, filename: string): void => {
     const url = URL.createObjectURL(blob)
@@ -225,6 +230,9 @@ export default function PranchasPanel() {
           </option>
           <option value="fundacoes" disabled={!results}>
             Planta de fundações
+          </option>
+          <option value="fundacoes-det" disabled={!results}>
+            Detalhamento de fundações
           </option>
           <option value="vigas" disabled={!results}>
             Vigas

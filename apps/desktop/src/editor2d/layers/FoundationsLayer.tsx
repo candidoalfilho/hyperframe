@@ -33,8 +33,33 @@ export default memo(function FoundationsLayer({ items, columns, k }: Props) {
         const yBottom = shape.polygon
           ? Math.min(...shape.polygon.map((p) => p.y))
           : shape.center.y - Math.max(...shape.circles.map((c) => c.r))
+        const partner = it.strap ? byId.get(it.strap.partnerId) : undefined
         return (
           <g key={it.columnId} pointerEvents="none">
+            {it.strap && partner && (
+              <>
+                <line
+                  x1={shape.center.x * k}
+                  y1={-shape.center.y * k}
+                  x2={partner.pos.x * k}
+                  y2={-partner.pos.y * k}
+                  stroke={stroke}
+                  strokeWidth={2}
+                  strokeDasharray="10 5"
+                />
+                {withLabel && (
+                  <text
+                    x={((shape.center.x + partner.pos.x) / 2) * k}
+                    y={-((shape.center.y + partner.pos.y) / 2) * k - 4}
+                    fontSize={9}
+                    fill={stroke}
+                    textAnchor="middle"
+                  >
+                    VA {Math.round(it.strap.bw * 100)}×{Math.round(it.strap.h * 100)}
+                  </text>
+                )}
+              </>
+            )}
             {shape.polygon && (
               <polygon
                 points={shape.polygon.map((p) => `${p.x * k},${-p.y * k}`).join(' ')}

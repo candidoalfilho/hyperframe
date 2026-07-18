@@ -9,6 +9,8 @@ import { concreteProps, fyd as fydOf } from '../nbr/nbr6118/materials'
 import { designFooting } from '../nbr/nbr6118/foundations'
 import { designPileCap } from '../nbr/nbr6118/pileCaps'
 import { designCaisson } from '../nbr/nbr6122/caisson'
+import { designStrapBeam } from '../nbr/nbr6122/strapBeam'
+import type { FoundationResultItem as FRI } from '../analysis/types'
 import { columnSectionInfo } from '../model/columnSection'
 
 /**
@@ -126,21 +128,93 @@ export function runFoundationDesign(
       continue
     }
 
+    // ---- viga alavanca (sapata de divisa): R1 amplificada + sapata CENTRADA ----
+    let strap: FRI['strap']
+    let nFooting = nServ
+    let maF = ma
+    let mbF = mb
+    const partner =
+      ov?.strapToColumnId && ov.strapToColumnId !== col.id
+        ? project.columns.find((c) => c.id === ov.strapToColumnId)
+        : undefined
+    if (partner && ov?.offset && (ov.offset.x !== 0 || ov.offset.y !== 0)) {
+      const ux = partner.pos.x - col.pos.x
+      const uy = partner.pos.y - col.pos.y
+      const L = Math.hypot(ux, uy)
+      const eMag = Math.hypot(ov.offset.x, ov.offset.y)
+      const ePar = L > 1e-6 ? (ov.offset.x * ux + ov.offset.y * uy) / L : 0
+      if (ePar > 0.01 && L > eMag + 0.2) {
+        const sb = designStrapBeam({
+          n1Serv: nServ,
+          e: ePar,
+          L,
+          bw: Math.max(0.25, Math.min(ap, bp)),
+          fck: cp.fck,
+          fcd: cp.fcd,
+          fctd: cp.fctd,
+          fctm: cp.fctm,
+          fyd: fydV,
+          fywk: project.settings.steel.fyk,
+        })
+        if (ePar / eMag < 0.95) {
+          sb.notes.push(
+            'Offset tem componente perpendicular à alavanca — só a projeção na direção P1→P2 equilibra; o restante vira N·e na sapata.',
+          )
+        }
+        // alívio vs. carga do pilar interno (reação de serviço do parceiro)
+        const pNode = model.nodes.find(
+          (n) =>
+            n.support &&
+            Math.abs(n.x - partner.pos.x) < 0.05 &&
+            Math.abs(n.y - partner.pos.y) < 0.05,
+        )
+        if (pNode) {
+          const prg = reactionAt(g, pNode.id)
+          const prq = reactionAt(q, pNode.id)
+          const pN = (prg?.fz ?? 0) + (prq?.fz ?? 0)
+          if (pN > 1e-6 && sb.relief > 0.5 * pN) {
+            if (sb.status === 'ok') sb.status = 'atencao'
+            sb.notes.push(
+              `Alívio (${sb.relief.toFixed(0)} kN) > 50% da carga do pilar interno (${pN.toFixed(0)} kN) — rever geometria/vão.`,
+            )
+          }
+        }
+        sb.notes.push(
+          `Alívio de ${sb.relief.toFixed(0)} kN em ${partner.name} NÃO descontado da fundação dele (a favor da segurança).`,
+        )
+        strap = { ...sb, partnerId: partner.id, partnerName: partner.name, e: ePar, L }
+        // sapata centrada no CG: momento do offset já equilibrado pela alavanca —
+        // só a componente perpendicular permanece como N·e
+        nFooting = sb.r1
+        const perpA = Math.max(0, offA - Math.abs(alongX ? (ePar * ux) / L : (ePar * uy) / L))
+        const perpB = Math.max(0, offB - Math.abs(alongX ? (ePar * uy) / L : (ePar * ux) / L))
+        maF = (alongX ? myServ : mxServ) + nServ * perpA
+        mbF = (alongX ? mxServ : myServ) + nServ * perpB
+      }
+    }
+
     const footing = designFooting({
-      nServ,
-      ma,
-      mb,
+      nServ: nFooting,
+      ma: maF,
+      mb: mbF,
       ap,
       bp,
       sigmaAdm: project.settings.soil.sigmaAdm,
       fyd: fydV,
       fixed: ov?.a && ov?.b ? { a: ov.a, b: ov.b } : undefined,
     })
-    if (offA + offB > 1e-9) {
+    if (strap) {
       footing.notes.push(
-        `Offset do CG (${(offA * 100).toFixed(0)}/${(offB * 100).toFixed(0)} cm) somado como N·e — p/ divisa, prever viga alavanca.`,
+        `Sapata de divisa c/ viga alavanca até ${strap.partnerName}: dimensionada CENTRADA p/ R1 = ${strap.r1.toFixed(0)} kN (amplificação ${((strap.r1 / nServ - 1) * 100).toFixed(0)}%).`,
+      )
+    } else if (offA + offB > 1e-9) {
+      footing.notes.push(
+        `Offset do CG (${(offA * 100).toFixed(0)}/${(offB * 100).toFixed(0)} cm) somado como N·e — p/ divisa, selecione o pilar da viga alavanca no inspetor.`,
       )
     }
+
+    const worst = (a: FRI['status'], b: FRI['status']): FRI['status'] =>
+      a === 'falha' || b === 'falha' ? 'falha' : a === 'atencao' || b === 'atencao' ? 'atencao' : 'ok'
 
     out.push({
       columnId: col.id,
@@ -149,9 +223,10 @@ export function runFoundationDesign(
       kind: 'sapata',
       ...extra,
       footing,
+      strap,
       pileCap: null,
       caisson: null,
-      status: footing.status,
+      status: strap ? worst(footing.status, strap.status) : footing.status,
     })
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }))
