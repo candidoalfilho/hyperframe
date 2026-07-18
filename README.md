@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.14-orange) ![tests](https://img.shields.io/badge/testes-317%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.15-orange) ![tests](https://img.shields.io/badge/testes-317%20passando-brightgreen)
 
-## O que já faz (v0.2.14)
+## O que já faz (v0.2.15)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em

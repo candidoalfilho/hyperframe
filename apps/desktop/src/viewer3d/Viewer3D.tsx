@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { GizmoHelper, GizmoViewport, Grid, OrbitControls } from '@react-three/drei'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { useStore } from '../store'
 import { computeBounds, NO_RAYCAST } from './coords'
 import Building from './Building'
@@ -23,6 +24,22 @@ export default function Viewer3D() {
   )
   // guarda a posição do pointerdown p/ não desselecionar ao soltar um arrasto do orbit
   const downAt = useRef<{ x: number; y: number } | null>(null)
+
+  const controlsRef = useRef<OrbitControlsImpl | null>(null)
+  /** zoom por botão: aproxima/afasta a câmera do alvo (funciona sem roda) */
+  const zoomBy = (f: number): void => {
+    const c = controlsRef.current
+    if (!c) return
+    c.object.position.sub(c.target).multiplyScalar(1 / f).add(c.target)
+    c.update()
+  }
+  const resetView = (): void => {
+    const c = controlsRef.current
+    if (!c) return
+    c.reset()
+    c.target.set(bounds.center[0], bounds.center[1], bounds.center[2])
+    c.update()
+  }
 
   return (
     <div
@@ -89,6 +106,7 @@ export default function Viewer3D() {
         <DiagramRibbons />
 
         <OrbitControls
+          ref={controlsRef}
           makeDefault
           target={bounds.center}
           enableDamping
@@ -103,6 +121,36 @@ export default function Viewer3D() {
       </Canvas>
 
       <ControlPanel />
+
+      {(
+        [
+          ['+', 'Aproximar (ou role a roda do mouse)', 8, () => zoomBy(1.3)],
+          ['−', 'Afastar', 44, () => zoomBy(1 / 1.3)],
+          ['⛶', 'Vista inicial', 80, resetView],
+        ] as const
+      ).map(([label, title, top, fn]) => (
+        <button
+          key={label}
+          type="button"
+          className="btn-icon"
+          title={title}
+          onClick={(e) => {
+            fn()
+            e.currentTarget.blur()
+          }}
+          style={{
+            position: 'absolute',
+            top,
+            right: 8,
+            zIndex: 4,
+            background: 'var(--bg-2)',
+            border: '1px solid var(--border)',
+            fontSize: 15,
+          }}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   )
 }

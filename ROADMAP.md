@@ -278,6 +278,11 @@
   já funcionava, mas não era descobrível no Windows) e **zoom da interface inteira**
   com Ctrl/⌘ +/−/0, persistido por máquina (telas com escala alta)
 
+## v0.2.15 — Zoom por botões também no 3D ✅
+
+- [x] Botões +/−/⛶ (vista inicial) no viewer 3D via OrbitControls — fecha o feedback
+  de zoom do smoke test Windows nas três superfícies (2D, pranchas e 3D)
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.
