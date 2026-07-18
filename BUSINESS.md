@@ -9,8 +9,7 @@
 > Ed25519/checkout) e os planos com limites de recurso: código nunca é gate.
 > Monetização compatível a definir: apoio (GitHub Sponsors/Pix), serviços
 > (suporte, treinamento) e, no futuro, cloud opcional (colaboração/backup).
-> Marca "HyperFrame" a registrar no INPI; licença de código a escolher
-> (recomendação: AGPL-3.0 — MIT NÃO impede fork fechado/comercial).
+> Marca "HyperFrame" em registro no INPI. Licença escolhida (18/07/2026): **MIT**.
 
 ---
 
