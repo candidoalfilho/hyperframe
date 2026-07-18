@@ -32,6 +32,7 @@ import RegionsLayer from './layers/RegionsLayer'
 import BeamsLayer from './layers/BeamsLayer'
 import ColumnsLayer from './layers/ColumnsLayer'
 import WallLoadsLayer from './layers/WallLoadsLayer'
+import FoundationsLayer from './layers/FoundationsLayer'
 import PreviewLayer, { type CursorSnap } from './layers/PreviewLayer'
 
 const ORTHO_MAX_RAD = (15 * Math.PI) / 180
@@ -91,6 +92,8 @@ export default function Editor2D() {
   const grid = useStore((s) => s.project.grid)
   const columns = useStore((s) => s.project.columns)
   const underlay = useStore((s) => s.project.underlay ?? null)
+  const foundations = useStore((s) => s.results?.foundations ?? null)
+  const isLowestLevel = useStore((s) => s.activeLevelId === s.project.levels[0]?.id)
   const plan = useActivePlan()
   const tool = useStore((s) => s.tool)
   const display = useStore((s) => s.display)
@@ -457,6 +460,9 @@ export default function Editor2D() {
               selectedId={selBeam}
               hoveredId={hovBeam}
             />
+          )}
+          {isLowestLevel && foundations && (
+            <FoundationsLayer items={foundations} columns={columns} k={vp.k} />
           )}
           <ColumnsLayer
             columns={columns}

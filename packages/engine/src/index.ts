@@ -163,6 +163,9 @@ export { buildBeamDetailDrawing } from './drawing/beamDetail'
 export { buildColumnDetailDrawing } from './drawing/columnDetail'
 export { buildSectionCutDrawing, type SectionCutOptions } from './drawing/sectionCut'
 export { buildLoadPlanDrawing } from './drawing/loadPlan'
+export { buildFoundationPlanDrawing } from './drawing/foundationPlan'
+export { foundationShape, type FoundationShape } from './design/foundationGeometry'
+export { runFoundationDesign } from './design/foundationRun'
 export {
   composeSheet,
   type SheetFormat,

@@ -476,6 +476,30 @@ export interface Project {
   notes?: string
   /** ajustes manuais do editor de armaduras (por vão de viga) */
   rebarOverrides?: RebarOverride[]
+  /** ajustes manuais das fundações (por pilar — editor de fundações) */
+  foundationOverrides?: FoundationOverride[]
+}
+
+/**
+ * Fundação editada pelo engenheiro (por pilar). Dimensões presentes viram
+ * VERIFICAÇÃO (σ/núcleo/bielas ou carga por estaca) em vez de
+ * dimensionamento; offset desloca o CG da fundação em relação ao eixo do
+ * pilar (a excentricidade N·e entra nos momentos — divisa); depth é a
+ * profundidade do topo abaixo do nível da fundação (desenho/3D).
+ */
+export interface FoundationOverride {
+  columnId: string
+  /** tipo por pilar (sobrepõe settings.foundation.type) */
+  kind?: 'sapata' | 'estacas' | 'tubulao'
+  /** sapata: a×b em planta, m (a na direção de h do pilar) */
+  a?: number
+  b?: number
+  /** bloco: nº de estacas (1–5) */
+  nPiles?: number
+  /** deslocamento do CG da fundação, m (global x/y) */
+  offset?: Vec2
+  /** profundidade do topo abaixo do nível da fundação, m */
+  depth?: number
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   buildColumnDetailDrawing,
   buildDrawingPdf,
   buildFormworkDrawing,
+  buildFoundationPlanDrawing,
   buildLoadPlanDrawing,
   buildSectionCutDrawing,
   composeSheet,
@@ -22,7 +23,7 @@ import { IconChevronDown, IconDownload } from '../components/Icons'
  * (formatos A0–A4, escala automática ou fixa).
  */
 
-type Tipo = 'forma' | 'corte' | 'cargas' | 'vigas' | 'pilares'
+type Tipo = 'forma' | 'corte' | 'cargas' | 'fundacoes' | 'vigas' | 'pilares'
 
 /** nome de arquivo seguro: minúsculas, sem acentos, hifens */
 function slug(s: string): string {
@@ -40,6 +41,7 @@ const TITLES: Record<Tipo, string> = {
   forma: 'Planta de forma',
   corte: 'Corte esquemático',
   cargas: 'Planta de cargas — fundações',
+  fundacoes: 'Planta de fundações',
   vigas: 'Armação de vigas',
   pilares: 'Pilares — seções e armaduras',
 }
@@ -104,6 +106,7 @@ export default function PranchasPanel() {
       }
       if (!results) return null
       if (tipo === 'cargas') return buildLoadPlanDrawing(project, results.foundationLoads)
+      if (tipo === 'fundacoes') return buildFoundationPlanDrawing(project, results.foundations)
       if (tipo === 'vigas') {
         if (!effectiveBeam) return null
         const spans = results.detailing.beams.filter((b) => b.beamId === effectiveBeam.id)
@@ -160,7 +163,9 @@ export default function PranchasPanel() {
           ? `corte-${effectiveCutAxis?.label ?? ''}`
           : tipo === 'cargas'
             ? 'cargas-fundacao'
-            : 'secoes'
+            : tipo === 'fundacoes'
+              ? 'planta-fundacoes'
+              : 'secoes'
 
   const saveBlob = (blob: Blob, filename: string): void => {
     const url = URL.createObjectURL(blob)
@@ -217,6 +222,9 @@ export default function PranchasPanel() {
           <option value="corte">Corte esquemático</option>
           <option value="cargas" disabled={!results}>
             Planta de cargas
+          </option>
+          <option value="fundacoes" disabled={!results}>
+            Planta de fundações
           </option>
           <option value="vigas" disabled={!results}>
             Vigas

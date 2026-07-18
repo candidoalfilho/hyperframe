@@ -7,6 +7,7 @@ import { useStore } from '../store'
 import { NO_RAYCAST } from './coords'
 import {
   buildBoxes,
+  buildFoundations,
   buildRegionSolids,
   buildSlabs,
   type BoxInstance,
@@ -20,6 +21,13 @@ const BASE_COLOR: Record<SolidKind, string> = {
   beam: '#8d95a6',
   slab: '#6f7889',
   loadRegion: '#a09884',
+}
+
+/** fundações: concreto mais escuro; âmbar/vermelho sinalizam atenção/falha */
+const FOUNDATION_COLOR: Record<'ok' | 'atencao' | 'falha', string> = {
+  ok: '#7e8697',
+  atencao: '#b3985a',
+  falha: '#b06a6a',
 }
 
 /** cor por tipo de região (escada = concreto claro; reservatório = azulado) */
@@ -76,7 +84,13 @@ export default function Building() {
   const setHover = useStore((s) => s.setHover)
 
   const showRegions = useStore((s) => s.d3.showRegions)
+  const showFoundations = useStore((s) => s.d3.showFoundations)
+  const foundations = useStore((s) => s.results?.foundations ?? null)
   const boxes = useMemo(() => buildBoxes(project), [project])
+  const foundationSolids = useMemo(
+    () => (foundations ? buildFoundations(project, foundations) : []),
+    [project, foundations],
+  )
   const slabs = useMemo(() => buildSlabs(project), [project])
   const regionSolids = useMemo(() => buildRegionSolids(project), [project])
   const activeIdx = useMemo(
@@ -171,6 +185,46 @@ export default function Building() {
           </mesh>
         )
       })}
+
+      {showFoundations &&
+        !isolate &&
+        foundationSolids.map((f) => {
+          const solid = !ghostAll
+          const opacity = ghostAll ? 0.15 : 1
+          const paint = paintFor('column', f.columnId, selection, hoverRef)
+          const base = FOUNDATION_COLOR[f.status]
+          const color = paint.emissiveIntensity > 0 ? paint.color : base
+          return (
+            <mesh
+              key={f.key}
+              position={f.position}
+              castShadow={false}
+              receiveShadow
+              userData={{ kind: 'column', id: f.columnId }}
+              raycast={DEFAULT_RAYCAST}
+              onClick={handleClick('column', f.columnId)}
+              onPointerOver={handleOver('column', f.columnId)}
+              onPointerOut={handleOut('column', f.columnId)}
+            >
+              {f.shape === 'cyl' ? (
+                <cylinderGeometry args={[f.size[0] / 2, f.size[0] / 2, f.size[1], 24]} />
+              ) : (
+                <boxGeometry args={f.size} />
+              )}
+              <meshStandardMaterial
+                color={color}
+                roughness={0.95}
+                metalness={0.03}
+                transparent={!solid}
+                opacity={opacity}
+                depthWrite={solid}
+                emissive={paint.emissive}
+                emissiveIntensity={paint.emissiveIntensity}
+              />
+              {solid && f.shape === 'box' && <Edges threshold={20} color={EDGE_COLOR} />}
+            </mesh>
+          )
+        })}
 
       {showRegions &&
         regionSolids.map((r) => {

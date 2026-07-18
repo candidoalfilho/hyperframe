@@ -19,6 +19,7 @@ import {
   type Column,
   type LoadRegion,
   type Project,
+  type FoundationOverride,
   type SectionRect,
   type Slab,
   type WallLoad,
@@ -630,9 +631,166 @@ function ColumnInspector({ col, project }: { col: Column; project: Project }) {
           : 'Contínuo da fundação ao topo'}
       </div>
 
+      {!isTransfer && <FoundationSection col={col} project={project} />}
+
       <MemberForcesSection kind="column" id={col.id} />
 
       <DeleteButton onClick={() => deleteElement({ kind: 'column', id: col.id })} />
+    </>
+  )
+}
+
+const FOUNDATION_STATUS: Record<string, string> = { ok: 'OK', atencao: 'Atenção', falha: 'FALHA' }
+
+function FoundationSection({ col, project }: { col: Column; project: Project }) {
+  const setFoundationOverride = useStore((s) => s.setFoundationOverride)
+  const clearFoundationOverride = useStore((s) => s.clearFoundationOverride)
+  const item = useStore((s) => s.results?.foundations.find((f) => f.columnId === col.id) ?? null)
+  const ov = project.foundationOverrides?.find((o) => o.columnId === col.id)
+
+  const effKind: FoundationOverride['kind'] =
+    ov?.kind ?? (item ? (item.kind === 'bloco' ? 'estacas' : item.kind) : project.settings.foundation.type)
+  const patch = (p: Partial<FoundationOverride>) =>
+    setFoundationOverride({ ...ov, ...p, columnId: col.id })
+
+  const dims = item
+    ? item.footing
+      ? `${Math.round(cm(item.footing.a))}×${Math.round(cm(item.footing.b))} · h=${Math.round(cm(item.footing.h))} · σmáx ${fmt(item.footing.sigmaMax, 0)} kPa`
+      : item.pileCap
+        ? `${item.pileCap.nPiles} est. ø${Math.round(cm(item.pileCap.pileDiameter))} · ${fmt(item.pileCap.pileLoad, 0)}/${fmt(item.pileCap.pileCapacity, 0)} kN`
+        : item.caisson
+          ? `fuste ø${Math.round(cm(item.caisson.shaftD))} · base ø${Math.round(cm(item.caisson.baseD))}`
+          : ''
+    : null
+
+  return (
+    <>
+      <h3 className="panel-title" style={{ marginTop: 14 }}>
+        Fundação
+      </h3>
+
+      <div className="field">
+        <label className="label">Tipo</label>
+        <select
+          className="select"
+          style={{ width: '100%' }}
+          value={ov?.kind ?? 'auto'}
+          onChange={(e) =>
+            patch({ kind: e.target.value === 'auto' ? undefined : (e.target.value as FoundationOverride['kind']) })
+          }
+        >
+          <option value="auto">Automático (configurações)</option>
+          <option value="sapata">Sapata isolada</option>
+          <option value="estacas">Bloco sobre estacas</option>
+          <option value="tubulao">Tubulão</option>
+        </select>
+      </div>
+
+      {effKind === 'sapata' && (
+        <div className="field">
+          <label className="label">Sapata a × b (cm) — vazio = automático</label>
+          <div className="field-row">
+            <NumberField
+              value={ov?.a !== undefined ? cm(ov.a) : item?.footing ? cm(item.footing.a) : 0}
+              digits={0}
+              min={0}
+              max={1000}
+              onCommit={(v) =>
+                patch(
+                  v > 0
+                    ? { a: v / 100, b: ov?.b ?? item?.footing?.b ?? v / 100 }
+                    : { a: undefined, b: undefined },
+                )
+              }
+            />
+            <NumberField
+              value={ov?.b !== undefined ? cm(ov.b) : item?.footing ? cm(item.footing.b) : 0}
+              digits={0}
+              min={0}
+              max={1000}
+              onCommit={(v) =>
+                patch(
+                  v > 0
+                    ? { b: v / 100, a: ov?.a ?? item?.footing?.a ?? v / 100 }
+                    : { a: undefined, b: undefined },
+                )
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      {effKind === 'estacas' && (
+        <div className="field">
+          <label className="label">Nº de estacas (0 = automático)</label>
+          <NumberField
+            value={ov?.nPiles ?? 0}
+            digits={0}
+            min={0}
+            max={5}
+            style={{ width: '100%' }}
+            onCommit={(v) => patch({ nPiles: v >= 1 ? Math.round(v) : undefined })}
+          />
+        </div>
+      )}
+
+      <div className="field">
+        <label className="label">Desloc. do CG x · y (cm) — divisa</label>
+        <div className="field-row">
+          <NumberField
+            value={cm(ov?.offset?.x ?? 0)}
+            digits={0}
+            min={-500}
+            max={500}
+            onCommit={(v) => {
+              const o = { x: v / 100, y: ov?.offset?.y ?? 0 }
+              patch({ offset: o.x === 0 && o.y === 0 ? undefined : o })
+            }}
+          />
+          <NumberField
+            value={cm(ov?.offset?.y ?? 0)}
+            digits={0}
+            min={-500}
+            max={500}
+            onCommit={(v) => {
+              const o = { x: ov?.offset?.x ?? 0, y: v / 100 }
+              patch({ offset: o.x === 0 && o.y === 0 ? undefined : o })
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="field">
+        <label className="label">Prof. de assentamento (m) — desenho/3D</label>
+        <NumberField
+          value={ov?.depth ?? 0}
+          digits={2}
+          min={0}
+          max={30}
+          style={{ width: '100%' }}
+          onCommit={(v) => patch({ depth: v > 0 ? v : undefined })}
+        />
+      </div>
+
+      {dims !== null ? (
+        <div className="faint" style={{ fontSize: 11, marginTop: 4 }}>
+          {item!.manual ? 'Verificação (manual): ' : 'Dimensionado: '}
+          {dims} — <b>{FOUNDATION_STATUS[item!.status]}</b>
+          {item!.offset && (item!.offset.x !== 0 || item!.offset.y !== 0)
+            ? ' · excentricidade considerada como N·e'
+            : ''}
+        </div>
+      ) : (
+        <div className="faint" style={{ fontSize: 11, marginTop: 4 }}>
+          Rode a análise para ver o dimensionamento/verificação.
+        </div>
+      )}
+
+      {ov && (
+        <button className="btn" style={{ marginTop: 8 }} onClick={() => clearFoundationOverride(col.id)}>
+          Restaurar automático
+        </button>
+      )}
     </>
   )
 }

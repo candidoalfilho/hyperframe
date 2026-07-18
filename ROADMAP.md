@@ -291,17 +291,36 @@
 - [x] `site/tools/publish.mjs`: publicação de versão automatizada com asserts
   (binários, sha256 e patch das 3 páginas) — fim dos seds manuais
 
+## v0.2.17 — Fundações editáveis (fase 1) ✅
+
+- [x] `FoundationOverride` no modelo (por pilar): tipo sapata/estacas/tubulão,
+  a×b fixado, nº de estacas fixado, offset do CG (divisa) e prof. de assentamento
+- [x] Engine em modo VERIFICAÇÃO: `designFooting({fixed})` e
+  `designPileCap({nPilesFixed})` checam as dimensões do engenheiro (σ>σadm /
+  sobrecarga de estaca ⇒ falha) em vez de redimensionar; offset vira momento
+  N·e somado às sapatas/blocos
+- [x] `foundationShape()` (geometria em planta) + **planta de fundações**
+  (`buildFoundationPlanDrawing`: eixos, contornos, estacas, S#/B#/T#, cotas de
+  assentamento e resumo) — nova opção em Pranchas (SVG/DXF/PDF)
+- [x] Inspetor do pilar ganha seção **Fundação** (editar tipo/dimensões/nº de
+  estacas/offset/cota + restaurar automático) com recálculo ao vivo sem re-análise
+- [x] 2D: contornos tracejados das fundações no nível térreo (cor por status)
+- [x] 3D: sólidos de sapatas/blocos/estacas/tubulões sob o térreo (checkbox
+  "Fundações"), arranque quando há profundidade de assentamento
+- [x] 10 testes novos (verificação fixada, N·e, geometria, planta) — 327 no total
+- [ ] Fase 2: sapata de divisa com viga alavanca, sapatas associadas/corridas,
+  blocos ≥ 6 estacas (CEB), armadura detalhada de sapatas/blocos em prancha
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
 > de cálculo — sem edição de geometria, posição, planta ou 3D). Vibração (§23.3)
 > explicitamente adiada p/ o futuro.
 
-1. **Fundações editáveis**: elemento por pilar (tipo, B×L/estacas/fuste, cota de
-   assentamento, excentricidade/offset de divisa), desenhadas no 2D e 3D, com
-   **planta de fundações** (locação/dimensões) — e o pacote de cálculo junto:
-   sapata de divisa + viga alavanca, sapatas associadas/corridas, blocos ≥ 6
-   estacas (CEB), armadura de sapatas/blocos detalhada
+1. **Fundações editáveis**: ✅ fase 1 na v0.2.17 (edição por pilar + planta de
+   fundações + 2D/3D). Falta a fase 2 de cálculo: sapata de divisa + viga
+   alavanca, sapatas associadas/corridas, blocos ≥ 6 estacas (CEB), armadura
+   de sapatas/blocos detalhada em prancha
 2. Armação de LAJES em planta (dados prontos; falta o desenho)
 3. **Grelha de pavimento unificada**: hoje a grelha é POR LAJE com bordas
    rotuladas nas vigas — a continuidade entre lajes vizinhas só é considerada no

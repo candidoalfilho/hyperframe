@@ -25,7 +25,6 @@ export function runFoundationDesign(
   const q = casesEls.Q
   if (!g) return []
   const fydV = fydOf(project.settings.steel)
-  const usePiles = project.settings.foundation.type === 'estacas'
   const cp = concreteProps(
     project.settings.concrete.fck,
     project.settings.concrete.aggregate,
@@ -58,10 +57,18 @@ export function runFoundationDesign(
     const alongX = col.rotationDeg === 0 || col.rotationDeg === 180
     const ap = info.bv
     const bp = info.bu
-    const ma = alongX ? myServ : mxServ
-    const mb = alongX ? mxServ : myServ
 
-    if (project.settings.foundation.type === 'tubulao') {
+    // editor de fundações: tipo/geometria/offset por pilar
+    const ov = project.foundationOverrides?.find((o) => o.columnId === col.id)
+    const kind = ov?.kind ?? project.settings.foundation.type
+    // offset do CG desloca a resultante: soma N·|e| ao momento da direção
+    const offA = ov?.offset ? Math.abs(alongX ? ov.offset.x : ov.offset.y) : 0
+    const offB = ov?.offset ? Math.abs(alongX ? ov.offset.y : ov.offset.x) : 0
+    const ma = (alongX ? myServ : mxServ) + nServ * offA
+    const mb = (alongX ? mxServ : myServ) + nServ * offB
+    const extra = { manual: !!ov, offset: ov?.offset, depth: ov?.depth }
+
+    if (kind === 'tubulao') {
       const caisson = designCaisson({
         nServ,
         sigmaAdm: project.settings.soil.sigmaAdm,
@@ -75,6 +82,7 @@ export function runFoundationDesign(
         name: col.name,
         nServ,
         kind: 'tubulao',
+        ...extra,
         footing: null,
         pileCap: null,
         caisson,
@@ -83,7 +91,7 @@ export function runFoundationDesign(
       continue
     }
 
-    if (usePiles) {
+    if (kind === 'estacas') {
       const pileCap = designPileCap({
         nServ,
         ap,
@@ -91,9 +99,14 @@ export function runFoundationDesign(
         pileCapacity: project.settings.foundation.pileCapacity,
         pileDiameter: project.settings.foundation.pileDiameter,
         spacingFactor: project.settings.foundation.pileSpacingFactor,
+        nPilesFixed: ov?.nPiles,
         fcd: cp.fcd,
         fyd: fydV,
       })
+      if (ov?.nPiles && pileCap.pileLoad > pileCap.pileCapacity + 1e-6) {
+        pileCap.status = 'falha'
+        pileCap.notes.push('Carga por estaca EXCEDE a capacidade — aumente o nº de estacas.')
+      }
       if (ma + mb > 0.05 * nServ * Math.max(ap, bp)) {
         pileCap.notes.push(
           'Momentos na base não considerados na divisão de carga entre estacas — verificar.',
@@ -104,6 +117,7 @@ export function runFoundationDesign(
         name: col.name,
         nServ,
         kind: 'bloco',
+        ...extra,
         footing: null,
         pileCap,
         caisson: null,
@@ -120,13 +134,20 @@ export function runFoundationDesign(
       bp,
       sigmaAdm: project.settings.soil.sigmaAdm,
       fyd: fydV,
+      fixed: ov?.a && ov?.b ? { a: ov.a, b: ov.b } : undefined,
     })
+    if (offA + offB > 1e-9) {
+      footing.notes.push(
+        `Offset do CG (${(offA * 100).toFixed(0)}/${(offB * 100).toFixed(0)} cm) somado como N·e — p/ divisa, prever viga alavanca.`,
+      )
+    }
 
     out.push({
       columnId: col.id,
       name: col.name,
       nServ,
       kind: 'sapata',
+      ...extra,
       footing,
       pileCap: null,
       caisson: null,

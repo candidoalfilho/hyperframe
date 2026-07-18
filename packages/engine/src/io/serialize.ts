@@ -96,5 +96,6 @@ export function normalizeProject(p: Project): Project {
   if (p.settings.slabMethod === undefined) p.settings.slabMethod = 'marcus'
   if (p.underlay === undefined) p.underlay = null
   if (p.rebarOverrides === undefined) p.rebarOverrides = []
+  if (p.foundationOverrides === undefined) p.foundationOverrides = []
   return p
 }

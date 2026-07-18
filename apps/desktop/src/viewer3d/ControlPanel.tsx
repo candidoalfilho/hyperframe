@@ -109,6 +109,17 @@ export default function ControlPanel() {
         />
         Escadas e reservatórios
       </label>
+      {results && (
+        <label style={rowStyle}>
+          <input
+            type="checkbox"
+            style={checkStyle}
+            checked={d3.showFoundations}
+            onChange={(e) => setD3({ showFoundations: e.currentTarget.checked })}
+          />
+          Fundações
+        </label>
+      )}
       <label style={rowStyle}>
         <input
           type="checkbox"

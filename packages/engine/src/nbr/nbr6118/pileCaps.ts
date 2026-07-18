@@ -29,12 +29,16 @@ export interface PileCapInput {
   pileDiameter: number
   /** espaçamento entre eixos = fator × diâmetro (2,5–3) */
   spacingFactor: number
+  /** nº de estacas FIXADO pelo engenheiro (verificação em vez de dimensionamento) */
+  nPilesFixed?: number
   fcd: number // kPa
   fyd: number // kPa
 }
 
 export interface PileCapResult {
   nPiles: number
+  /** diâmetro da estaca adotada, m (p/ desenho) */
+  pileDiameter: number
   /** carga de serviço por estaca (com peso próprio do bloco), kN */
   pileLoad: number
   pileCapacity: number
@@ -86,7 +90,10 @@ export function designPileCap(inp: PileCapInput): PileCapResult {
   const spacing = Math.max(inp.spacingFactor, 2.5) * phi
 
   // nº de estacas (com ~5% de peso próprio do bloco), limitado a 5 no método
-  let n = Math.max(1, Math.ceil((1.05 * inp.nServ) / inp.pileCapacity))
+  let n = inp.nPilesFixed ?? Math.max(1, Math.ceil((1.05 * inp.nServ) / inp.pileCapacity))
+  if (inp.nPilesFixed) {
+    notes.push('Nº de estacas fixado manualmente — verificação, não dimensionamento.')
+  }
   if (n > 5) {
     notes.push(
       `Carga exige ${n} estacas — bloco acima de 5 estacas fora do escopo (dimensionar bloco especial ou aumentar a capacidade da estaca).`,
@@ -168,6 +175,7 @@ export function designPileCap(inp: PileCapInput): PileCapResult {
 
   return {
     nPiles: n,
+    pileDiameter: phi,
     pileLoad,
     pileCapacity: inp.pileCapacity,
     e: spacing,

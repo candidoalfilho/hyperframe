@@ -11,6 +11,7 @@ import {
   nextSlabName,
   pointInPolygon,
   runDetailing,
+  runFoundationDesign,
   uid,
   REGION_PRESETS,
   type AnalysisResults,
@@ -25,6 +26,7 @@ import {
   type Project,
   type ProjectSettings,
   type RebarOverride,
+  type FoundationOverride,
   type SectionRect,
   type Slab,
   type Vec2,
@@ -59,6 +61,8 @@ export interface DisplayOptions {
 
 export interface D3Options {
   showSlabs: boolean
+  /** sólidos das fundações (sapatas/blocos/estacas/tubulões) sob o térreo */
+  showFoundations: boolean
   /** escadas e reservatórios como sólidos 3D */
   showRegions: boolean
   isolateActiveLevel: boolean
@@ -128,6 +132,15 @@ export interface HFState {
   setRebarOverride: (ov: RebarOverride) => void
   /** restaura o detalhamento automático de uma viga inteira */
   clearRebarOverrides: (beamId: string) => void
+  /**
+   * fundação editável por pilar (tipo/dimensões/posição/cota). NÃO invalida a
+   * análise — refaz só o dimensionamento das fundações (puro). Obs.: com
+   * interação solo-estrutura ativa, molas seguem a geometria anterior até a
+   * próxima análise completa.
+   */
+  setFoundationOverride: (ov: FoundationOverride) => void
+  /** restaura o dimensionamento automático da fundação de um pilar */
+  clearFoundationOverride: (columnId: string) => void
 
   // ---- ações: ui ----
   setTool: (t: Tool) => void
@@ -239,6 +252,7 @@ export const useStore = create<HFState>()(
       display: { showAxes: true, showDims: true, showNames: true, showLoads: true, showSlabs: true },
       d3: {
         showSlabs: true,
+        showFoundations: true,
         showRegions: true,
         isolateActiveLevel: false,
         showDeformed: false,
@@ -336,6 +350,48 @@ export const useStore = create<HFState>()(
               ? {
                   ...s.results,
                   detailing: runDetailing(project, s.results.beamDesign, s.results.columnDesign),
+                }
+              : s.results,
+          }
+        }),
+      setFoundationOverride: (ov) =>
+        set((s) => {
+          const list = (s.project.foundationOverrides ?? []).filter(
+            (o) => o.columnId !== ov.columnId,
+          )
+          const hasContent =
+            ov.kind !== undefined ||
+            ov.a !== undefined ||
+            ov.b !== undefined ||
+            ov.nPiles !== undefined ||
+            ov.offset !== undefined ||
+            ov.depth !== undefined
+          if (hasContent) list.push(ov)
+          const project = { ...s.project, foundationOverrides: list }
+          return {
+            project,
+            dirty: true,
+            results: s.results
+              ? {
+                  ...s.results,
+                  foundations: runFoundationDesign(project, s.results.model, s.results.cases.els),
+                }
+              : s.results,
+          }
+        }),
+      clearFoundationOverride: (columnId) =>
+        set((s) => {
+          const list = (s.project.foundationOverrides ?? []).filter(
+            (o) => o.columnId !== columnId,
+          )
+          const project = { ...s.project, foundationOverrides: list }
+          return {
+            project,
+            dirty: true,
+            results: s.results
+              ? {
+                  ...s.results,
+                  foundations: runFoundationDesign(project, s.results.model, s.results.cases.els),
                 }
               : s.results,
           }

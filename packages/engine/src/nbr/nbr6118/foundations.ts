@@ -16,6 +16,8 @@ export interface FootingInput {
   /** tensão admissível, kPa */
   sigmaAdm: number
   fyd: number // kPa
+  /** dimensões FIXADAS pelo engenheiro (verificação em vez de dimensionamento) */
+  fixed?: { a: number; b: number }
 }
 
 export interface FootingResult {
@@ -67,12 +69,21 @@ export function designFooting(inp: FootingInput): FootingResult {
   const nTotal = 1.05 * inp.nServ
   const aNec = nTotal / inp.sigmaAdm
 
-  // balanços iguais: a − b = ap − bp (com a na direção de ap)
-  const delta = inp.ap - inp.bp
-  let b = (-delta + Math.sqrt(delta * delta + 4 * aNec)) / 2
-  let a = aNec / b
-  a = Math.max(round5up(a), 0.6, inp.ap + 0.1)
-  b = Math.max(round5up(b), 0.6, inp.bp + 0.1)
+  let a: number
+  let b: number
+  if (inp.fixed) {
+    // geometria do engenheiro: só VERIFICA (σ, núcleo, bielas)
+    a = Math.max(inp.fixed.a, inp.ap + 0.05)
+    b = Math.max(inp.fixed.b, inp.bp + 0.05)
+    notes.push('Dimensões fixadas manualmente — verificação, não dimensionamento.')
+  } else {
+    // balanços iguais: a − b = ap − bp (com a na direção de ap)
+    const delta = inp.ap - inp.bp
+    b = (-delta + Math.sqrt(delta * delta + 4 * aNec)) / 2
+    a = aNec / b
+    a = Math.max(round5up(a), 0.6, inp.ap + 0.1)
+    b = Math.max(round5up(b), 0.6, inp.bp + 0.1)
+  }
 
   // altura de sapata rígida: h ≥ (a − ap)/3
   const h = Math.max(round5up(Math.max((a - inp.ap) / 3, (b - inp.bp) / 3)), 0.3)

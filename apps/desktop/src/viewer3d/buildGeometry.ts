@@ -3,8 +3,10 @@ import {
   TANK_DEFAULTS,
   columnFootprint,
   columnHalfExtents,
+  foundationShape,
   pointInPolygon,
   slabOpeningPolygons,
+  type FoundationResultItem,
   type Project,
   type Vec2,
 } from '@hyperframe/engine'
@@ -352,5 +354,95 @@ export function buildSlabs(project: Project): SlabInstance[] {
       })
     }
   })
+  return out
+}
+
+export interface FoundationInstance {
+  key: string
+  /** clique seleciona o pilar dono da fundação */
+  columnId: string
+  shape: 'box' | 'cyl'
+  position: [number, number, number]
+  /** box: [sx, sy, sz]; cyl: [d, h, d] */
+  size: [number, number, number]
+  status: FoundationResultItem['status']
+}
+
+/**
+ * Sólidos das fundações sob o nível mais baixo: sapata/bloco = caixa (topo em
+ * elevação − profundidade), estacas/tubulão = cilindros. Estacas usam o
+ * comprimento das configurações limitado a 6 m (representação — o comprimento
+ * real entra no orçamento/laudo).
+ */
+export function buildFoundations(
+  project: Project,
+  foundations: FoundationResultItem[],
+): FoundationInstance[] {
+  const out: FoundationInstance[] = []
+  const z0 = project.levels[0]?.elevation ?? 0
+  const byId = new Map(project.columns.map((c) => [c.id, c]))
+  const pileLen = Math.min(Math.max(project.settings.foundation.pileLength ?? 3, 1.5), 6)
+  for (const it of foundations) {
+    const col = byId.get(it.columnId)
+    if (!col) continue
+    const s = foundationShape(it, col)
+    if (!s) continue
+    const depth = it.depth ?? 0
+    const top = z0 - depth
+    if (s.polygon) {
+      const xsP = s.polygon.map((p) => p.x)
+      const ysP = s.polygon.map((p) => p.y)
+      out.push({
+        key: `fnd:${it.columnId}:box`,
+        columnId: it.columnId,
+        shape: 'box',
+        position: [s.center.x, top - s.h / 2, -s.center.y],
+        size: [Math.max(...xsP) - Math.min(...xsP), s.h, Math.max(...ysP) - Math.min(...ysP)],
+        status: it.status,
+      })
+      if (it.kind === 'bloco') {
+        s.circles.forEach((c, i) =>
+          out.push({
+            key: `fnd:${it.columnId}:p${i}`,
+            columnId: it.columnId,
+            shape: 'cyl',
+            position: [c.c.x, top - s.h - pileLen / 2, -c.c.y],
+            size: [c.r * 2, pileLen, c.r * 2],
+            status: it.status,
+          }),
+        )
+      }
+    } else if (it.kind === 'tubulao' && it.caisson) {
+      const shaftLen = Math.max(pileLen - s.h, 1.5)
+      out.push({
+        key: `fnd:${it.columnId}:fuste`,
+        columnId: it.columnId,
+        shape: 'cyl',
+        position: [s.center.x, top - shaftLen / 2, -s.center.y],
+        size: [it.caisson.shaftD, shaftLen, it.caisson.shaftD],
+        status: it.status,
+      })
+      out.push({
+        key: `fnd:${it.columnId}:base`,
+        columnId: it.columnId,
+        shape: 'cyl',
+        position: [s.center.x, top - shaftLen - s.h / 2, -s.center.y],
+        size: [it.caisson.baseD, s.h, it.caisson.baseD],
+        status: it.status,
+      })
+    }
+    // arranque: profundidade > 0 deixa vão entre a base do pilar e o topo da fundação
+    if (depth > 0.01) {
+      const { dx, dy } = columnHalfExtents(col)
+      out.push({
+        key: `fnd:${it.columnId}:neck`,
+        columnId: it.columnId,
+        shape: col.section.shape === 'circle' ? 'cyl' : 'box',
+        position: [col.pos.x, z0 - depth / 2, -col.pos.y],
+        size: [dx * 2, depth, dy * 2],
+        status: it.status,
+      })
+    }
+  }
   return out
 }

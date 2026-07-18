@@ -1,4 +1,4 @@
-import type { ColumnSection, SectionRect } from '../model/types'
+import type { ColumnSection, SectionRect, Vec2 } from '../model/types'
 
 /**
  * Modelo de análise: pórtico espacial (6 GDL/nó) com diafragma rígido por
@@ -401,6 +401,12 @@ export interface FoundationResultItem {
   /** carga vertical de serviço (G+Q), kN */
   nServ: number
   kind: 'sapata' | 'bloco' | 'tubulao'
+  /** houve ajuste manual (editor de fundações) */
+  manual?: boolean
+  /** deslocamento do CG em relação ao eixo do pilar, m */
+  offset?: Vec2
+  /** profundidade do topo abaixo do nível da fundação, m */
+  depth?: number
   /** presente quando kind = 'sapata' */
   footing: import('../nbr/nbr6118/foundations').FootingResult | null
   /** presente quando kind = 'bloco' (estacas) */
