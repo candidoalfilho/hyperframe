@@ -212,7 +212,7 @@ export function buildGridMesh(inp: GridMeshInput): GridModel {
 // ---------------------------------------------------------------------------
 
 /** rigidez local do elemento de grelha 6×6 (w, θax, θbend por nó) */
-function gridStiffness(EI: number, GJ: number, L: number): Float64Array {
+export function gridStiffness(EI: number, GJ: number, L: number): Float64Array {
   const k = new Float64Array(36)
   const set = (i: number, j: number, v: number) => {
     k[i * 6 + j] = v

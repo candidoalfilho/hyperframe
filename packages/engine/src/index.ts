@@ -25,6 +25,12 @@ export * from './drawing/types'
 export * from './analysis/types'
 export { buildAnalysisModel } from './analysis/buildModel'
 export {
+  analyzeFloorGrid,
+  type FloorGridInput,
+  type FloorGridOutput,
+  type FloorGridSlabResult,
+} from './analysis/floorGrid'
+export {
   analyzeSlabGrid,
   buildGridMesh,
   solveGrid,

@@ -12,6 +12,7 @@ import {
   openingPerimeterReduction,
 } from '../nbr/nbr6118/punching'
 import { analyzeSlabGrid } from '../analysis/grid'
+import { analyzeFloorGrid, type FloorGridOutput } from '../analysis/floorGrid'
 import { columnSectionInfo } from '../model/columnSection'
 import {
   classifySlabColumns,
@@ -55,6 +56,66 @@ function edgeContinuous(a: Vec2, b: Vec2, others: Slab[]): boolean {
   return false
 }
 
+/** pressões características da laje (peso próprio + revest. + regiões, furos descontados) */
+function slabPressures(
+  project: Project,
+  plan: FloorPlan,
+  slab: Slab,
+): { g: number; q: number } {
+  const extras = slabExtraLoads(plan, slab)
+  const area = polygonArea(slab.polygon)
+  const openArea = Math.min(slabOpeningsArea(plan, slab), area)
+  const netFactor = area > 1e-9 ? (area - openArea) / area : 1
+  const g =
+    (slab.thickness * project.settings.concreteUnitWeight + slab.finishLoad) * netFactor +
+    extras.g
+  const q = slab.liveLoad * netFactor + extras.q
+  return { g, q }
+}
+
+/** grelha de pavimento unificada da planta (null = indisponível ⇒ método por laje) */
+function tryFloorGrid(
+  project: Project,
+  plan: FloorPlan,
+  levels: { id: string }[],
+  levelIndex: number,
+  ecs: number,
+): FloorGridOutput | null {
+  const macicas = plan.slabs.filter((s) => !s.ribbed)
+  if (macicas.length === 0) return null
+  const levelIdxById = new Map(levels.map((l, i) => [l.id, i]))
+  const columns = project.columns
+    .filter((col) => {
+      const ib = levelIdxById.get(col.baseLevelId) ?? 0
+      const it = levelIdxById.get(col.topLevelId) ?? levels.length - 1
+      return levelIndex >= ib && levelIndex <= it
+    })
+    .map((col) => ({ id: col.id, pos: col.pos }))
+  try {
+    return analyzeFloorGrid({
+      slabs: macicas.map((sl) => {
+        const { g, q } = slabPressures(project, plan, sl)
+        return {
+          id: sl.id,
+          polygon: sl.polygon,
+          holes: slabOpeningPolygons(plan, sl),
+          thickness: sl.thickness,
+          pTot: g + q,
+          pQp: g + project.settings.psiLive.psi2 * q,
+        }
+      }),
+      beams: plan.beams.map((b) => ({
+        path: b.path,
+        sections: b.path.slice(0, -1).map((_, si) => b.segmentSections?.[si] ?? b.section),
+      })),
+      columns,
+      e: ecs,
+    })
+  } catch {
+    return null
+  }
+}
+
 export function runSlabDesign(
   project: Project,
   /** momento desbalanceado ELU laje→pilar por `${columnId}|${levelIndex}` */
@@ -76,6 +137,11 @@ export function runSlabDesign(
     seenPlans.add(level.planId)
     const plan: FloorPlan | undefined = project.plans.find((p) => p.id === level.planId)
     if (!plan) continue
+
+    const floor =
+      project.settings.slabMethod === 'grelha'
+        ? tryFloorGrid(project, plan, levels, levels.indexOf(level), cp.ecs)
+        : null
 
     for (const slab of plan.slabs) {
       const rect = isRectangular(slab.polygon)
@@ -113,6 +179,7 @@ export function runSlabDesign(
             fctm: cp.fctm,
             ecs: cp.ecs,
           },
+          floor,
           jointMoments,
         )
         if (item) {
@@ -257,6 +324,7 @@ function designSlabByGrid(
   levelName: string,
   levelIndex: number,
   mat: GridMat,
+  floor: FloorGridOutput | null,
   jointMoments?: Map<string, { m1: number; m2: number }>,
 ): SlabDesignResultItem | null {
   const notes: string[] = []
@@ -313,24 +381,57 @@ function designSlabByGrid(
     (slab.thickness * project.settings.concreteUnitWeight + slab.finishLoad) * netFactor +
     extras.g
   const q = slab.liveLoad * netFactor + extras.q
-  const wd = 1.4 * (g + q)
   const wQp = g + project.settings.psiLive.psi2 * q
 
   const holes = slabOpeningPolygons(plan, slab)
-  let grid
-  try {
-    grid = analyzeSlabGrid({
-      polygon: slab.polygon,
-      holes,
-      supportedEdges,
-      interiorColumns: interior,
-      thickness: slab.thickness,
-      e: mat.ecs,
-      q: 1, // pressão unitária — momentos/reações escalam linearmente
-    })
-  } catch (err) {
-    notes.push(`Grelha falhou: ${err instanceof Error ? err.message : 'erro'}.`)
-    return null
+  const wChar = g + q
+  const fr = floor?.slabs.get(slab.id) ?? null
+
+  // grelha de PAVIMENTO unificada (continuidade + vigas flexíveis) quando
+  // disponível; senão, grelha por laje com bordas rotuladas (como antes)
+  let mxSpanChar: number
+  let mxSupChar: number
+  let mySpanChar: number
+  let mySupChar: number
+  let wQpDefl: number
+  let colLoadsChar: Map<string, number>
+  let statsG: { nodes: number; members: number }
+  if (fr && wChar > 1e-9) {
+    mxSpanChar = fr.mxSpanMax
+    mxSupChar = fr.mxSupportMax
+    mySpanChar = fr.mySpanMax
+    mySupChar = fr.mySupportMax
+    wQpDefl = fr.wRelQp
+    // punção só nos pilares que apoiam a LAJE diretamente (não os de viga)
+    colLoadsChar = new Map([...fr.columnLoads].filter(([id]) => classById.has(id)))
+    statsG = floor!.stats
+    notes.push(
+      'Grelha de PAVIMENTO unificada: continuidade entre lajes vizinhas e flexibilidade real das vigas (torção fissurada 0,15·GJ), apoios verticais nos pilares.',
+    )
+    for (const nt of floor!.notes) if (!notes.includes(nt)) notes.push(nt)
+  } else {
+    let grid
+    try {
+      grid = analyzeSlabGrid({
+        polygon: slab.polygon,
+        holes,
+        supportedEdges,
+        interiorColumns: interior,
+        thickness: slab.thickness,
+        e: mat.ecs,
+        q: 1, // pressão unitária — momentos/reações escalam linearmente
+      })
+    } catch (err) {
+      notes.push(`Grelha falhou: ${err instanceof Error ? err.message : 'erro'}.`)
+      return null
+    }
+    mxSpanChar = grid.result.mxSpanMax * wChar
+    mxSupChar = grid.result.mxSupportMax * wChar
+    mySpanChar = grid.result.mySpanMax * wChar
+    mySupChar = grid.result.mySupportMax * wChar
+    wQpDefl = grid.result.wMax * wQp
+    colLoadsChar = new Map([...grid.columnLoads].map(([id, f]) => [id, f * wChar]))
+    statsG = grid.stats
   }
 
   const h = slab.thickness
@@ -350,17 +451,18 @@ function designSlabByGrid(
     return { as: Math.max(r.as, asMin), ok: r.ok }
   }
 
-  const mxSpan = grid.result.mxSpanMax * wd
-  const mxSup = grid.result.mxSupportMax * wd
-  const mySpan = grid.result.mySpanMax * wd
-  const mySup = grid.result.mySupportMax * wd
+  const mxSpan = mxSpanChar * 1.4
+  const mxSup = mxSupChar * 1.4
+  const mySpan = mySpanChar * 1.4
+  const mySup = mySupChar * 1.4
   const fX = flex(mxSpan)
   const fXSup = flex(mxSup)
   const fY = flex(mySpan)
   const fYSup = flex(mySup)
 
   // flecha QP com fissuração (Branson aproximado, como no método de Marcus)
-  const maQp = (Math.max(grid.result.mxSpanMax, grid.result.mySpanMax) * wQp) || 0
+  const maQp =
+    wChar > 1e-9 ? (Math.max(mxSpanChar, mySpanChar) * wQp) / wChar : 0
   const mr = 0.25 * mat.fctm * h * h
   let ieqRatio = 1
   if (maQp > mr) {
@@ -368,7 +470,7 @@ function designSlabByGrid(
     ieqRatio = 1 / Math.min(1, r3 + (1 - r3) * 0.3)
     notes.push('Laje fissura em serviço — flecha ampliada por Branson (III≈0,3·Ic).')
   }
-  const deflection = grid.result.wMax * wQp * ieqRatio * (1 + 1.32)
+  const deflection = wQpDefl * ieqRatio * (1 + 1.32)
   // vão de referência p/ o limite: menor dimensão da caixa envolvente
   let minX = Infinity
   let maxX = -Infinity
@@ -385,10 +487,10 @@ function designSlabByGrid(
 
   // punção nos pilares internos com a reação REAL da grelha
   const punching: SlabGridDesign['punching'] = []
-  for (const [colId, fUnit] of grid.columnLoads) {
+  for (const [colId, fChar] of colLoadsChar) {
     const col = project.columns.find((c) => c.id === colId)
     if (!col) continue
-    const fsd = fUnit * wd
+    const fsd = fChar * 1.4
     const info = columnSectionInfo(col.section)
     const rho = Math.min(Math.max(fXSup.as, fYSup.as) / d, 0.02)
     // furo a menos de 8d do pilar desconta o trecho entre tangentes (§19.5.1)
@@ -496,7 +598,7 @@ function designSlabByGrid(
   if (!flexOk || punchFail) status = 'falha'
   else if (!deflectionOk || punchReinf) status = 'atencao'
   notes.push(
-    `Grelha: ${grid.stats.nodes} nós, ${grid.stats.members} barras; ` +
+    `Grelha${fr ? ' unificada (pavimento)' : ''}: ${statsG.nodes} nós, ${statsG.members} barras; ` +
       `${supportedEdges.length} borda(s) apoiada(s)${interior.length > 0 ? `, ${interior.length} pilar(es) interno(s)` : ''}.`,
   )
 
@@ -517,7 +619,7 @@ function designSlabByGrid(
     deflectionLimit,
     deflectionOk,
     punching,
-    stats: grid.stats,
+    stats: statsG,
     ok: flexOk,
     notes: [],
   }

@@ -367,6 +367,26 @@
 - [x] 4 testes novos (adjacência no projeto exemplo, positivas 2×/laje,
   negativas com 0,25·ℓ, notas) — 347 no total
 
+## v0.2.21 — Grelha de pavimento UNIFICADA ✅
+
+- [x] `analyzeFloorGrid` (analysis/floorGrid.ts): todas as lajes MACIÇAS da
+  planta numa malha única — nós compartilhados na borda comum dão CONTINUIDADE
+  real entre lajes vizinhas; VIGAS viram barras da grelha com EI real da seção
+  (por trecho) e torção fissurada 0,15·GJ (§17.5.1.2); apoios verticais SÓ nos
+  pilares do nível (reações diretas p/ punção)
+- [x] Dois padrões de carga (g+q e quase-permanente) com UMA fatoração;
+  extração POR LAJE: momentos de vão/apoio por direção (fim de barra em linha
+  de viga = negativo), flecha RELATIVA ao contorno, reações por pilar
+- [x] Degradação controlada: viga fora dos eixos X/Y → apoio rígido; região sem
+  caminho a pilar → linhas de viga pinadas (nota); mecanismo → fallback
+  automático p/ a grelha por laje (comportamento anterior)
+- [x] slabRun: método "grelha" agora usa a unificada por planta quando
+  disponível (punção filtrada aos pilares que apoiam a LAJE diretamente);
+  Marcus continua disponível como método
+- [x] Âncora analítica: 2 lajes 4×8 contínuas ⇒ M⁻ na borda comum ∈ [16;24]
+  ≈ w·l²/8 = 20 kN·m/m, M+ ≈ 9/128·w·l², Σreações = carga total; a grelha
+  por laje rotulada reporta < 70% do negativo real — 7 testes novos, 354 total
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
@@ -378,10 +398,8 @@
    blocos 6–16 estacas CEB). Sobrou só sapata corrida sob alinhamento de
    pilares (caso raro em edifícios — baldrame de Winkler já cobre parcial)
 2. ✅ Armação de LAJES em planta (v0.2.20)
-3. **Grelha de pavimento unificada**: hoje a grelha é POR LAJE com bordas
-   rotuladas nas vigas — a continuidade entre lajes vizinhas só é considerada no
-   Marcus (engaste por continuidade); unificar o pavimento (lajes + vigas
-   flexíveis numa grelha só) captura negativos de continuidade e alivia vãos
+3. ✅ Grelha de pavimento unificada (v0.2.21) — continuidade real entre lajes
+   + vigas flexíveis; restam nervuradas na unificada (hoje seguem por laje)
 4. Mesa colaborante das vigas (seção T, §14.6.2.2) — economia real de armadura
 5. Núcleo rígido / pilar-parede (§15.9) — a maior parede funcional
 6. Pilares executivos (arranques, emendas por tramo, croqui)

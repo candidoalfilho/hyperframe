@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.20-orange) ![tests](https://img.shields.io/badge/testes-347%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.21-orange) ![tests](https://img.shields.io/badge/testes-354%20passando-brightgreen)
 
-## O que já faz (v0.2.20)
+## O que já faz (v0.2.21)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -35,7 +35,7 @@ sistema e código-fonte no site.
   (Branson + fluência, L/250), **fissuração ELS-W** (wk vs tab. 13.4)
 - **Dimensionamento NBR 6118**: vigas (flexão + cisalhamento + **torção §17.5** +
   **armadura de pele** + barras), **pilares a flexo-compressão oblíqua** (integração da
-  seção + pilar-padrão), **lajes maciças** (Marcus ou **analogia de grelha** — contorno
+  seção + pilar-padrão), **lajes maciças** (Marcus ou **GRELHA DE PAVIMENTO UNIFICADA** — todas as lajes da planta numa malha só com CONTINUIDADE entre vizinhas, vigas como barras flexíveis com EI real e torção fissurada 0,15·GJ, apoios nos pilares; contorno
   qualquer, furos e **lajes lisas** com pilar interno), **lajes nervuradas** (§13.2.4.2 —
   peso real com enchimento, seção T por nervura, cisalhamento §19.4.1), **punção §19.5**
   (pilares **internos, de borda e de canto** com transferência de momento K·MSd,
@@ -124,7 +124,7 @@ packages/engine     # núcleo puro TypeScript (zero dependências)
   src/drawing       # pranchas (primitivas neutras → SVG/DXF)
   src/dxf           # parser (underlay) e writer (R12) de DXF próprios
   src/report        # memorial de cálculo em PDF (writer PDF próprio, zero deps)
-  test              # 347 testes (âncoras analíticas, normas, equilíbrio global)
+  test              # 354 testes (âncoras analíticas, normas, equilíbrio global)
 apps/desktop        # Tauri 2 + React 19 + three.js
   src/editor2d      # editor de planta SVG (snap, ferramentas, camadas, underlay)
   src/viewer3d      # visualizador 3D (R3F): edifício, deformada, diagramas
