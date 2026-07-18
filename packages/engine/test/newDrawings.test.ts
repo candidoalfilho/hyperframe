@@ -5,6 +5,7 @@ import { buildFormworkDrawing } from '../src/drawing/formwork'
 import { buildSectionCutDrawing } from '../src/drawing/sectionCut'
 import { buildLoadPlanDrawing } from '../src/drawing/loadPlan'
 import { composeSheet } from '../src/drawing/sheet'
+import { buildDrawingPdf } from '../src/drawing/drawingPdf'
 import type { Drawing } from '../src/drawing/types'
 
 function checkDrawing(d: Drawing): void {
@@ -124,6 +125,27 @@ describe('prancha com moldura e carimbo', () => {
     })
     expect(sheet.scale).toBe(50)
     expect(sheet.drawing.bounds.maxX).toBeCloseTo(1.189, 6)
+  })
+
+  it('prancha vira PDF vetorial 1:1 com a folha (MediaBox = formato exato)', () => {
+    const project = createSampleProject()
+    const content = buildFormworkDrawing(project, project.plans[0].id)
+    const sheet = composeSheet(content, {
+      format: 'A1',
+      info: { projectName: 'Obra PDF', title1: 'Forma' },
+    })
+    const bytes = buildDrawingPdf(sheet.drawing)
+    let s = ''
+    for (const b of bytes) s += String.fromCharCode(b)
+    expect(s.startsWith('%PDF-1.4')).toBe(true)
+    // A1 paisagem: 0,841×0,594 m → 2383,94 × 1683,78 pt (1 pt = 25,4/72 mm)
+    expect(s).toContain('/MediaBox [0 0 2383.94 1683.78]')
+    expect(s).toContain('/Count 1')
+    // caminhos vetoriais e textos presentes
+    expect(s).toContain(' m ')
+    expect(s).toContain(' l S')
+    expect(s).toContain('PLANTA DE FORMA')
+    expect(s).toContain('OBRA:')
   })
 
   it('cotas escalam com a prancha (altura explícita ÷ escala, sem saturar no piso)', () => {

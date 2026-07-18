@@ -143,6 +143,14 @@ export default function Editor2D() {
 
   const fitView = () => setVp(fitBounds(size, ext))
 
+  /** zoom por botão, centrado no meio do viewport (funciona sem roda/gesto) */
+  const zoomBy = (factor: number) => {
+    const el = svgRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    setVp((v) => zoomAt(v, { x: r.width / 2, y: r.height / 2 }, factor))
+  }
+
   // ---- zoom com roda (nativo, passive:false, centrado no cursor) ----
   useEffect(() => {
     const el = svgRef.current
@@ -477,26 +485,35 @@ export default function Editor2D() {
         </g>
       </svg>
 
-      <button
-        type="button"
-        className="btn-icon"
-        title="Enquadrar tudo"
-        onClick={(e) => {
-          fitView()
-          e.currentTarget.blur()
-        }}
-        style={{
-          position: 'absolute',
-          top: 8,
-          right: 8,
-          zIndex: 4,
-          background: 'var(--bg-2)',
-          border: '1px solid var(--border)',
-          fontSize: 15,
-        }}
-      >
-        ⛶
-      </button>
+      {(
+        [
+          ['+', 'Aproximar (ou role a roda do mouse)', 8, () => zoomBy(1.4)],
+          ['−', 'Afastar', 44, () => zoomBy(1 / 1.4)],
+          ['⛶', 'Enquadrar tudo', 80, fitView],
+        ] as const
+      ).map(([label, title, top, fn]) => (
+        <button
+          key={label}
+          type="button"
+          className="btn-icon"
+          title={title}
+          onClick={(e) => {
+            fn()
+            e.currentTarget.blur()
+          }}
+          style={{
+            position: 'absolute',
+            top,
+            right: 8,
+            zIndex: 4,
+            background: 'var(--bg-2)',
+            border: '1px solid var(--border)',
+            fontSize: 15,
+          }}
+        >
+          {label}
+        </button>
+      ))}
 
       {!plan && (
         <div

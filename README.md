@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.13-orange) ![tests](https://img.shields.io/badge/testes-316%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.14-orange) ![tests](https://img.shields.io/badge/testes-317%20passando-brightgreen)
 
-## O que já faz (v0.2.13)
+## O que já faz (v0.2.14)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -58,7 +58,7 @@ sistema e código-fonte no site.
   real** com decalagem al §17.4.2.2 e escalonamento, **emendas por traspasse** §9.5.2,
   estribos na distribuição real, **QUADRO DE FERROS** por posição e **editor de
   armaduras** com aviso de As insuficiente), seções de pilares —
-  SVG no app, **exportação DXF** (writer R12 próprio), **moldura + carimbo ABNT**
+  SVG no app, **exportação DXF** (writer R12 próprio) e **PDF vetorial 1:1 com a folha** (imprime na escala do carimbo), **moldura + carimbo ABNT**
   (A0–A4, escala automática ou fixa; cotas proporcionais à escala), tabela de aço por
   bitola, relatório imprimível e **memorial de cálculo completo em PDF** (writer PDF
   próprio, 15 seções + furos/solo/custo, multipágina)
@@ -114,7 +114,7 @@ packages/engine     # núcleo puro TypeScript (zero dependências)
   src/drawing       # pranchas (primitivas neutras → SVG/DXF)
   src/dxf           # parser (underlay) e writer (R12) de DXF próprios
   src/report        # memorial de cálculo em PDF (writer PDF próprio, zero deps)
-  test              # 316 testes (âncoras analíticas, normas, equilíbrio global)
+  test              # 317 testes (âncoras analíticas, normas, equilíbrio global)
 apps/desktop        # Tauri 2 + React 19 + three.js
   src/editor2d      # editor de planta SVG (snap, ferramentas, camadas, underlay)
   src/viewer3d      # visualizador 3D (R3F): edifício, deformada, diagramas

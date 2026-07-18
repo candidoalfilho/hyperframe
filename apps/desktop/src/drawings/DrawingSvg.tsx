@@ -283,10 +283,23 @@ export default function DrawingSvg({ drawing }: { drawing: Drawing }) {
     }
   })
 
+  /** zoom por botão, centrado no meio (funciona sem roda/gesto — Windows) */
+  const zoomBy = (f: number): void => {
+    setVp((v) => {
+      const k = clampK(v.k * f)
+      if (k === v.k) return v
+      const cx = size.w / 2
+      const cy = size.h / 2
+      const r = k / v.k
+      return { k, ox: cx - (cx - v.ox) * r, oy: cy - (cy - v.oy) * r }
+    })
+  }
+
   return (
     <div
       ref={containerRef}
       style={{
+        position: 'relative',
         width: '100%',
         height: '100%',
         background: 'var(--canvas-bg)',
@@ -295,6 +308,37 @@ export default function DrawingSvg({ drawing }: { drawing: Drawing }) {
         touchAction: 'none',
       }}
     >
+      {(
+        [
+          ['+', 'Aproximar (ou role a roda do mouse)', 8, () => zoomBy(1.4)],
+          ['−', 'Afastar', 44, () => zoomBy(1 / 1.4)],
+          ['⛶', 'Enquadrar (ou clique duplo)', 80, () => {
+            if (size.w > 0) setVp(fitViewport(drawing.bounds, size.w, size.h))
+          }],
+        ] as const
+      ).map(([label, title, top, fn]) => (
+        <button
+          key={label}
+          type="button"
+          className="btn-icon"
+          title={title}
+          onClick={(e) => {
+            fn()
+            e.currentTarget.blur()
+          }}
+          style={{
+            position: 'absolute',
+            top,
+            right: 8,
+            zIndex: 4,
+            background: 'var(--bg-2)',
+            border: '1px solid var(--border)',
+            fontSize: 15,
+          }}
+        >
+          {label}
+        </button>
+      ))}
       <svg
         width="100%"
         height="100%"

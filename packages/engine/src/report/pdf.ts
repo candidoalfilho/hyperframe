@@ -163,14 +163,19 @@ export function wrapText(s: string, size: number, maxWidth: number, font: PdfFon
 
 export class PdfDoc {
   private pages: string[] = []
+  private sizes: { width: number; height: number }[] = []
   private cur = -1
+  private defaultSize: { width: number; height: number }
 
-  constructor() {
+  /** `defaultSize` em pontos (1 pt = 1/72") — padrão A4 retrato */
+  constructor(defaultSize?: { width: number; height: number }) {
+    this.defaultSize = defaultSize ?? { width: A4.width, height: A4.height }
     this.addPage()
   }
 
-  addPage(): void {
+  addPage(size?: { width: number; height: number }): void {
     this.pages.push('')
+    this.sizes.push(size ?? this.defaultSize)
     this.cur = this.pages.length - 1
   }
 
@@ -190,6 +195,38 @@ export class PdfDoc {
       `BT ${g} ${g} ${g} rg ${FONT_RES[font]} ${size.toFixed(1)} Tf ${x.toFixed(2)} ${y.toFixed(
         2,
       )} Td (${encodePdfText(s)}) Tj ET`,
+    )
+  }
+
+  /**
+   * texto rotacionado (graus, anti-horário) com alinhamento opcional —
+   * âncora em (x, y); 'center' desloca metade da largura na direção do texto
+   */
+  textRotated(
+    x: number,
+    y: number,
+    s: string,
+    size: number,
+    angleDeg: number,
+    font: PdfFont = 'R',
+    gray = 0,
+    align: 'left' | 'center' = 'left',
+  ): void {
+    const a = (angleDeg * Math.PI) / 180
+    const c = Math.cos(a)
+    const sn = Math.sin(a)
+    let tx = x
+    let ty = y
+    if (align === 'center') {
+      const w = textWidth(s, size)
+      tx -= (w / 2) * c
+      ty -= (w / 2) * sn
+    }
+    const g = gray.toFixed(3)
+    this.op(
+      `BT ${g} ${g} ${g} rg ${FONT_RES[font]} ${size.toFixed(2)} Tf ` +
+        `${c.toFixed(5)} ${sn.toFixed(5)} ${(-sn).toFixed(5)} ${c.toFixed(5)} ` +
+        `${tx.toFixed(2)} ${ty.toFixed(2)} Tm (${encodePdfText(s)}) Tj ET`,
     )
   }
 
@@ -240,8 +277,9 @@ export class PdfDoc {
 
     for (let i = 0; i < nPages; i++) {
       const contentRef = pageObjStart + i * 2 + 1
+      const sz = this.sizes[i] ?? this.defaultSize
       objects.push(
-        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4.width} ${A4.height}] ` +
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${sz.width.toFixed(2)} ${sz.height.toFixed(2)}] ` +
           `/Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents ${contentRef} 0 R >>`,
       )
       const stream = this.pages[i]

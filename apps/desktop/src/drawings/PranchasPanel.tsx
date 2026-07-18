@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   buildBeamDetailDrawing,
   buildColumnDetailDrawing,
+  buildDrawingPdf,
   buildFormworkDrawing,
   buildLoadPlanDrawing,
   buildSectionCutDrawing,
@@ -118,7 +119,7 @@ export default function PranchasPanel() {
   }, [tipo, project, results, effectivePlanId, effectiveBeam, cutDir, effectiveCutAxis])
 
   const sheet = useMemo(() => {
-    if (!content || !withSheet) return null
+    if (!content) return null
     try {
       const subtitle =
         tipo === 'forma'
@@ -146,29 +147,46 @@ export default function PranchasPanel() {
     } catch {
       return null
     }
-  }, [content, withSheet, format, scaleOpt, tipo, project, effectivePlanId, effectiveBeam, effectiveCutAxis])
+  }, [content, format, scaleOpt, tipo, project, effectivePlanId, effectiveBeam, effectiveCutAxis])
 
   const drawing = withSheet ? (sheet?.drawing ?? null) : content
 
-  const downloadDxf = (): void => {
-    if (!drawing) return
-    const nome =
-      tipo === 'forma'
-        ? project.plans.find((p) => p.id === effectivePlanId)?.name ?? 'planta'
-        : tipo === 'vigas'
-          ? effectiveBeam?.label ?? 'viga'
-          : tipo === 'corte'
-            ? `corte-${effectiveCutAxis?.label ?? ''}`
-            : tipo === 'cargas'
-              ? 'cargas-fundacao'
-              : 'secoes'
-    const blob = new Blob([writeDxf(drawing)], { type: 'application/dxf' })
+  const baseName = (): string =>
+    tipo === 'forma'
+      ? project.plans.find((p) => p.id === effectivePlanId)?.name ?? 'planta'
+      : tipo === 'vigas'
+        ? effectiveBeam?.label ?? 'viga'
+        : tipo === 'corte'
+          ? `corte-${effectiveCutAxis?.label ?? ''}`
+          : tipo === 'cargas'
+            ? 'cargas-fundacao'
+            : 'secoes'
+
+  const saveBlob = (blob: Blob, filename: string): void => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${tipo}-${slug(nome)}${withSheet ? `-${format.toLowerCase()}` : ''}.dxf`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const downloadDxf = (): void => {
+    if (!drawing) return
+    saveBlob(
+      new Blob([writeDxf(drawing)], { type: 'application/dxf' }),
+      `${tipo}-${slug(baseName())}${withSheet ? `-${format.toLowerCase()}` : ''}.dxf`,
+    )
+  }
+
+  // PDF sempre com moldura+carimbo: o vetor sai 1:1 com a folha (imprime na escala)
+  const downloadPdf = (): void => {
+    if (!sheet) return
+    const bytes = buildDrawingPdf(sheet.drawing)
+    saveBlob(
+      new Blob([bytes as BlobPart], { type: 'application/pdf' }),
+      `${tipo}-${slug(baseName())}-${format.toLowerCase()}.pdf`,
+    )
   }
 
   const hint =
@@ -367,6 +385,15 @@ export default function PranchasPanel() {
         <button className="btn" onClick={downloadDxf} disabled={!drawing}>
           <IconDownload size={14} />
           Baixar DXF
+        </button>
+        <button
+          className="btn"
+          onClick={downloadPdf}
+          disabled={!sheet}
+          title={`PDF vetorial com moldura + carimbo (${format}) — imprime na escala do carimbo`}
+        >
+          <IconDownload size={14} />
+          Baixar PDF
         </button>
         <span className="faint" style={{ fontSize: 11, lineHeight: 1.4 }}>
           Detalhamento preliminar — as pranchas exigem revisão de engenheiro responsável antes de

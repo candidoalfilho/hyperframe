@@ -11,6 +11,7 @@
  * carrega a semântica do elemento.
  */
 
+import { dimParts } from '../drawing/dim'
 import type { DDim, Drawing } from '../drawing/types'
 
 /** camadas fixas do HyperFrame → cor ACI (AutoCAD Color Index) */
@@ -91,50 +92,11 @@ export function writeDxf(drawing: Drawing): string {
    * (estilo ABNT) e texto centrado acima da linha.
    */
   const emitDim = (d: DDim): void => {
-    const dx = d.x2 - d.x1
-    const dy = d.y2 - d.y1
-    const len = Math.hypot(dx, dy)
-    // altura explícita (escala com a prancha) ou, na ausência, proporcional
-    // ao afastamento dentro de limites legíveis — mesma regra do DrawingSvg
-    const height = d.height ?? Math.min(0.3, Math.max(0.1, Math.abs(d.offset) * 0.55))
-    if (len < 1e-9) {
-      emitText(d.x1, d.y1, d.text, height, d.layer, 0, 'center')
-      return // cota degenerada: só o texto
-    }
-    const ux = dx / len
-    const uy = dy / len
-    // normal = direção do segmento girada +90° (anti-horário)
-    const nx = -uy
-    const ny = ux
-    const ox = nx * d.offset
-    const oy = ny * d.offset
-    // linha de cota
-    const ax = d.x1 + ox
-    const ay = d.y1 + oy
-    const bx = d.x2 + ox
-    const by = d.y2 + oy
-    emitLine(ax, ay, bx, by, d.layer)
-    // linhas de chamada, do ponto medido até um pouco além da linha de cota
-    const ext = 1.1
-    emitLine(d.x1, d.y1, d.x1 + ox * ext, d.y1 + oy * ext, d.layer)
-    emitLine(d.x2, d.y2, d.x2 + ox * ext, d.y2 + oy * ext, d.layer)
-    // traços a 45° (bissetriz entre a direção da cota e a normal),
-    // comprimento total ≈ altura do texto
-    const t = height / 2
-    const tx = (ux + nx) / Math.SQRT2
-    const ty = (uy + ny) / Math.SQRT2
-    emitLine(ax - tx * t, ay - ty * t, ax + tx * t, ay + ty * t, d.layer)
-    emitLine(bx - tx * t, by - ty * t, bx + tx * t, by + ty * t, d.layer)
-    // texto no meio, afastado mais 0,4·|offset| além da linha de cota
-    const sgn = d.offset < 0 ? -1 : 1
-    const k = d.offset + 0.4 * Math.abs(d.offset) * sgn
-    const mx = (d.x1 + d.x2) / 2 + nx * k
-    const my = (d.y1 + d.y2) / 2 + ny * k
-    // texto ao longo do segmento, virado para manter a leitura em pé
-    let ang = (Math.atan2(uy, ux) * 180) / Math.PI
-    if (ang > 90 || ang <= -90) ang += 180
-    if (ang > 180) ang -= 360
-    emitText(mx, my, d.text, height, d.layer, ang, 'center')
+    // geometria compartilhada com o PDF (drawing/dim.ts)
+    const parts = dimParts(d)
+    for (const [x1, y1, x2, y2] of parts.lines) emitLine(x1, y1, x2, y2, d.layer)
+    const t = parts.text
+    emitText(t.x, t.y, t.text, t.height, d.layer, t.angleDeg, 'center')
   }
 
   // ---- comentário de origem (grupo 999 é ignorado por todos os leitores) ----

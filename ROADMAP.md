@@ -267,6 +267,17 @@
   316 testes. Módulo de lajes lisas §19.5 COMPLETO (interno/borda/canto, K·MSd,
   aberturas, studs até C″, colapso progressivo)
 
+## v0.2.14 — PDF das pranchas + zoom acessível (feedback do smoke test Windows) ✅
+
+- [x] **Pranchas em PDF vetorial** (`drawingPdf.ts`): MediaBox = folha exata (A0–A4 em
+  pontos, 1:1 com o composeSheet ⇒ imprime NA ESCALA do carimbo), linhas por camada
+  com espessura técnica, tracejados, círculos em bézier, textos rotacionados
+  (`PdfDoc.textRotated` + páginas com tamanho próprio) e cotas com geometria
+  COMPARTILHADA com o DXF (`drawing/dim.ts`) — botão "Baixar PDF" na aba Pranchas
+- [x] **Zoom descobrível**: botões +/−/⛶ no editor 2D e no viewer de pranchas (a roda
+  já funcionava, mas não era descobrível no Windows) e **zoom da interface inteira**
+  com Ctrl/⌘ +/−/0, persistido por máquina (telas com escala alta)
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.

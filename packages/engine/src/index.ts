@@ -35,6 +35,7 @@ export {
 } from './analysis/grid'
 export { analyze, comboDisplacements, comboDiagrams, comboReactions } from './analyze'
 export { runDetailing, planSplices, STOCK_BAR_LENGTH } from './design/detailing'
+export { buildDrawingPdf } from './drawing/drawingPdf'
 
 export * from './nbr/api'
 export { concreteProps, coverFor, fyd } from './nbr/nbr6118/materials'

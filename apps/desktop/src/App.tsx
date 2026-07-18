@@ -28,6 +28,29 @@ export default function App() {
   const copilotOpen = useStore((s) => s.copilotOpen)
   const setCopilotOpen = useStore((s) => s.setCopilotOpen)
 
+  // zoom da INTERFACE (Ctrl/⌘ + · − · 0) — persiste por máquina; útil em
+  // telas Windows com escala alta onde a UI fica pequena
+  useEffect(() => {
+    const KEY = 'hyperframe-ui-zoom'
+    const apply = (z: number): void => {
+      ;(document.body.style as unknown as { zoom: string }).zoom = z === 1 ? '' : String(z)
+    }
+    let z = Number(localStorage.getItem(KEY) ?? '1') || 1
+    apply(z)
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
+      if (e.key === '+' || e.key === '=') z = Math.min(2, Math.round((z + 0.1) * 10) / 10)
+      else if (e.key === '-') z = Math.max(0.6, Math.round((z - 0.1) * 10) / 10)
+      else if (e.key === '0') z = 1
+      else return
+      e.preventDefault()
+      localStorage.setItem(KEY, String(z))
+      apply(z)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // atalhos globais
   useEffect(() => {
     const saveNow = async (saveAs: boolean) => {
