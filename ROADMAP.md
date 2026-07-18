@@ -351,6 +351,22 @@
 - [x] 11 testes novos (âncoras: CEB 2×3 M_S1 = 739 kN·m → As 20,6 cm²;
   associada 2×500 kN → 3,65×1,45, M− 308 kN·m) — 343 no total
 
+## v0.2.20 — Armação de lajes em planta ✅
+
+- [x] `buildSlabRebarDrawing` (drawing/slabRebar.ts): prancha executiva por
+  planta de forma — POSITIVAS (face inferior) com barra representativa por
+  direção dentro de cada laje (φ c/ s do dimensionamento + L≈ do vão, direção
+  da faixa A = 1ª borda do polígono; grelha usa eixos globais X/Y);
+  NEGATIVAS (face superior) detectadas por BORDAS COINCIDENTES entre lajes
+  vizinhas — barra perpendicular ao apoio estendendo 0,25·ℓ p/ cada lado
+  (ℓ = vão perpendicular de CADA laje), spec do lado com maior As de apoio
+- [x] Fontes: Marcus (spanSpec/supportSpec), nervurada (barras por nervura +
+  negativa na capa) e grelha (malhas X/Y ± superiores)
+- [x] Nova opção "Armação de lajes" em Pranchas com seletor de planta —
+  SVG/DXF/PDF na escala, com notas executivas (§9.4)
+- [x] 4 testes novos (adjacência no projeto exemplo, positivas 2×/laje,
+  negativas com 0,25·ℓ, notas) — 347 no total
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
@@ -361,7 +377,7 @@
    v0.2.18 (viga alavanca + detalhamento) e v0.2.19 (sapatas associadas +
    blocos 6–16 estacas CEB). Sobrou só sapata corrida sob alinhamento de
    pilares (caso raro em edifícios — baldrame de Winkler já cobre parcial)
-2. Armação de LAJES em planta (dados prontos; falta o desenho)
+2. ✅ Armação de LAJES em planta (v0.2.20)
 3. **Grelha de pavimento unificada**: hoje a grelha é POR LAJE com bordas
    rotuladas nas vigas — a continuidade entre lajes vizinhas só é considerada no
    Marcus (engaste por continuidade); unificar o pavimento (lajes + vigas

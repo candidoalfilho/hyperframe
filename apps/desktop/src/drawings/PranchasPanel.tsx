@@ -8,6 +8,7 @@ import {
   buildFoundationPlanDrawing,
   buildLoadPlanDrawing,
   buildSectionCutDrawing,
+  buildSlabRebarDrawing,
   composeSheet,
   writeDxf,
   type Drawing,
@@ -24,7 +25,7 @@ import { IconChevronDown, IconDownload } from '../components/Icons'
  * (formatos A0–A4, escala automática ou fixa).
  */
 
-type Tipo = 'forma' | 'corte' | 'cargas' | 'fundacoes' | 'fundacoes-det' | 'vigas' | 'pilares'
+type Tipo = 'forma' | 'corte' | 'cargas' | 'fundacoes' | 'fundacoes-det' | 'lajes' | 'vigas' | 'pilares'
 
 /** nome de arquivo seguro: minúsculas, sem acentos, hifens */
 function slug(s: string): string {
@@ -44,6 +45,7 @@ const TITLES: Record<Tipo, string> = {
   cargas: 'Planta de cargas — fundações',
   fundacoes: 'Planta de fundações',
   'fundacoes-det': 'Detalhamento de fundações',
+  lajes: 'Armação de lajes',
   vigas: 'Armação de vigas',
   pilares: 'Pilares — seções e armaduras',
 }
@@ -110,6 +112,11 @@ export default function PranchasPanel() {
       if (tipo === 'cargas') return buildLoadPlanDrawing(project, results.foundationLoads)
       if (tipo === 'fundacoes') return buildFoundationPlanDrawing(project, results.foundations)
       if (tipo === 'fundacoes-det') return buildFoundationDetailDrawing(project, results.foundations)
+      if (tipo === 'lajes') {
+        return effectivePlanId
+          ? buildSlabRebarDrawing(project, effectivePlanId, results.slabDesign)
+          : null
+      }
       if (tipo === 'vigas') {
         if (!effectiveBeam) return null
         const spans = results.detailing.beams.filter((b) => b.beamId === effectiveBeam.id)
@@ -128,7 +135,7 @@ export default function PranchasPanel() {
     if (!content) return null
     try {
       const subtitle =
-        tipo === 'forma'
+        tipo === 'forma' || tipo === 'lajes'
           ? project.plans.find((p) => p.id === effectivePlanId)?.name
           : tipo === 'vigas'
             ? effectiveBeam?.label
@@ -158,7 +165,7 @@ export default function PranchasPanel() {
   const drawing = withSheet ? (sheet?.drawing ?? null) : content
 
   const baseName = (): string =>
-    tipo === 'forma'
+    tipo === 'forma' || tipo === 'lajes'
       ? project.plans.find((p) => p.id === effectivePlanId)?.name ?? 'planta'
       : tipo === 'vigas'
         ? effectiveBeam?.label ?? 'viga'
@@ -234,6 +241,9 @@ export default function PranchasPanel() {
           <option value="fundacoes-det" disabled={!results}>
             Detalhamento de fundações
           </option>
+          <option value="lajes" disabled={!results}>
+            Armação de lajes
+          </option>
           <option value="vigas" disabled={!results}>
             Vigas
           </option>
@@ -242,7 +252,7 @@ export default function PranchasPanel() {
           </option>
         </select>
 
-        {tipo === 'forma' && (
+        {(tipo === 'forma' || tipo === 'lajes') && (
           <>
             <span className="label" style={{ margin: 0 }}>
               Planta
