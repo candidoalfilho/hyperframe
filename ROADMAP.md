@@ -283,6 +283,14 @@
 - [x] Botões +/−/⛶ (vista inicial) no viewer 3D via OrbitControls — fecha o feedback
   de zoom do smoke test Windows nas três superfícies (2D, pranchas e 3D)
 
+## v0.2.16 — Identidade visual ✅
+
+- [x] Logo oficial (pilar em planta com eixos e bolacha Ⓐ/2): remake vetorial fiel em
+  `design/logo.svg`, ícones do app regenerados (`tauri icon`), marca inline `IconLogo`
+  no TopBar/boas-vindas e no site (nav/rodapé/favicon, PT/EN/downloads)
+- [x] `site/tools/publish.mjs`: publicação de versão automatizada com asserts
+  (binários, sha256 e patch das 3 páginas) — fim dos seds manuais
+
 ## Paridade com o CypeCAD — mapa de módulos e fases
 
 > Referência: lista de módulos do CypeCAD (multiplus.com) + recursos do pacote.

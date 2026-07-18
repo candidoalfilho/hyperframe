@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- HyperFrame — marca: pilar em planta com eixos e bolacha (remake vetorial
+       fiel do original design/logo-original.png) -->
+  <rect width="1024" height="1024" fill="#f6f2e8"/>
+  <g stroke="#231f15" stroke-width="11" stroke-linecap="round">
+    <!-- eixos (8 raios a partir do pilar) -->
+    <line x1="512" y1="410" x2="512" y2="110"/>
+    <line x1="512" y1="614" x2="512" y2="912"/>
+    <line x1="614" y1="512" x2="946" y2="512"/>
+    <line x1="410" y1="512" x2="82"  y2="512"/>
+    <line x1="590" y1="434" x2="880" y2="182"/>
+    <line x1="434" y1="590" x2="150" y2="908"/>
+    <line x1="590" y1="590" x2="806" y2="806"/>
+    <line x1="438" y1="438" x2="286" y2="286"/>
+  </g>
+  <!-- pilar -->
+  <circle cx="512" cy="512" r="138" fill="#f79c28"/>
+  <!-- bolacha do eixo A (na ponta do raio NO) -->
+  <circle cx="200" cy="204" r="104" fill="none" stroke="#231f15" stroke-width="11"/>
+  <text x="200" y="204" text-anchor="middle" dominant-baseline="central"
+        font-family="Helvetica, Arial, sans-serif" font-size="150" fill="#231f15">A</text>
+  <!-- número do eixo 2 (junto ao raio SE) -->
+  <text x="862" y="890" text-anchor="middle"
+        font-family="Helvetica, Arial, sans-serif" font-size="170" fill="#231f15">2</text>
+</svg>

@@ -5,6 +5,7 @@ import { clearAutosave, openProjectFile, saveProject, saveProjectAs } from '../i
 import {
   IconClose,
   IconCube,
+  IconLogo,
   IconNew,
   IconOpen,
   IconPlan,
@@ -126,7 +127,7 @@ export default function TopBar() {
   return (
     <div className="topbar">
       <div className="logo">
-        <IconCube size={20} />
+        <IconLogo size={20} />
         Hyper<b>Frame</b>
       </div>
 

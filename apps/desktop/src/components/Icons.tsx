@@ -190,3 +190,14 @@ export const IconDownload = (p: P) => (
     <path d="M12 3v12M7 10l5 5 5-5M4 19h16" />
   </svg>
 )
+
+/** marca do HyperFrame: pilar em planta com eixos e bolacha (ver design/logo.svg) */
+export const IconLogo = (p: P) => (
+  <svg {...base(p)} fill="none">
+    <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M12 9.4V2.6M12 14.6v6.9M14.6 12h6.8M9.4 12H2.6M13.8 10.2l4.9-4.9M10.2 13.8l-4.9 4.9M13.8 13.8l4.3 4.3M10.3 10.3L8.4 8.4" />
+    </g>
+    <circle cx="12" cy="12" r="3.3" fill="#f79c28" stroke="none" />
+    <circle cx="6" cy="6" r="2.3" stroke="currentColor" strokeWidth="1.2" />
+  </svg>
+)

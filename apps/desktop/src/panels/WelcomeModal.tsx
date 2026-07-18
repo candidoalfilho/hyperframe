@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 import { createSampleProject } from '@hyperframe/engine'
 import { useStore } from '../store'
 import { openProjectFile, readAutosave } from '../io/fileio'
-import { IconBuilding, IconCube, IconNew, IconOpen, IconResults } from '../components/Icons'
+import { IconBuilding, IconLogo, IconNew, IconOpen, IconResults } from '../components/Icons'
 
 function OptionCard({
   icon,
@@ -61,7 +61,7 @@ export default function WelcomeModal() {
       <div className="modal" style={{ width: 460 }}>
         <div className="modal-body" style={{ padding: '10px 22px 4px' }}>
           <div style={{ textAlign: 'center', padding: '22px 0 18px' }}>
-            <IconCube size={40} style={{ color: 'var(--accent)' }} />
+            <IconLogo size={40} style={{ color: 'var(--accent)' }} />
             <div style={{ fontSize: 22, fontWeight: 800, marginTop: 8, letterSpacing: 0.2 }}>
               Hyper<span style={{ color: 'var(--accent)' }}>Frame</span>
             </div>
