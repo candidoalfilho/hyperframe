@@ -485,6 +485,15 @@
   consolo como elemento fica p/ o futuro)
 - [x] 6 testes com âncoras à mão — 387 no total
 
+## v0.2.28 — Consolo como elemento do pilar ✅
+
+- [x] `CorbelDef` no modelo (nível, face 0/90/180/270, b×d, a, Fd, Hd)
+- [x] Inspetor do pilar: seção "Consolos" com adicionar/editar/remover e
+  VERIFICAÇÃO AO VIVO via designCorbel (tirante, costura, biela OK/FALHA)
+- [x] 3D: caixa do consolo na face do pilar com topo no nível escolhido
+- [x] Nota honesta: Fd é de cálculo e não entra no pórtico automaticamente
+- [ ] Futuro: consolo na prancha do pilar (elevação) e carga → pórtico
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

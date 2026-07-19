@@ -10,6 +10,10 @@ import {
   TANK_DEFAULTS,
   WALL_PRESETS,
   columnSectionInfo,
+  concreteProps,
+  designCorbel,
+  fyd as fydOf,
+  uid as uidGen,
   dist,
   parseDxf,
   polygonArea,
@@ -631,6 +635,8 @@ function ColumnInspector({ col, project }: { col: Column; project: Project }) {
           : 'Contínuo da fundação ao topo'}
       </div>
 
+      <CorbelSection col={col} project={project} />
+
       {!isTransfer && <FoundationSection col={col} project={project} />}
 
       <MemberForcesSection kind="column" id={col.id} />
@@ -641,6 +647,95 @@ function ColumnInspector({ col, project }: { col: Column; project: Project }) {
 }
 
 const FOUNDATION_STATUS: Record<string, string> = { ok: 'OK', atencao: 'Atenção', falha: 'FALHA' }
+
+function CorbelSection({ col, project }: { col: Column; project: Project }) {
+  const updateColumn = useStore((s) => s.updateColumn)
+  const cp = concreteProps(
+    project.settings.concrete.fck,
+    project.settings.concrete.aggregate,
+    project.settings.concrete.gammaC,
+  )
+  const fydV = fydOf(project.settings.steel)
+  const corbels = col.corbels ?? []
+  const setAll = (list: typeof corbels) => updateColumn(col.id, { corbels: list })
+  const upd = (id: string, patch: Partial<(typeof corbels)[number]>) =>
+    setAll(corbels.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+  return (
+    <>
+      <h3 className="panel-title" style={{ marginTop: 14 }}>
+        Consolos (§22.5)
+      </h3>
+      {corbels.map((cb) => {
+        const r = designCorbel({
+          fd: cb.fd,
+          a: cb.a,
+          d: cb.d,
+          bw: cb.bw,
+          hd: cb.hd,
+          fck: cp.fck,
+          fcd: cp.fcd,
+          fyd: fydV,
+        })
+        return (
+          <div key={cb.id} style={{ borderTop: '1px solid var(--border)', paddingTop: 6, marginBottom: 8 }}>
+            <div className="field-row">
+              <select
+                className="select"
+                value={cb.levelId}
+                onChange={(e) => upd(cb.id, { levelId: e.target.value })}
+              >
+                {project.levels.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+              <select
+                className="select"
+                value={String(cb.rotationDeg)}
+                onChange={(e) => upd(cb.id, { rotationDeg: Number(e.target.value) as 0 | 90 | 180 | 270 })}
+              >
+                <option value="0">face +X</option>
+                <option value="90">face +Y</option>
+                <option value="180">face −X</option>
+                <option value="270">face −Y</option>
+              </select>
+            </div>
+            <div className="field-row" style={{ marginTop: 4 }}>
+              <NumberField value={cm(cb.bw)} digits={0} min={15} max={100} onCommit={(v) => upd(cb.id, { bw: v / 100 })} />
+              <NumberField value={cm(cb.d)} digits={0} min={20} max={120} onCommit={(v) => upd(cb.id, { d: v / 100 })} />
+              <NumberField value={cm(cb.a)} digits={0} min={5} max={120} onCommit={(v) => upd(cb.id, { a: v / 100 })} />
+              <NumberField value={cb.fd} digits={0} min={1} max={5000} onCommit={(v) => upd(cb.id, { fd: v })} />
+            </div>
+            <div className="faint" style={{ fontSize: 10 }}>b · d · a (cm) · Fd (kN)</div>
+            <div className="faint" style={{ fontSize: 11, marginTop: 3 }} title={r.notes.join(' ')}>
+              {r.kind} — tirante {(r.asTie * 1e4).toFixed(1)} cm² · costura {(r.asStitch * 1e4).toFixed(1)} cm² —{' '}
+              <b>{r.ok ? 'OK' : 'FALHA (biela)'}</b>
+            </div>
+            <button className="btn" style={{ marginTop: 4, fontSize: 11 }} onClick={() => setAll(corbels.filter((c) => c.id !== cb.id))}>
+              Remover consolo
+            </button>
+          </div>
+        )
+      })}
+      <button
+        className="btn"
+        style={{ width: '100%', marginTop: 4 }}
+        onClick={() =>
+          setAll([
+            ...corbels,
+            { id: uidGen(), levelId: col.topLevelId, rotationDeg: 0, bw: 0.3, d: 0.5, a: 0.25, fd: 200 },
+          ])
+        }
+      >
+        + Adicionar consolo
+      </button>
+      {corbels.length > 0 && (
+        <div className="faint" style={{ fontSize: 10, marginTop: 4 }}>
+          Fd é de CÁLCULO e não entra no pórtico automaticamente — aplicar a reação como carga no modelo se relevante.
+        </div>
+      )}
+    </>
+  )
+}
 
 function FoundationSection({ col, project }: { col: Column; project: Project }) {
   const setFoundationOverride = useStore((s) => s.setFoundationOverride)

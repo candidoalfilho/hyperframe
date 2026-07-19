@@ -85,6 +85,35 @@ export function buildBoxes(project: Project): BoxInstance[] {
     }
   }
 
+  // ---- consolos (§22.5): caixa na face do pilar, topo no nível ----
+  for (const col of project.columns) {
+    for (const cb of col.corbels ?? []) {
+      const lvl = project.levels.find((l) => l.id === cb.levelId)
+      if (!lvl) continue
+      const li = levelIdx.get(cb.levelId) ?? 0
+      const { dx: hx, dy: hy } = columnHalfExtents(col)
+      const rad = (cb.rotationDeg * Math.PI) / 180
+      const ux = Math.cos(rad)
+      const uy = Math.sin(rad)
+      const half = Math.abs(ux) * hx + Math.abs(uy) * hy
+      const proj = cb.a + 0.15
+      const hC = cb.d + 0.05
+      boxes.push({
+        key: `corbel:${col.id}:${cb.id}`,
+        kind: 'column',
+        id: col.id,
+        levels: [li],
+        position: [
+          col.pos.x + ux * (half + proj / 2),
+          lvl.elevation - hC / 2,
+          -(col.pos.y + uy * (half + proj / 2)),
+        ],
+        rotationY: Math.atan2(uy, ux),
+        size: [proj, hC, cb.bw],
+      })
+    }
+  }
+
   // ---- vigas: uma caixa por trecho da polilinha (seção do trecho) ----
   project.levels.forEach((level, li) => {
     if (!level.planId) return

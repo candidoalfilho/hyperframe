@@ -92,6 +92,26 @@ export interface Column {
   baseLevelId: string
   /** nível do topo (normalmente o último pavimento) */
   topLevelId: string
+  /** consolos (§22.5) pendurados no pilar */
+  corbels?: CorbelDef[]
+}
+
+/** consolo curto no pilar: geometria + carga de cálculo (§22.5) */
+export interface CorbelDef {
+  id: string
+  /** nível do topo do consolo */
+  levelId: string
+  /** face: 0 = +X, 90 = +Y, 180 = −X, 270 = −Y */
+  rotationDeg: 0 | 90 | 180 | 270
+  /** largura, m */
+  bw: number
+  /** altura útil na raiz, m */
+  d: number
+  /** distância da carga à face do pilar, m */
+  a: number
+  /** carga vertical de CÁLCULO, kN */
+  fd: number
+  hd?: number
 }
 
 /**
