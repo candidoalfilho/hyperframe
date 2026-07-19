@@ -145,6 +145,14 @@ export {
 } from './nbr/nbr6118/ribbedSlab'
 export { checkPunching, type PunchingInput, type PunchingOutput } from './nbr/nbr6118/punching'
 export {
+  designDeepBeam,
+  designCorbel,
+  type DeepBeamInput,
+  type DeepBeamOutput,
+  type CorbelInput,
+  type CorbelOutput,
+} from './nbr/nbr6118/deepBeam'
+export {
   designWallColumn,
   type WallColumnInput,
   type WallColumnOutput,
