@@ -1602,6 +1602,35 @@ function StairParamsEditor({ region }: { region: LoadRegion }) {
       <h3 className="panel-title" style={{ marginTop: 14 }}>
         Dimensionamento do lance
       </h3>
+      <div className="field">
+        <label className="label">Tipologia</label>
+        <select
+          className="select"
+          style={{ width: '100%' }}
+          value={st.kind ?? 'reto'}
+          onChange={(e) => upd({ kind: e.target.value as 'reto' | 'L' | 'U' })}
+        >
+          <option value="reto">Lance reto</option>
+          <option value="L">Em L (patamar de canto)</option>
+          <option value="U">Em U (2 lances + patamar)</option>
+        </select>
+      </div>
+      {(st.kind === 'L' || st.kind === 'U') && (
+        <div className="field">
+          <label className="label">Profundidade do patamar (cm)</label>
+          <NumberField
+            value={(st.landingDepth ?? 1.2) * 100}
+            digits={0}
+            min={80}
+            max={300}
+            style={{ width: '100%' }}
+            onCommit={(v) => upd({ landingDepth: v / 100 })}
+          />
+          <div className="faint" style={{ fontSize: 10, marginTop: 2 }}>
+            Lance + patamar contínuos (sem viga no patamar) — barras cruzando a dobra.
+          </div>
+        </div>
+      )}
       <div className="field-row">
         <div className="field">
           <label className="label">Espessura (cm)</label>

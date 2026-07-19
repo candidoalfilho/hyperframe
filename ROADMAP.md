@@ -457,6 +457,21 @@
 - [ ] Fica p/ o futuro: P-Δ iterativo por combinação (γz cobre §15.7.2 até
   1,30), Ca da Fig. 4 digitalizado, quinhão trapezoidal explícito no Marcus
 
+## v0.2.26 — Escadas em L e U com patamar ✅
+
+- [x] `StairParams.kind` (reto/L/U) + `landingDepth`; select no inspetor
+- [x] `designStairLanding`: lance + patamar CONTÍNUOS (patamar sem apoio
+  próprio — esquema conservador clássico): cargas por trecho (lance ×1/cosθ
+  + meia altura de degraus; patamar plano), reações exatas e Mmax onde
+  V = 0; flecha Branson, Blondel, nota da DOBRA (barras cruzando o canto —
+  empuxo ao vazio)
+- [x] 3D: U = dois lances paralelos (sobe/volta) + patamar a meia altura;
+  L = lance no lado maior + patamar de canto + lance ⊥ — degraus e mísulas
+  reais nos dois lances
+- [x] Âncora: lance 2,40 + patamar 1,20 ⇒ RA = 22,55 kN, Mmax = 19,6 kN·m/m
+  em x = 1,74 m — 4 testes novos, 381 no total
+- [ ] Futuro: autoportante, viga central, caracol; patamar com apoio próprio
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

@@ -188,73 +188,145 @@ export function buildRegionSolids(project: Project): RegionSolidInstance[] {
         if (H <= 0.1) continue
 
         const st = { ...STAIR_DEFAULTS, ...(region.stair ?? {}) }
+        const kind = st.kind ?? 'reto'
         const alongX = dx >= dy
         const runLen = alongX ? dx : dy
         const width = alongX ? dy : dx
-        // sobe do início ao fim do lado maior (reverse inverte)
-        const dir: Vec2 = alongX
+        const dirMain: Vec2 = alongX
           ? { x: st.reverse ? -1 : 1, y: 0 }
           : { x: 0, y: st.reverse ? -1 : 1 }
-        const start: Vec2 = {
+        const perp: Vec2 = alongX ? { x: 0, y: 1 } : { x: 1, y: 0 }
+        const s0: Vec2 = {
           x: alongX ? (st.reverse ? maxX : minX) : cx,
           y: alongX ? cy : st.reverse ? maxY : minY,
         }
-        const rotY = Math.atan2(dir.y, dir.x)
 
-        const n = Math.max(3, Math.round(H / Math.max(st.riser, 0.12)))
-        const e = H / n
-        const runNeeded = n * st.tread
-        const runUsed = Math.min(runNeeded, runLen)
-        const pEff = runUsed / n
-
-        // degraus (caixas de 1 espelho de altura sobre a linha inclinada)
-        for (let k = 0; k < n; k++) {
-          const s = (k + 0.5) * pEff
+        // um lance: degraus + mísula, subindo hRise a partir de z0
+        const pushFlight = (
+          keyBase: string,
+          ox: number,
+          oy: number,
+          dir: Vec2,
+          run: number,
+          z0: number,
+          hRise: number,
+          w: number,
+        ) => {
+          const rotY = Math.atan2(dir.y, dir.x)
+          const n = Math.max(3, Math.round(hRise / Math.max(st.riser, 0.12)))
+          const e = hRise / n
+          const pEff = Math.min((n * st.tread) / n, run / n)
+          const used = pEff * n
+          for (let k = 0; k < n; k++) {
+            const sK = (k + 0.5) * pEff
+            out.push({
+              key: `rg:${level.id}:${region.id}:${keyBase}:st:${k}`,
+              id: region.id,
+              regionKind: 'escada',
+              levels: [li - 1, li],
+              position: [ox + dir.x * sK, z0 + k * e + e / 2, -(oy + dir.y * sK)],
+              rotationY: rotY,
+              rotationZ: 0,
+              size: [pEff, e, w],
+            })
+          }
+          const theta = Math.atan2(hRise, used)
           out.push({
-            key: `rg:${level.id}:${region.id}:st:${k}`,
+            key: `rg:${level.id}:${region.id}:${keyBase}:waist`,
             id: region.id,
             regionKind: 'escada',
             levels: [li - 1, li],
-            position: [start.x + dir.x * s, zBot + k * e + e / 2, -(start.y + dir.y * s)],
+            position: [
+              ox + dir.x * (used / 2),
+              z0 + hRise / 2 - st.waist / (2 * Math.cos(theta)),
+              -(oy + dir.y * (used / 2)),
+            ],
+            rotationY: rotY,
+            rotationZ: theta,
+            size: [Math.hypot(used, hRise), st.waist, w],
+          })
+          return used
+        }
+        const pushLanding = (keyBase: string, ox: number, oy: number, lw: number, ldep: number, zTopL: number, rotY: number) => {
+          out.push({
+            key: `rg:${level.id}:${region.id}:${keyBase}`,
+            id: region.id,
+            regionKind: 'escada',
+            levels: [li - 1, li],
+            position: [ox, zTopL - st.waist / 2, -oy],
             rotationY: rotY,
             rotationZ: 0,
-            size: [pEff, e, width],
+            size: [ldep, st.waist, lw],
           })
         }
 
-        // laje inclinada (mísula) sob os degraus
-        const theta = Math.atan2(H, runUsed)
-        const lIncl = Math.hypot(runUsed, H)
-        const sMid = runUsed / 2
-        out.push({
-          key: `rg:${level.id}:${region.id}:waist`,
-          id: region.id,
-          regionKind: 'escada',
-          levels: [li - 1, li],
-          position: [
-            start.x + dir.x * sMid,
-            zBot + H / 2 - st.waist / (2 * Math.cos(theta)),
-            -(start.y + dir.y * sMid),
-          ],
-          rotationY: rotY,
-          rotationZ: theta,
-          size: [lIncl, st.waist, width],
-        })
-
-        // patamar de chegada no restante da região
-        const landing = runLen - runUsed
-        if (landing > 0.06) {
-          const s = runUsed + landing / 2
-          out.push({
-            key: `rg:${level.id}:${region.id}:landing`,
-            id: region.id,
-            regionKind: 'escada',
-            levels: [li],
-            position: [start.x + dir.x * s, zTop - st.waist / 2 - 0.0015, -(start.y + dir.y * s)],
-            rotationY: rotY,
-            rotationZ: 0,
-            size: [landing, st.waist, width],
-          })
+        if (kind === 'reto') {
+          const used = pushFlight('a', s0.x, s0.y, dirMain, runLen, zBot, H, width)
+          const rest = runLen - used
+          if (rest > 0.06) {
+            pushLanding(
+              'landing',
+              s0.x + dirMain.x * (used + rest / 2),
+              s0.y + dirMain.y * (used + rest / 2),
+              width,
+              rest,
+              zTop,
+              Math.atan2(dirMain.y, dirMain.x),
+            )
+          }
+        } else if (kind === 'U') {
+          const ld = Math.min(st.landingDepth ?? 1.2, runLen * 0.45)
+          const runA = runLen - ld
+          const wHalf = Math.max((width - 0.04) / 2, 0.3)
+          const offA = -width / 4
+          const offB = width / 4
+          // lance A sobe até o patamar (meia altura)
+          pushFlight('a', s0.x + perp.x * offA, s0.y + perp.y * offA, dirMain, runA, zBot, H / 2, wHalf)
+          // patamar no fundo, largura total
+          pushLanding(
+            'mid',
+            s0.x + dirMain.x * (runA + ld / 2),
+            s0.y + dirMain.y * (runA + ld / 2),
+            width,
+            ld,
+            zBot + H / 2,
+            Math.atan2(dirMain.y, dirMain.x),
+          )
+          // lance B volta (180°) subindo do patamar ao topo
+          const back: Vec2 = { x: -dirMain.x, y: -dirMain.y }
+          pushFlight(
+            'b',
+            s0.x + dirMain.x * runA + perp.x * offB,
+            s0.y + dirMain.y * runA + perp.y * offB,
+            back,
+            runA,
+            zBot + H / 2,
+            H / 2,
+            wHalf,
+          )
+        } else {
+          // L: lance A ao longo do lado maior até o patamar de canto; lance B ⊥
+          const ld = Math.min(st.landingDepth ?? 1.2, runLen * 0.45, (alongX ? dy : dx))
+          const runA = runLen - ld
+          const wA = Math.min(ld, width)
+          // faixa do lance A encostada na borda perp-mín
+          const offA = -(width - wA) / 2
+          pushFlight('a', s0.x + perp.x * offA, s0.y + perp.y * offA, dirMain, runA, zBot, H / 2, wA)
+          const cornerX = s0.x + dirMain.x * (runA + ld / 2) + perp.x * offA
+          const cornerY = s0.y + dirMain.y * (runA + ld / 2) + perp.y * offA
+          pushLanding('mid', cornerX, cornerY, wA, ld, zBot + H / 2, Math.atan2(dirMain.y, dirMain.x))
+          // lance B sobe ⊥ a partir do patamar
+          const runB = Math.max(width - wA, 0.6)
+          pushFlight(
+            'b',
+            cornerX + perp.x * (wA / 2) - dirMain.x * 0,
+            cornerY + perp.y * (wA / 2),
+            perp,
+            runB,
+            zBot + H / 2,
+            H / 2,
+            ld,
+          )
         }
         continue
       }

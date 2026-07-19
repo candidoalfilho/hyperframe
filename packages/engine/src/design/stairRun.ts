@@ -2,7 +2,7 @@ import type { Project } from '../model/types'
 import type { StairDesignResultItem } from '../analysis/types'
 import { bbox } from '../geometry/geometry'
 import { concreteProps, coverFor, fyd as fydOf } from '../nbr/nbr6118/materials'
-import { designStair } from '../nbr/nbr6118/stairs'
+import { designStair, designStairLanding } from '../nbr/nbr6118/stairs'
 import { STAIR_DEFAULTS } from '../model/presets'
 
 /**
@@ -35,8 +35,9 @@ export function runStairDesign(project: Project): StairDesignResultItem[] {
       const autoSpan = Math.max(max.x - min.x, max.y - min.y)
       const span = st.span && st.span > 0.1 ? st.span : autoSpan
 
-      const design = designStair({
-        span,
+      const kind = st.kind ?? 'reto'
+      const landingDepth = st.landingDepth ?? 1.2
+      const common = {
         waist: st.waist,
         riser: st.riser,
         tread: st.tread,
@@ -50,7 +51,16 @@ export function runStairDesign(project: Project): StairDesignResultItem[] {
         fctm: cp.fctm,
         ecs: cp.ecs,
         psi2: project.settings.psiLive.psi2,
-      })
+      }
+      const design =
+        kind === 'reto'
+          ? designStair({ span, ...common })
+          : designStairLanding({
+              ...common,
+              kind,
+              flightSpan: Math.max(span - landingDepth, 0.6),
+              landingSpan: landingDepth,
+            })
 
       out.push({
         regionId: region.id,

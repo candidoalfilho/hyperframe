@@ -150,3 +150,100 @@ export function designStair(inp: StairDesignInput): StairDesignOutput {
     notes,
   }
 }
+
+export interface StairLandingInput extends Omit<StairDesignInput, 'span'> {
+  /** projeção horizontal do lance, m */
+  flightSpan: number
+  /** profundidade do patamar, m */
+  landingSpan: number
+  kind: 'L' | 'U'
+}
+
+/**
+ * Lance + PATAMAR contínuos (escadas L/U, §14 + prática Bastos/Araújo):
+ * viga biapoiada de vão L = lance + patamar SEM apoio próprio no patamar
+ * (esquema conservador usual); cargas por trecho (lance inclinado ×1/cosθ +
+ * meia altura de degraus; patamar plano). Mmax exato onde V = 0.
+ * ARMADURA DA DOBRA: barras devem CRUZAR o canto lance-patamar ancoradas
+ * (nunca dobrar acompanhando o canto reentrante — empuxo ao vazio).
+ */
+export function designStairLanding(inp: StairLandingInput): StairDesignOutput {
+  const lf = Math.max(inp.flightSpan, 0.3)
+  const lp = Math.max(inp.landingSpan, 0.3)
+  const L = lf + lp
+  const theta = Math.atan2(inp.riser, inp.tread)
+  const cosT = Math.cos(theta)
+  const g1 = (inp.waist / cosT) * inp.unitWeight + (inp.riser / 2) * inp.unitWeight + inp.finish
+  const g2 = inp.waist * inp.unitWeight + inp.finish
+  const w1 = 1.4 * (g1 + inp.q)
+  const w2 = 1.4 * (g2 + inp.q)
+
+  // reações (lance em [0, lf], patamar em [lf, L]); momentos sobre B:
+  const ra = (w1 * lf * (L - lf / 2) + w2 * lp * (lp / 2)) / L
+  const rb = w1 * lf + w2 * lp - ra
+  const x0 = ra / w1 <= lf ? ra / w1 : lf + (ra - w1 * lf) / w2
+  const md =
+    x0 <= lf
+      ? ra * x0 - (w1 * x0 * x0) / 2
+      : ra * x0 - w1 * lf * (x0 - lf / 2) - (w2 * (x0 - lf) ** 2) / 2
+  const vd = Math.max(ra, rb)
+
+  const d = Math.max(inp.waist - inp.cover - 0.005, 0.5 * inp.waist)
+  const flex = designBeamFlexure({
+    md,
+    bw: 1,
+    h: inp.waist,
+    d,
+    fcd: inp.fcd,
+    fyd: inp.fyd,
+    fck: inp.fck,
+  })
+  const asMin = 0.0015 * inp.waist
+  const as = Math.max(flex.as, asMin)
+  const asDist = Math.max(0.2 * as, 0.9e-4, 0.5 * 0.0015 * inp.waist)
+  const steps = Math.max(3, Math.round(lf / inp.tread))
+  // flecha QP (Branson aproximado como no lance reto), carga média no vão
+  const wQpAvg = ((g1 * lf + g2 * lp) / L) + inp.psi2 * inp.q
+  const iC = inp.waist ** 3 / 12
+  const deltaElastic = (5 * wQpAvg * L ** 4) / (384 * inp.ecs * iC)
+  const maQp = (wQpAvg * L * L) / 8
+  const mr = 0.25 * inp.fctm * inp.waist * inp.waist
+  let ieqRatio = 1
+  if (maQp > mr) {
+    const iii = 0.3 * iC
+    const r3 = (mr / maQp) ** 3
+    ieqRatio = iC / Math.min(iC, r3 * iC + (1 - r3) * iii)
+  }
+  const deflection = deltaElastic * ieqRatio * (1 + 1.32)
+  const blondel = (inp.tread + 2 * inp.riser) * 100
+  const notes = [
+    `Escada em ${inp.kind} — lance ${lf.toFixed(2).replace('.', ',')} m + patamar ${lp
+      .toFixed(2)
+      .replace('.', ',')} m contínuos (patamar sem apoio próprio, esquema conservador).`,
+    `Mmax = ${md.toFixed(1)} kN·m/m em x = ${x0.toFixed(2).replace('.', ',')} m ${x0 <= lf ? '(no lance)' : '(no patamar)'}.`,
+    'DOBRA lance↔patamar: barras CRUZANDO o canto, ancoradas — nunca dobrar acompanhando o canto reentrante (empuxo ao vazio).',
+    inp.kind === 'U'
+      ? 'Dimensionamento POR LANCE (os dois lances são iguais e simétricos).'
+      : 'Dimensionar os dois lances (o maior governa) — patamar de canto compartilhado.',
+  ]
+  return {
+    span: L,
+    thetaDeg: (theta * 180) / Math.PI,
+    steps,
+    g: g1,
+    q: inp.q,
+    md,
+    vd,
+    as,
+    asMin,
+    spec: pickSlabBars(as, inp.waist),
+    asDist,
+    distSpec: pickSlabBars(asDist, inp.waist),
+    deflection,
+    deflectionLimit: L / 250,
+    blondel,
+    blondelOk: blondel >= 60 && blondel <= 65,
+    ok: flex.ok,
+    notes,
+  }
+}

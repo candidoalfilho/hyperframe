@@ -193,6 +193,10 @@ export interface StairParams {
   reverse?: boolean
   /** abre furo na laje deste pavimento sob a escada (default: true) */
   opening?: boolean
+  /** tipologia: lance reto (default), L ou U com patamar */
+  kind?: 'reto' | 'L' | 'U'
+  /** profundidade do patamar (L/U), m */
+  landingDepth?: number
 }
 
 /** Geometria p/ dimensionamento de reservatório retangular apoiado (kind 'reservatorio') */

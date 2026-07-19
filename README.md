@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.25-orange) ![tests](https://img.shields.io/badge/testes-377%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.26-orange) ![tests](https://img.shields.io/badge/testes-381%20passando-brightgreen)
 
-## O que já faz (v0.2.25)
+## O que já faz (v0.2.26)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -43,7 +43,7 @@ sistema e código-fonte no site.
   peso real com enchimento, seção T por nervura, cisalhamento §19.4.1), **punção §19.5**
   (pilares **internos, de borda e de canto** com transferência de momento K·MSd,
   perímetros reduzidos u*, reação real da grelha, desconto por aberturas §19.5.1 e ARMADURA DE PUNÇÃO dimensionada — linhas de conectores até o contorno C″ §19.5.3.4 e colapso progressivo §19.5.4),
-  **escadas** (lance como laje inclinada) e
+  **escadas RETAS, EM L e EM U** (lance como laje inclinada; L/U: lance + patamar contínuos com Mmax exato onde V = 0, nota da armadura da dobra contra empuxo ao vazio, dois lances no 3D) e
   **reservatórios** (paredes/fundo/tampa com estanqueidade wk ≤ 0,2 mm)
 - **Fundações**: **sapatas rígidas** (bielas/CG com presets de solo), **sapatas
   ASSOCIADAS** (2 pilares numa sapata: CG na resultante, viga invertida com armadura
@@ -127,7 +127,7 @@ packages/engine     # núcleo puro TypeScript (zero dependências)
   src/drawing       # pranchas (primitivas neutras → SVG/DXF)
   src/dxf           # parser (underlay) e writer (R12) de DXF próprios
   src/report        # memorial de cálculo em PDF (writer PDF próprio, zero deps)
-  test              # 377 testes (âncoras analíticas, normas, equilíbrio global)
+  test              # 381 testes (âncoras analíticas, normas, equilíbrio global)
 apps/desktop        # Tauri 2 + React 19 + three.js
   src/editor2d      # editor de planta SVG (snap, ferramentas, camadas, underlay)
   src/viewer3d      # visualizador 3D (R3F): edifício, deformada, diagramas
