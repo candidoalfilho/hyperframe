@@ -423,6 +423,20 @@
 - [x] Âncoras: parede 150×25 ⇒ 2 lâminas de 75 com N 2400/600 (Σ ✓),
   λ = 38,8, tirante de borda −1500 kN — 6 testes novos, 367 no total
 
+## v0.2.24 — Pilares executivos (elevação) ✅
+
+- [x] `buildColumnElevationDrawing`: elevação executiva por pilar —
+  fundação esquemática com ARRANQUES (l0 acima da fundação + gancho),
+  emendas por TRASPASSE em cada pavimento (§9.5.2; comprimento = lb, a favor
+  da segurança p/ emenda comprimida), estribos na distribuição real por
+  tramo, cotas de nível e pé-direito, gancho no topo (10φ), seção
+  transversal em escala real com as barras e QUADRO DE FERROS (C por tramo,
+  kg por posição, arranques, total)
+- [x] Pranchas: nova opção "Pilar — elevação" com seletor de pilar
+  (SVG/DXF/PDF na escala, carimbo)
+- [x] 5 testes (traspasse = tramos − 1, estribos ≥ Σ real, pontos da seção
+  = barsN, C = pé-direito + lap) — 372 no total
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
@@ -438,7 +452,7 @@
    + vigas flexíveis; restam nervuradas na unificada (hoje seguem por laje)
 4. ✅ Mesa colaborante das vigas (v0.2.22) — falta só a inércia T na análise
 5. ✅ Núcleo rígido / pilar-parede (v0.2.23) — restam abas de L como paredes
-6. Pilares executivos (arranques, emendas por tramo, croqui)
+6. ✅ Pilares executivos (v0.2.24)
 7. Refinamentos de análise: P-Δ real, excentricidade de vento ±7,5%,
    redistribuição (§14.6.4.3), Ca da Fig. 4 digitalizado, trapezoidal no Marcus
 8. FUTURO (decisão 18/07): vibração de piso §23.3, vento dinâmico (cap. 9),

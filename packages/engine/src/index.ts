@@ -184,6 +184,7 @@ export { PdfDoc, encodePdfText, textWidth, wrapText, transliterate, A4 } from '.
 export { buildFormworkDrawing } from './drawing/formwork'
 export { buildBeamDetailDrawing } from './drawing/beamDetail'
 export { buildColumnDetailDrawing } from './drawing/columnDetail'
+export { buildColumnElevationDrawing } from './drawing/columnElevation'
 export { buildSectionCutDrawing, type SectionCutOptions } from './drawing/sectionCut'
 export { buildLoadPlanDrawing } from './drawing/loadPlan'
 export { buildFoundationPlanDrawing } from './drawing/foundationPlan'

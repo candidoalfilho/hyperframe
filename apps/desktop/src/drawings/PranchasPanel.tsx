@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   buildBeamDetailDrawing,
   buildColumnDetailDrawing,
+  buildColumnElevationDrawing,
   buildDrawingPdf,
   buildFormworkDrawing,
   buildFoundationDetailDrawing,
@@ -25,7 +26,7 @@ import { IconChevronDown, IconDownload } from '../components/Icons'
  * (formatos A0–A4, escala automática ou fixa).
  */
 
-type Tipo = 'forma' | 'corte' | 'cargas' | 'fundacoes' | 'fundacoes-det' | 'lajes' | 'vigas' | 'pilares'
+type Tipo = 'forma' | 'corte' | 'cargas' | 'fundacoes' | 'fundacoes-det' | 'lajes' | 'vigas' | 'pilares' | 'pilar-elev'
 
 /** nome de arquivo seguro: minúsculas, sem acentos, hifens */
 function slug(s: string): string {
@@ -48,6 +49,7 @@ const TITLES: Record<Tipo, string> = {
   lajes: 'Armação de lajes',
   vigas: 'Armação de vigas',
   pilares: 'Pilares — seções e armaduras',
+  'pilar-elev': 'Pilar — elevação executiva',
 }
 
 export default function PranchasPanel() {
@@ -57,6 +59,7 @@ export default function PranchasPanel() {
   const [tipo, setTipo] = useState<Tipo>('forma')
   const [planId, setPlanId] = useState('')
   const [beamId, setBeamId] = useState('')
+  const [colId, setColId] = useState('')
   const [cutDir, setCutDir] = useState<'x' | 'y'>('x')
   const [cutAxisId, setCutAxisId] = useState('')
   const [withSheet, setWithSheet] = useState(false)
@@ -93,6 +96,12 @@ export default function PranchasPanel() {
   }, [results, project])
   const effectiveBeam = beamOptions.find((o) => o.id === beamId) ?? beamOptions[0] ?? null
 
+  const colOptions = useMemo(
+    () => (results ? results.detailing.columns.map((c) => ({ id: c.columnId, name: c.name })) : []),
+    [results],
+  )
+  const effectiveCol = colOptions.find((o) => o.id === colId) ?? colOptions[0] ?? null
+
   const content = useMemo<Drawing | null>(() => {
     try {
       if (tipo === 'forma') {
@@ -125,11 +134,15 @@ export default function PranchasPanel() {
         )
         return buildBeamDetailDrawing(effectiveBeam.name, spans, undefined, steelItems)
       }
+      if (tipo === 'pilar-elev') {
+        const det = results.detailing.columns.find((c) => c.columnId === effectiveCol?.id)
+        return det ? buildColumnElevationDrawing(project, det) : null
+      }
       return buildColumnDetailDrawing(results.detailing.columns)
     } catch {
       return null
     }
-  }, [tipo, project, results, effectivePlanId, effectiveBeam, cutDir, effectiveCutAxis])
+  }, [tipo, project, results, effectivePlanId, effectiveBeam, cutDir, effectiveCutAxis, effectiveCol])
 
   const sheet = useMemo(() => {
     if (!content) return null
@@ -139,7 +152,9 @@ export default function PranchasPanel() {
           ? project.plans.find((p) => p.id === effectivePlanId)?.name
           : tipo === 'vigas'
             ? effectiveBeam?.label
-            : tipo === 'corte'
+            : tipo === 'pilar-elev'
+              ? effectiveCol?.name
+              : tipo === 'corte'
               ? `Eixo ${effectiveCutAxis?.label ?? ''}`
               : undefined
       return composeSheet(content, {
@@ -169,7 +184,9 @@ export default function PranchasPanel() {
       ? project.plans.find((p) => p.id === effectivePlanId)?.name ?? 'planta'
       : tipo === 'vigas'
         ? effectiveBeam?.label ?? 'viga'
-        : tipo === 'corte'
+        : tipo === 'pilar-elev'
+          ? effectiveCol?.name ?? 'pilar'
+          : tipo === 'corte'
           ? `corte-${effectiveCutAxis?.label ?? ''}`
           : tipo === 'cargas'
             ? 'cargas-fundacao'
@@ -250,6 +267,9 @@ export default function PranchasPanel() {
           <option value="pilares" disabled={!results}>
             Pilares
           </option>
+          <option value="pilar-elev" disabled={!results}>
+            Pilar — elevação
+          </option>
         </select>
 
         {(tipo === 'forma' || tipo === 'lajes') && (
@@ -292,6 +312,25 @@ export default function PranchasPanel() {
               {cutAxes.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.label} ({a.pos.toFixed(2).replace('.', ',')} m)
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {tipo === 'pilar-elev' && results && (
+          <>
+            <span className="faint" style={{ fontSize: 11, marginLeft: 10 }}>
+              Pilar
+            </span>
+            <select
+              className="select"
+              value={effectiveCol?.id ?? ''}
+              onChange={(e) => setColId(e.target.value)}
+            >
+              {colOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
                 </option>
               ))}
             </select>
