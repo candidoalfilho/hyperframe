@@ -12,6 +12,7 @@ import {
 } from './nbr/nbr6118/beamDesign'
 import { effectiveFlange, designTBeamFlexure } from './nbr/nbr6118/tSection'
 import { flankingSlabs } from './analysis/flange'
+import { designDeepBeam } from './nbr/nbr6118/deepBeam'
 import { gammaZ, alphaParam } from './nbr/nbr6118/stability'
 import { DRIFT_STORY_RATIO, DRIFT_TOP_RATIO } from './nbr/api'
 import { runColumnDesign } from './design/columnRun'
@@ -909,7 +910,33 @@ function designBeams(
         note: r.note ? `${noteT}; ${r.note}` : noteT,
       }
     }
-    const positive = mkFlexT(mdPos)
+    let positive = mkFlexT(mdPos)
+    // viga-parede (§22.4): l/h < 2 (biap.) ou < 3 (contínua) — tirante CEB
+    const deep = designDeepBeam({
+      span: length,
+      h,
+      bw,
+      md: mdPos,
+      vd,
+      continuous: mdNegLeft > 0.5 || mdNegRight > 0.5,
+      fck: cp.fck,
+      fcd: cp.fcd,
+      fyd: fydV,
+    })
+    if (deep.isDeep) {
+      const asDeep = Math.max(positive.as, deep.asTie)
+      const bars = pickBars(asDeep, bw, cover)
+      positive = {
+        ...positive,
+        as: asDeep,
+        asProvided: bars.asProvided,
+        bars: bars.spec,
+        barsN: bars.n,
+        barsPhi: bars.phi,
+        ok: positive.ok && deep.ok,
+        note: [positive.note, ...deep.notes].filter(Boolean).join('; '),
+      }
+    }
     const withCut = (f: FlexureDesign, fromLeft: boolean, mdSup: number): FlexureDesign => {
       const c = cutDist(fromLeft, mdSup)
       return { ...f, cutZero: c.zero, cutHalf: c.half }

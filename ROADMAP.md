@@ -472,6 +472,19 @@
   em x = 1,74 m — 4 testes novos, 381 no total
 - [ ] Futuro: autoportante, viga central, caracol; patamar com apoio próprio
 
+## v0.2.27 — Vigas-parede e consolos (§22.4/§22.5) ✅
+
+- [x] `designDeepBeam`: detecção l/h < 2 (biap.)/< 3 (contínua); tirante
+  CEB (z = 0,2·(l+2h) | 0,6·l | 0,2·(l+1,5h)) concentrado na base com
+  ancoragem total, malha de alma 0,075%·b/face e biela do apoio ≤ 0,85·αv·fcd
+- [x] Integração automática no designBeams: viga curta e alta troca a flexão
+  pelo tirante (As = máx) com notas §22.4 no vão
+- [x] `designCorbel`: curto (biela-tirante z = 0,8·d, Hd ≥ 0,2·Fd, costura
+  0,4·As em estribos horizontais), muito curto (atrito-cisalhamento μ = 1,4)
+  e a/d > 1 vira balanço comum — exportado p/ uso via Copiloto/API (UI de
+  consolo como elemento fica p/ o futuro)
+- [x] 6 testes com âncoras à mão — 387 no total
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
