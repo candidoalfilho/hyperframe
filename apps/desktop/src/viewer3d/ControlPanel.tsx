@@ -129,6 +129,15 @@ export default function ControlPanel() {
         />
         Isolar pavimento ativo
       </label>
+      <label style={rowStyle}>
+        <input
+          type="checkbox"
+          style={checkStyle}
+          checked={d3.wireframeMode}
+          onChange={(e) => setD3({ wireframeMode: e.currentTarget.checked })}
+        />
+        Modo unifilar
+      </label>
 
       {results && (
         <>

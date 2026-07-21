@@ -71,6 +71,8 @@ export interface D3Options {
   diagram: Diagram3D
   diagramScale: number
   activeComboId: string | null
+  /** modo unifilar: mostra apenas eixos do pórtico (útil para diagramas) */
+  wireframeMode: boolean
 }
 
 export interface ElementDefaults {
@@ -260,6 +262,7 @@ export const useStore = create<HFState>()(
         diagram: 'none',
         diagramScale: 1,
         activeComboId: null,
+        wireframeMode: false,
       },
       defaults: {
         columnSection: { bw: 0.25, h: 0.6 },

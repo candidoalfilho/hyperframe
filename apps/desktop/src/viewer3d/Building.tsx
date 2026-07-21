@@ -13,6 +13,7 @@ import {
   type BoxInstance,
   type SlabInstance,
 } from './buildGeometry'
+import FrameAxes from './FrameAxes'
 
 type SolidKind = 'column' | 'beam' | 'slab' | 'loadRegion'
 
@@ -85,6 +86,7 @@ export default function Building() {
 
   const showRegions = useStore((s) => s.d3.showRegions)
   const showFoundations = useStore((s) => s.d3.showFoundations)
+  const wireframeMode = useStore((s) => s.d3.wireframeMode)
   const foundations = useStore((s) => s.results?.foundations ?? null)
   const boxes = useMemo(() => buildBoxes(project), [project])
   const foundationSolids = useMemo(
@@ -118,174 +120,182 @@ export default function Building() {
 
   return (
     <group>
-      {boxes.map((b) => {
-        const faded = isolate && !b.levels.includes(activeIdx)
-        const solid = !faded && !ghostAll
-        const opacity = faded ? 0.07 : ghostAll ? 0.15 : 1
-        const paint = paintFor(b.kind, b.id, selection, hoverRef)
-        if (b.prism) {
-          return (
-            <PrismMesh
-              key={b.key}
-              box={b}
-              paint={paint}
-              opacity={opacity}
-              solid={solid}
-              faded={faded}
-              onClick={faded ? undefined : handleClick(b.kind, b.id)}
-              onPointerOver={faded ? undefined : handleOver(b.kind, b.id)}
-              onPointerOut={faded ? undefined : handleOut(b.kind, b.id)}
-            />
-          )
-        }
-        if (b.webHoles && b.webHoles.length > 0) {
-          return (
-            <WebBoxMesh
-              key={b.key}
-              box={b}
-              paint={paint}
-              opacity={opacity}
-              solid={solid}
-              faded={faded}
-              onClick={faded ? undefined : handleClick(b.kind, b.id)}
-              onPointerOver={faded ? undefined : handleOver(b.kind, b.id)}
-              onPointerOut={faded ? undefined : handleOut(b.kind, b.id)}
-            />
-          )
-        }
-        return (
-          <mesh
-            key={b.key}
-            position={b.position}
-            rotation-y={b.rotationY}
-            castShadow={solid}
-            receiveShadow
-            userData={{ kind: b.kind, id: b.id }}
-            raycast={faded ? NO_RAYCAST : DEFAULT_RAYCAST}
-            onClick={faded ? undefined : handleClick(b.kind, b.id)}
-            onPointerOver={faded ? undefined : handleOver(b.kind, b.id)}
-            onPointerOut={faded ? undefined : handleOut(b.kind, b.id)}
-          >
-            {b.round ? (
-              <cylinderGeometry args={[b.round.d / 2, b.round.d / 2, b.size[1], 24]} />
-            ) : (
-              <boxGeometry args={b.size} />
-            )}
-            <meshStandardMaterial
-              color={paint.color}
-              roughness={0.9}
-              metalness={0.05}
-              transparent={!solid}
-              opacity={opacity}
-              depthWrite={solid}
-              emissive={paint.emissive}
-              emissiveIntensity={paint.emissiveIntensity}
-            />
-            {solid && !b.round && <Edges threshold={20} color={EDGE_COLOR} />}
-          </mesh>
-        )
-      })}
+      {/* Modo unifilar: mostra apenas eixos do pórtico */}
+      {wireframeMode && <FrameAxes />}
 
-      {showFoundations &&
-        !isolate &&
-        foundationSolids.map((f) => {
-          const solid = !ghostAll
-          const opacity = ghostAll ? 0.15 : 1
-          const paint = paintFor('column', f.columnId, selection, hoverRef)
-          const base = FOUNDATION_COLOR[f.status]
-          const color = paint.emissiveIntensity > 0 ? paint.color : base
-          return (
-            <mesh
-              key={f.key}
-              position={f.position}
-              rotation-y={f.rotationY ?? 0}
-              castShadow={false}
-              receiveShadow
-              userData={{ kind: 'column', id: f.columnId }}
-              raycast={DEFAULT_RAYCAST}
-              onClick={handleClick('column', f.columnId)}
-              onPointerOver={handleOver('column', f.columnId)}
-              onPointerOut={handleOut('column', f.columnId)}
-            >
-              {f.shape === 'cyl' ? (
-                <cylinderGeometry args={[f.size[0] / 2, f.size[0] / 2, f.size[1], 24]} />
-              ) : (
-                <boxGeometry args={f.size} />
-              )}
-              <meshStandardMaterial
-                color={color}
-                roughness={0.95}
-                metalness={0.03}
-                transparent={!solid}
-                opacity={opacity}
-                depthWrite={solid}
-                emissive={paint.emissive}
-                emissiveIntensity={paint.emissiveIntensity}
-              />
-              {solid && f.shape === 'box' && <Edges threshold={20} color={EDGE_COLOR} />}
-            </mesh>
-          )
-        })}
+      {/* Modo sólido: mostra caixas, lajes, fundações etc. */}
+      {!wireframeMode && (
+        <>
+          {boxes.map((b) => {
+            const faded = isolate && !b.levels.includes(activeIdx)
+            const solid = !faded && !ghostAll
+            const opacity = faded ? 0.07 : ghostAll ? 0.15 : 1
+            const paint = paintFor(b.kind, b.id, selection, hoverRef)
+            if (b.prism) {
+              return (
+                <PrismMesh
+                  key={b.key}
+                  box={b}
+                  paint={paint}
+                  opacity={opacity}
+                  solid={solid}
+                  faded={faded}
+                  onClick={faded ? undefined : handleClick(b.kind, b.id)}
+                  onPointerOver={faded ? undefined : handleOver(b.kind, b.id)}
+                  onPointerOut={faded ? undefined : handleOut(b.kind, b.id)}
+                />
+              )
+            }
+            if (b.webHoles && b.webHoles.length > 0) {
+              return (
+                <WebBoxMesh
+                  key={b.key}
+                  box={b}
+                  paint={paint}
+                  opacity={opacity}
+                  solid={solid}
+                  faded={faded}
+                  onClick={faded ? undefined : handleClick(b.kind, b.id)}
+                  onPointerOver={faded ? undefined : handleOver(b.kind, b.id)}
+                  onPointerOut={faded ? undefined : handleOut(b.kind, b.id)}
+                />
+              )
+            }
+            return (
+              <mesh
+                key={b.key}
+                position={b.position}
+                rotation-y={b.rotationY}
+                castShadow={solid}
+                receiveShadow
+                userData={{ kind: b.kind, id: b.id }}
+                raycast={faded ? NO_RAYCAST : DEFAULT_RAYCAST}
+                onClick={faded ? undefined : handleClick(b.kind, b.id)}
+                onPointerOver={faded ? undefined : handleOver(b.kind, b.id)}
+                onPointerOut={faded ? undefined : handleOut(b.kind, b.id)}
+              >
+                {b.round ? (
+                  <cylinderGeometry args={[b.round.d / 2, b.round.d / 2, b.size[1], 24]} />
+                ) : (
+                  <boxGeometry args={b.size} />
+                )}
+                <meshStandardMaterial
+                  color={paint.color}
+                  roughness={0.9}
+                  metalness={0.05}
+                  transparent={!solid}
+                  opacity={opacity}
+                  depthWrite={solid}
+                  emissive={paint.emissive}
+                  emissiveIntensity={paint.emissiveIntensity}
+                />
+                {solid && !b.round && <Edges threshold={20} color={EDGE_COLOR} />}
+              </mesh>
+            )
+          })}
 
-      {showRegions &&
-        regionSolids.map((r) => {
-          const faded = isolate && !r.levels.includes(activeIdx)
-          const solid = !faded && !ghostAll
-          const opacity = faded ? 0.07 : ghostAll ? 0.15 : 1
-          const selected =
-            selection?.kind === 'loadRegion' && selection.id === r.id
-          const hovered = hoverRef?.kind === 'loadRegion' && hoverRef.id === r.id
-          const base = REGION_COLOR[r.regionKind]
-          const color = selected ? SEL_COLOR : hovered ? lighten(base) : base
-          return (
-            <mesh
-              key={r.key}
-              position={r.position}
-              rotation={[0, r.rotationY, r.rotationZ]}
-              castShadow={solid}
-              receiveShadow
-              userData={{ kind: 'loadRegion', id: r.id }}
-              raycast={faded ? NO_RAYCAST : DEFAULT_RAYCAST}
-              onClick={faded ? undefined : handleClick('loadRegion', r.id)}
-              onPointerOver={faded ? undefined : handleOver('loadRegion', r.id)}
-              onPointerOut={faded ? undefined : handleOut('loadRegion', r.id)}
-            >
-              <boxGeometry args={r.size} />
-              <meshStandardMaterial
-                color={color}
-                roughness={0.9}
-                metalness={0.05}
-                transparent={!solid}
-                opacity={opacity}
-                depthWrite={solid}
-                emissive={selected ? SEL_COLOR : '#000000'}
-                emissiveIntensity={selected ? 0.35 : 0}
-              />
-              {solid && <Edges threshold={20} color={EDGE_COLOR} />}
-            </mesh>
-          )
-        })}
+          {showFoundations &&
+            !isolate &&
+            foundationSolids.map((f) => {
+              const solid = !ghostAll
+              const opacity = ghostAll ? 0.15 : 1
+              const paint = paintFor('column', f.columnId, selection, hoverRef)
+              const base = FOUNDATION_COLOR[f.status]
+              const color = paint.emissiveIntensity > 0 ? paint.color : base
+              return (
+                <mesh
+                  key={f.key}
+                  position={f.position}
+                  rotation-y={f.rotationY ?? 0}
+                  castShadow={false}
+                  receiveShadow
+                  userData={{ kind: 'column', id: f.columnId }}
+                  raycast={DEFAULT_RAYCAST}
+                  onClick={handleClick('column', f.columnId)}
+                  onPointerOver={handleOver('column', f.columnId)}
+                  onPointerOut={handleOut('column', f.columnId)}
+                >
+                  {f.shape === 'cyl' ? (
+                    <cylinderGeometry args={[f.size[0] / 2, f.size[0] / 2, f.size[1], 24]} />
+                  ) : (
+                    <boxGeometry args={f.size} />
+                  )}
+                  <meshStandardMaterial
+                    color={color}
+                    roughness={0.95}
+                    metalness={0.03}
+                    transparent={!solid}
+                    opacity={opacity}
+                    depthWrite={solid}
+                    emissive={paint.emissive}
+                    emissiveIntensity={paint.emissiveIntensity}
+                  />
+                  {solid && f.shape === 'box' && <Edges threshold={20} color={EDGE_COLOR} />}
+                </mesh>
+              )
+            })}
 
-      {showSlabs &&
-        slabs.map((s) => {
-          const faded = isolate && s.levelIndex !== activeIdx
-          const solid = !faded && !ghostAll
-          const opacity = faded ? 0.07 : ghostAll ? 0.15 : 0.92
-          const paint = paintFor('slab', s.id, selection, hoverRef)
-          return (
-            <SlabMesh
-              key={s.key}
-              slab={s}
-              paint={paint}
-              opacity={opacity}
-              solid={solid}
-              faded={faded}
-              onClick={faded ? undefined : handleClick('slab', s.id)}
-              onPointerOver={faded ? undefined : handleOver('slab', s.id)}
-              onPointerOut={faded ? undefined : handleOut('slab', s.id)}
-            />
-          )
-        })}
+          {showRegions &&
+            regionSolids.map((r) => {
+              const faded = isolate && !r.levels.includes(activeIdx)
+              const solid = !faded && !ghostAll
+              const opacity = faded ? 0.07 : ghostAll ? 0.15 : 1
+              const selected =
+                selection?.kind === 'loadRegion' && selection.id === r.id
+              const hovered = hoverRef?.kind === 'loadRegion' && hoverRef.id === r.id
+              const base = REGION_COLOR[r.regionKind]
+              const color = selected ? SEL_COLOR : hovered ? lighten(base) : base
+              return (
+                <mesh
+                  key={r.key}
+                  position={r.position}
+                  rotation={[0, r.rotationY, r.rotationZ]}
+                  castShadow={solid}
+                  receiveShadow
+                  userData={{ kind: 'loadRegion', id: r.id }}
+                  raycast={faded ? NO_RAYCAST : DEFAULT_RAYCAST}
+                  onClick={faded ? undefined : handleClick('loadRegion', r.id)}
+                  onPointerOver={faded ? undefined : handleOver('loadRegion', r.id)}
+                  onPointerOut={faded ? undefined : handleOut('loadRegion', r.id)}
+                >
+                  <boxGeometry args={r.size} />
+                  <meshStandardMaterial
+                    color={color}
+                    roughness={0.9}
+                    metalness={0.05}
+                    transparent={!solid}
+                    opacity={opacity}
+                    depthWrite={solid}
+                    emissive={selected ? SEL_COLOR : '#000000'}
+                    emissiveIntensity={selected ? 0.35 : 0}
+                  />
+                  {solid && <Edges threshold={20} color={EDGE_COLOR} />}
+                </mesh>
+              )
+            })}
+
+          {showSlabs &&
+            slabs.map((s) => {
+              const faded = isolate && s.levelIndex !== activeIdx
+              const solid = !faded && !ghostAll
+              const opacity = faded ? 0.07 : ghostAll ? 0.15 : 0.92
+              const paint = paintFor('slab', s.id, selection, hoverRef)
+              return (
+                <SlabMesh
+                  key={s.key}
+                  slab={s}
+                  paint={paint}
+                  opacity={opacity}
+                  solid={solid}
+                  faded={faded}
+                  onClick={faded ? undefined : handleClick('slab', s.id)}
+                  onPointerOver={faded ? undefined : handleOver('slab', s.id)}
+                  onPointerOut={faded ? undefined : handleOut('slab', s.id)}
+                />
+              )
+            })}
+        </>
+      )}
     </group>
   )
 }
