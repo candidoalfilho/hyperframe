@@ -68,6 +68,16 @@ h2{font-size:clamp(26px,3.4vw,36px);margin:0 0 10px}
 footer{border-top:1px solid var(--hairline);padding:32px 0 44px;margin-top:60px}
 </style>
 <!-- Vercel Web Analytics (site estático: script tag, sem npm) -->
+<!-- eventos de download (Vercel Analytics: evento "download" c/ arquivo) -->
+<script>
+window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+document.addEventListener('click', function (e) {
+  var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+  if (!a) return;
+  var m = (a.getAttribute('href') || '').match(/([^\/]+\.(dmg|exe))(\?|$)/);
+  if (m) va('event', { name: 'download', data: { file: m[1] } });
+});
+</script>
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
