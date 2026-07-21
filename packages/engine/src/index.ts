@@ -160,6 +160,12 @@ export {
 } from './nbr/nbr6118/wallColumn'
 export { designCaisson, type CaissonInput, type CaissonResult } from './nbr/nbr6122/caisson'
 export {
+  designRetainingWall,
+  type RetainingWallInput,
+  type RetainingWallOutput,
+} from './geotech/retainingWall'
+export { designRaft, type RaftInput, type RaftOutput } from './geotech/raft'
+export {
   designStrapBeam,
   type StrapBeamInput,
   type StrapBeamResult,

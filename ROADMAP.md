@@ -504,6 +504,19 @@
   alerta de biela)
 - [x] 3 testes (equilíbrio +100 kN exato, momento no pilar, desenho) — 390
 
+## v0.2.30 — Muro de arrimo + radier (engine) ✅
+
+- [x] `designRetainingWall`: Rankine (Ka), tombamento/deslizamento FS ≥ 1,5,
+  σ na base (núcleo central), fuste/talão como balanços por metro, notas de
+  drenagem (barbacãs) e face tracionada — âncora Ea = 37 kN/m, FS tomb = 3,0
+- [x] `designRaft` (rígido): planta pelos eixos + balanço, pressão linear
+  pela resultante (ex/ey), punção §19.5 com a carga real de cada pilar,
+  flexão por faixas (M ≈ σd·l²/10) com malha dupla — nota honesta de
+  pré-dimensionamento (flexível/Winkler no futuro)
+- [x] Exportados p/ Copiloto/API; 7 testes — 397 no total
+- [ ] Futuro: muro/radier como ELEMENTOS desenháveis (2D/3D/prancha) e
+  radier flexível sobre Winkler
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
