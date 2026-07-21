@@ -19,6 +19,7 @@ import {
 import { clipPolygon, overlapArea } from '../geometry/clip'
 import { computeWind } from '../nbr/nbr6123/wind'
 import { flankingSlabs, tSectionInertia } from './flange'
+import { columnHalfExtents } from '../model/columnSection'
 import { rectSectionProps } from './frame3d'
 import { notionalLoads, windNotionalRule } from '../nbr/nbr6118/imperfections'
 import type { WindGeometry } from '../nbr/api'
@@ -413,6 +414,41 @@ export function buildAnalysisModel(project: Project): {
 
   const levelG = new Array(levels.length).fill(0)
   const levelQ = new Array(levels.length).fill(0)
+
+  // consolos (§22.5): Fd é de CÁLCULO ⇒ característica G ≈ Fd/1,4 aplicada
+  // no nó do pilar no nível do consolo, com o MOMENTO da excentricidade
+  // (e = meia seção + a) — o consolo flete o pilar
+  let nCorbelLoads = 0
+  for (const col of project.columns) {
+    for (const cb of col.corbels ?? []) {
+      const li = levels.findIndex((l) => l.id === cb.levelId)
+      if (li < 0) continue
+      const nd = nodes.find(
+        (n) =>
+          n.levelIndex === li &&
+          n.kind === 'structural' &&
+          Math.abs(n.x - col.pos.x) < 0.05 &&
+          Math.abs(n.y - col.pos.y) < 0.05,
+      )
+      if (!nd) continue
+      const fk = cb.fd / 1.4
+      const rad = (cb.rotationDeg * Math.PI) / 180
+      const ux = Math.cos(rad)
+      const uy = Math.sin(rad)
+      const he = columnHalfExtents(col)
+      const e = Math.abs(ux) * he.dx + Math.abs(uy) * he.dy + cb.a
+      nodalLoads.G.push({ node: nd.id, dof: 2, value: -fk })
+      nodalLoads.G.push({ node: nd.id, dof: 3, value: -fk * e * uy })
+      nodalLoads.G.push({ node: nd.id, dof: 4, value: fk * e * ux })
+      levelG[li] += fk
+      nCorbelLoads++
+    }
+  }
+  if (nCorbelLoads > 0) {
+    warnings.push(
+      `${nCorbelLoads} consolo(s): carga característica Fd/1,4 + momento da excentricidade aplicados como G no nó do pilar.`,
+    )
+  }
 
   // peso próprio
   if (project.settings.considerSelfWeight) {

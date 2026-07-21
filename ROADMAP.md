@@ -494,6 +494,16 @@
 - [x] Nota honesta: Fd é de cálculo e não entra no pórtico automaticamente
 - [ ] Futuro: consolo na prancha do pilar (elevação) e carga → pórtico
 
+## v0.2.29 — Consolo no pórtico + elevação do pilar ✅
+
+- [x] buildModel: carga do consolo entra no caso G como Fd/1,4 (característica)
+  no nó do pilar do nível, COM o momento da excentricidade (e = meia seção + a)
+  — o consolo flete o pilar; aviso no modelo; ΣFz fecha exato no teste
+- [x] Elevação do pilar: caixa do consolo (face ±) com face inclinada, tirante
+  com alça desenhado e texto de verificação (tirante + costura + regime §22.5,
+  alerta de biela)
+- [x] 3 testes (equilíbrio +100 kN exato, momento no pilar, desenho) — 390
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

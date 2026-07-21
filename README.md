@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.28-orange) ![tests](https://img.shields.io/badge/testes-387%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.29-orange) ![tests](https://img.shields.io/badge/testes-390%20passando-brightgreen)
 
-## O que já faz (v0.2.28)
+## O que já faz (v0.2.29)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -34,7 +34,7 @@ sistema e código-fonte no site.
   0,95·γz** (§15.7.2), deslocamentos laterais (tab. 13.3), **flechas de vigas e lajes**
   (Branson + fluência, L/250), **fissuração ELS-W** (wk vs tab. 13.4)
 - **Dimensionamento NBR 6118**: vigas (flexão com **MESA COLABORANTE §14.6.2.2** — seção T automática nos positivos quando há laje colada ao vão, bf = bw + mín(0,5·b2; 0,10·a) por lado com a por continuidade, LN na mesa ou decomposição mesa+alma — economia real de armadura + cisalhamento + **torção §17.5** +
-  **armadura de pele** + barras; **VIGA-PAREDE §22.4 detectada sozinha** — l/h < 2/3 troca a flexão por tirante CEB com z próprio, malha de alma e biela do apoio), **consolos §22.5 como ELEMENTO do pilar** (nível/face/geometria/Fd no inspetor, verificação ao vivo e sólido no 3D; biela-tirante z = 0,8d ou atrito-cisalhamento μ = 1,4, Hd ≥ 0,2·Fd, costura), **pilares a flexo-compressão oblíqua** (integração da
+  **armadura de pele** + barras; **VIGA-PAREDE §22.4 detectada sozinha** — l/h < 2/3 troca a flexão por tirante CEB com z próprio, malha de alma e biela do apoio), **consolos §22.5 como ELEMENTO do pilar** (nível/face/geometria/Fd no inspetor, verificação ao vivo, sólido no 3D, CARGA no pórtico — G = Fd/1,4 + momento da excentricidade — e desenho na elevação do pilar; biela-tirante z = 0,8d ou atrito-cisalhamento μ = 1,4, Hd ≥ 0,2·Fd, costura), **pilares a flexo-compressão oblíqua** (integração da
   seção + pilar-padrão), **PILAR-PAREDE/núcleo rígido §15.9** (maior dimensão > 5× a
   espessura ⇒ decomposição automática em lâminas de 3·h com N repartido pela flexão do
   eixo forte, 2ª ordem local na espessura, borda tracionada vira tirante e mínimos
@@ -127,7 +127,7 @@ packages/engine     # núcleo puro TypeScript (zero dependências)
   src/drawing       # pranchas (primitivas neutras → SVG/DXF)
   src/dxf           # parser (underlay) e writer (R12) de DXF próprios
   src/report        # memorial de cálculo em PDF (writer PDF próprio, zero deps)
-  test              # 387 testes (âncoras analíticas, normas, equilíbrio global)
+  test              # 390 testes (âncoras analíticas, normas, equilíbrio global)
 apps/desktop        # Tauri 2 + React 19 + three.js
   src/editor2d      # editor de planta SVG (snap, ferramentas, camadas, underlay)
   src/viewer3d      # visualizador 3D (R3F): edifício, deformada, diagramas

@@ -3,6 +3,8 @@ import type { ColumnDetailInfo } from '../analysis/types'
 import type { Drawing, DrawingPrimitive } from './types'
 import { boundsOfPrimitives } from './formwork'
 import { columnSectionInfo } from '../model/columnSection'
+import { concreteProps, fyd as fydOf } from '../nbr/nbr6118/materials'
+import { designCorbel } from '../nbr/nbr6118/deepBeam'
 
 /**
  * PILAR EXECUTIVO — ELEVAÇÃO: arranques da fundação, emendas por TRASPASSE em
@@ -166,6 +168,65 @@ export function buildColumnElevationDrawing(
       text: `TRAMO ${i + 1}: ${det.barsN} φ ${phiTxt} · estr. φ ${stirrupPhiTxt} c/ ${Math.round(s * 100)} (${nSt} un.)`,
       height: 0.13,
       layer: 'TEXTOS',
+    })
+  }
+
+  // ---- consolos (§22.5): caixa na face + verificação ----
+  const cpC = concreteProps(
+    project.settings.concrete.fck,
+    project.settings.concrete.aggregate,
+    project.settings.concrete.gammaC,
+  )
+  const fydC = fydOf(project.settings.steel)
+  for (const cb of col.corbels ?? []) {
+    const lvl = project.levels.find((l) => l.id === cb.levelId)
+    if (!lvl) continue
+    const sideC = cb.rotationDeg === 0 || cb.rotationDeg === 90 ? 1 : -1
+    const proj = cb.a + 0.15
+    const hC = cb.d + 0.05
+    const x0 = sideC * half
+    const x1 = sideC * (half + proj)
+    const zT = lvl.elevation
+    prims.push({
+      kind: 'polyline',
+      points: [
+        { x: x0, y: zT },
+        { x: x1, y: zT },
+        { x: x1, y: zT - 0.55 * hC },
+        { x: x0, y: zT - hC },
+      ],
+      closed: false,
+      layer: 'PILARES',
+    })
+    // tirante no topo (barra horizontal ancorada com alça)
+    prims.push({
+      kind: 'polyline',
+      points: [
+        { x: sideC * (half - 0.1), y: zT - 0.06 },
+        { x: x1 - sideC * 0.04, y: zT - 0.06 },
+        { x: x1 - sideC * 0.04, y: zT - 0.2 },
+      ],
+      closed: false,
+      layer: 'ARMADURA',
+    })
+    const r = designCorbel({
+      fd: cb.fd,
+      a: cb.a,
+      d: cb.d,
+      bw: cb.bw,
+      hd: cb.hd,
+      fck: cpC.fck,
+      fcd: cpC.fcd,
+      fyd: fydC,
+    })
+    prims.push({
+      kind: 'text',
+      x: x1 + sideC * 0.15,
+      y: zT - hC / 2,
+      text: `CONSOLO ${Math.round(cb.bw * 100)}×${Math.round((cb.d + 0.05) * 100)} · a=${Math.round(cb.a * 100)} · Fd=${cb.fd.toFixed(0)} kN — tirante ${(r.asTie * 1e4).toFixed(1)} cm² + costura ${(r.asStitch * 1e4).toFixed(1)} cm² (${r.kind}, §22.5)${r.ok ? '' : ' — BIELA FALHA'}`,
+      height: 0.12,
+      layer: 'TEXTOS',
+      align: sideC > 0 ? 'left' : 'right',
     })
   }
 
