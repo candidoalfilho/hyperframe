@@ -527,6 +527,15 @@
   inspetor; 3D com WedgeMesh (perfil trapezoidal — retângulo + mísula)
 - [x] 398 testes
 
+## v0.2.32 — Radier visível no modelo ✅
+
+- [x] `FoundationParams.raft` (espessura + balanço) nas Configurações de
+  fundação: liga o radier sob todo o edifício
+- [x] 3D: placa do radier (bounding dos pilares + balanço) substitui os
+  sólidos das fundações diretas quando ativa
+- [x] Cálculo continua via `designRaft` (rígido, punção por pilar) —
+  Copiloto/API; card na aba Fundações e muro DESENHÁVEL ficam p/ a próxima
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

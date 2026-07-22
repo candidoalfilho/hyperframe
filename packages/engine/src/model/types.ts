@@ -416,6 +416,8 @@ export type PileKind = 'pre-moldada' | 'escavada' | 'helice' | 'franki' | 'raiz'
 
 export interface FoundationParams {
   type: 'sapata' | 'estacas' | 'tubulao'
+  /** RADIER sob todo o edifício (substitui as fundações diretas na exibição) */
+  raft?: { thickness: number; overhang: number }
   /** carga admissível geotécnica por estaca, kN (orientativo — exige laudo) */
   pileCapacity: number
   /** diâmetro da estaca, m */

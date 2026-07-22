@@ -440,6 +440,47 @@ export default function SettingsModal() {
                   />
                 </div>
                 <div className="field">
+                  <label className="label">Radier — espessura (cm; 0 = sem)</label>
+                  <NumberField
+                    value={(st.foundation.raft?.thickness ?? 0) * 100}
+                    digits={0}
+                    min={0}
+                    max={150}
+                    style={{ width: '100%' }}
+                    onCommit={(v) =>
+                      updateSettings({
+                        foundation: {
+                          ...st.foundation,
+                          raft:
+                            v >= 20
+                              ? { thickness: v / 100, overhang: st.foundation.raft?.overhang ?? 1 }
+                              : undefined,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                {st.foundation.raft && (
+                  <div className="field">
+                    <label className="label">Radier — balanço da borda (cm)</label>
+                    <NumberField
+                      value={st.foundation.raft.overhang * 100}
+                      digits={0}
+                      min={30}
+                      max={300}
+                      style={{ width: '100%' }}
+                      onCommit={(v) =>
+                        updateSettings({
+                          foundation: {
+                            ...st.foundation,
+                            raft: { ...st.foundation.raft!, overhang: v / 100 },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                )}
+                <div className="field">
                   <label className="label">σ concreto do fuste (kPa)</label>
                   <NumberField
                     value={st.foundation.caissonSigmaConcrete ?? 5000}

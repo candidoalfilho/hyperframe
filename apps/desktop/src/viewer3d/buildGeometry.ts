@@ -491,6 +491,28 @@ export function buildFoundations(
   const z0 = project.levels[0]?.elevation ?? 0
   const byId = new Map(project.columns.map((c) => [c.id, c]))
   const pileLen = Math.min(Math.max(project.settings.foundation.pileLength ?? 3, 1.5), 6)
+  // radier: uma placa sob todos os pilares (substitui as fundações diretas)
+  const raft = project.settings.foundation.raft
+  if (raft && project.columns.length >= 2) {
+    const xsR = project.columns.map((c) => c.pos.x)
+    const ysR = project.columns.map((c) => c.pos.y)
+    const aR = Math.max(...xsR) - Math.min(...xsR) + 2 * raft.overhang
+    const bR = Math.max(...ysR) - Math.min(...ysR) + 2 * raft.overhang
+    out.push({
+      key: 'fnd:raft',
+      columnId: project.columns[0].id,
+      shape: 'box',
+      position: [
+        (Math.min(...xsR) + Math.max(...xsR)) / 2,
+        z0 - raft.thickness / 2,
+        -(Math.min(...ysR) + Math.max(...ysR)) / 2,
+      ],
+      size: [aR, raft.thickness, bR],
+      status: 'ok',
+    })
+    return out
+  }
+
   for (const it of foundations) {
     const col = byId.get(it.columnId)
     if (!col) continue
