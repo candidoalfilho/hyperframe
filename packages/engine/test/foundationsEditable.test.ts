@@ -192,3 +192,14 @@ describe('buildFoundationPlanDrawing', () => {
     expect(circles.length).toBe(items[0].pileCap!.nPiles)
   })
 })
+
+describe('sapata troncopiramidal (h0 na borda)', () => {
+  it('h0 = máx(h/3; 15 cm) arredondado a 5 cm, com nota das faces inclinadas', () => {
+    const r = designFooting({ nServ: 800, ma: 0, mb: 0, ap: 0.25, bp: 0.6, sigmaAdm: 200, fyd: 434_782.6 })
+    expect(r.h0).toBeGreaterThanOrEqual(0.15)
+    expect(r.h0).toBeGreaterThanOrEqual(r.h / 3 - 1e-9)
+    expect(Math.round((r.h0 * 100) % 5)).toBe(0)
+    expect(r.h0).toBeLessThan(r.h)
+    expect(r.notes.join(' ')).toMatch(/tronco de pirâmide/i)
+  })
+})

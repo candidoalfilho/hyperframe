@@ -517,6 +517,16 @@
 - [ ] Futuro: muro/radier como ELEMENTOS desenháveis (2D/3D/prancha) e
   radier flexível sobre Winkler
 
+## v0.2.31 — Geometrias reais: sapata piramidal e consolo trapezoidal ✅
+
+- [x] `FootingResult.h0` = máx(h/3; 15 cm): sapata TRONCOPIRAMIDAL por padrão
+  (rodapé h0 + faces inclinadas até h junto ao pilar) com nota executiva;
+  select "Forma da sapata" (piramidal/reta) no inspetor
+- [x] 3D: FrustumMesh (tronco de pirâmide real sobre o rodapé) p/ sapatas
+- [x] Consolo: `CorbelDef.tipH` (altura da ponta ≥ h/2, §22.5) com campo no
+  inspetor; 3D com WedgeMesh (perfil trapezoidal — retângulo + mísula)
+- [x] 398 testes
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

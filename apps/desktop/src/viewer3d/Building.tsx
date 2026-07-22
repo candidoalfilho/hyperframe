@@ -123,6 +123,18 @@ export default function Building() {
         const solid = !faded && !ghostAll
         const opacity = faded ? 0.07 : ghostAll ? 0.15 : 1
         const paint = paintFor(b.kind, b.id, selection, hoverRef)
+        if (b.wedge) {
+          return (
+            <WedgeMesh
+              key={b.key}
+              box={b}
+              color={paint.color}
+              onClick={faded ? undefined : handleClick(b.kind, b.id)}
+              onPointerOver={faded ? undefined : handleOver(b.kind, b.id)}
+              onPointerOut={faded ? undefined : handleOut(b.kind, b.id)}
+            />
+          )
+        }
         if (b.prism) {
           return (
             <PrismMesh
@@ -194,6 +206,11 @@ export default function Building() {
           const paint = paintFor('column', f.columnId, selection, hoverRef)
           const base = FOUNDATION_COLOR[f.status]
           const color = paint.emissiveIntensity > 0 ? paint.color : base
+          if (f.top) {
+            return (
+              <FrustumMesh key={f.key} position={f.position} size={f.size} top={f.top} color={color} />
+            )
+          }
           return (
             <mesh
               key={f.key}
@@ -478,6 +495,98 @@ function SlabMesh({
         emissiveIntensity={paint.emissiveIntensity}
       />
       {solid && <Edges threshold={20} color={EDGE_COLOR} />}
+    </mesh>
+  )
+}
+
+
+/** tronco de pirâmide (sapata piramidal): base = size, topo = top */
+function FrustumMesh({
+  position,
+  size,
+  top,
+  color,
+}: {
+  position: [number, number, number]
+  size: [number, number, number]
+  top: [number, number]
+  color: string
+}) {
+  const geometry = useMemo(() => {
+    const [a, h, b] = size
+    const [at, bt] = top
+    const v = [
+      [-a / 2, -h / 2, -b / 2], [a / 2, -h / 2, -b / 2], [a / 2, -h / 2, b / 2], [-a / 2, -h / 2, b / 2],
+      [-at / 2, h / 2, -bt / 2], [at / 2, h / 2, -bt / 2], [at / 2, h / 2, bt / 2], [-at / 2, h / 2, bt / 2],
+    ]
+    const quads = [
+      [0, 3, 2, 1],
+      [4, 5, 6, 7],
+      [0, 1, 5, 4],
+      [1, 2, 6, 5],
+      [2, 3, 7, 6],
+      [3, 0, 4, 7],
+    ]
+    const pos: number[] = []
+    for (const [i0, i1, i2, i3] of quads) {
+      pos.push(...v[i0], ...v[i1], ...v[i2], ...v[i0], ...v[i2], ...v[i3])
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    g.computeVertexNormals()
+    return g
+  }, [size, top])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return (
+    <mesh position={position} geometry={geometry} receiveShadow>
+      <meshStandardMaterial color={color} roughness={0.95} metalness={0.03} />
+      <Edges threshold={20} color={EDGE_COLOR} />
+    </mesh>
+  )
+}
+
+/** consolo trapezoidal: raiz cheia, ponta tipH (extrusão na largura) */
+function WedgeMesh({
+  box,
+  color,
+  onClick,
+  onPointerOver,
+  onPointerOut,
+}: {
+  box: BoxInstance
+  color: string
+  onClick?: (e: ThreeEvent<MouseEvent>) => void
+  onPointerOver?: (e: ThreeEvent<PointerEvent>) => void
+  onPointerOut?: () => void
+}) {
+  const geometry = useMemo(() => {
+    const [len, h, w] = box.size
+    const tip = box.wedge!.tipH
+    const shape = new THREE.Shape()
+    shape.moveTo(-len / 2, -h / 2)
+    shape.lineTo(len / 2, h / 2 - tip)
+    shape.lineTo(len / 2, h / 2)
+    shape.lineTo(-len / 2, h / 2)
+    shape.closePath()
+    const g = new THREE.ExtrudeGeometry(shape, { depth: w, bevelEnabled: false })
+    g.translate(0, 0, -w / 2)
+    return g
+  }, [box])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return (
+    <mesh
+      position={box.position}
+      rotation-y={box.rotationY}
+      geometry={geometry}
+      castShadow
+      receiveShadow
+      userData={{ kind: box.kind, id: box.id }}
+      onClick={onClick}
+      onPointerOver={onPointerOver}
+      onPointerOut={onPointerOut}
+    >
+      <meshStandardMaterial color={color} roughness={0.9} metalness={0.05} />
+      <Edges threshold={20} color={EDGE_COLOR} />
     </mesh>
   )
 }

@@ -87,7 +87,7 @@ export function runFoundationDesign(
     const offB = ov?.offset ? Math.abs(alongX ? ov.offset.y : ov.offset.x) : 0
     const ma = (alongX ? myServ : mxServ) + nServ * offA
     const mb = (alongX ? mxServ : myServ) + nServ * offB
-    const extra = { manual: !!ov, offset: ov?.offset, depth: ov?.depth }
+    const extra = { manual: !!ov, offset: ov?.offset, depth: ov?.depth, footingShape: ov?.footingShape }
 
     if (kind === 'tubulao') {
       const caisson = designCaisson({

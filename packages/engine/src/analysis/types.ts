@@ -421,6 +421,8 @@ export interface FoundationResultItem {
   offset?: Vec2
   /** profundidade do topo abaixo do nível da fundação, m */
   depth?: number
+  /** sapata: faces inclinadas (piramidal, default) ou reta */
+  footingShape?: 'reta' | 'piramidal'
   /** presente quando kind = 'sapata' */
   footing: import('../nbr/nbr6118/foundations').FootingResult | null
   /** sapata associada (2 pilares) — no pilar DONO do par */

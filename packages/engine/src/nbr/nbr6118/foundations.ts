@@ -25,6 +25,8 @@ export interface FootingResult {
   a: number
   b: number
   h: number
+  /** altura na BORDA (tronco de pirâmide): máx(h/3; 15 cm) — h junto ao pilar */
+  h0: number
   d: number
   /** tensão média e máxima (com excentricidade), kPa */
   sigma: number
@@ -116,8 +118,12 @@ export function designFooting(inp: FootingInput): FootingResult {
     notes.push('Sapata muito grande — avaliar estacas/tubulões.')
   }
 
+  notes.push(
+    'Faces INCLINADAS (tronco de pirâmide): h junto ao pilar, h0 na borda — rodapé vertical de h0 p/ apoio da fôrma.',
+  )
   return {
     a,
+    h0: Math.max(Math.ceil((Math.max(h / 3, 0.15)) / 0.05) * 0.05, 0.15),
     b,
     h,
     d,

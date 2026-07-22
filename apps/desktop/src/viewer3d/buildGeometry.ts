@@ -38,6 +38,8 @@ export interface BoxInstance {
    * Presente ⇒ o box vira extrusão com holes em vez de boxGeometry.
    */
   webHoles?: { x: number; y: number; w: number; h: number }[]
+  /** consolo: perfil trapezoidal (raiz cheia, ponta tipH) extrudado na largura */
+  wedge?: { tipH: number }
 }
 
 export interface SlabInstance {
@@ -98,7 +100,9 @@ export function buildBoxes(project: Project): BoxInstance[] {
       const half = Math.abs(ux) * hx + Math.abs(uy) * hy
       const proj = cb.a + 0.15
       const hC = cb.d + 0.05
+      const hCorb = cb.d + 0.05
       boxes.push({
+        wedge: { tipH: Math.min(Math.max(cb.tipH ?? 0.5 * hCorb, 0.5 * hCorb), hCorb) },
         key: `corbel:${col.id}:${cb.id}`,
         kind: 'column',
         id: col.id,
@@ -468,6 +472,8 @@ export interface FoundationInstance {
   size: [number, number, number]
   /** viga alavanca: box girado no plano (mesma convenção das vigas) */
   rotationY?: number
+  /** tronco de pirâmide: dimensões do TOPO (frustum) — size = base */
+  top?: [number, number]
   status: FoundationResultItem['status']
 }
 
@@ -507,14 +513,41 @@ export function buildFoundations(
     } else if (s.polygon) {
       const xsP = s.polygon.map((p) => p.x)
       const ysP = s.polygon.map((p) => p.y)
-      out.push({
-        key: `fnd:${it.columnId}:box`,
-        columnId: it.columnId,
-        shape: 'box',
-        position: [s.center.x, top - s.h / 2, -s.center.y],
-        size: [Math.max(...xsP) - Math.min(...xsP), s.h, Math.max(...ysP) - Math.min(...ysP)],
-        status: it.status,
-      })
+      const sa = Math.max(...xsP) - Math.min(...xsP)
+      const sb = Math.max(...ysP) - Math.min(...ysP)
+      const pyramidal =
+        it.kind === 'sapata' && it.footing && (it.footingShape ?? 'piramidal') === 'piramidal'
+      if (pyramidal) {
+        // tronco de pirâmide: rodapé h0 + frustum até o topo junto ao pilar
+        const h0 = it.footing!.h0 ?? Math.max(s.h / 3, 0.15)
+        const he = columnHalfExtents(col)
+        out.push({
+          key: `fnd:${it.columnId}:base`,
+          columnId: it.columnId,
+          shape: 'box',
+          position: [s.center.x, top - s.h + h0 / 2, -s.center.y],
+          size: [sa, h0, sb],
+          status: it.status,
+        })
+        out.push({
+          key: `fnd:${it.columnId}:tronco`,
+          columnId: it.columnId,
+          shape: 'box',
+          position: [s.center.x, top - (s.h - h0) / 2, -s.center.y],
+          size: [sa, s.h - h0, sb],
+          top: [Math.min(2 * he.dx + 0.1, sa), Math.min(2 * he.dy + 0.1, sb)],
+          status: it.status,
+        })
+      } else {
+        out.push({
+          key: `fnd:${it.columnId}:box`,
+          columnId: it.columnId,
+          shape: 'box',
+          position: [s.center.x, top - s.h / 2, -s.center.y],
+          size: [sa, s.h, sb],
+          status: it.status,
+        })
+      }
       if (it.kind === 'bloco') {
         s.circles.forEach((c, i) =>
           out.push({

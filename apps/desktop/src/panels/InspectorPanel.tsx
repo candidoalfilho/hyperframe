@@ -706,6 +706,18 @@ function CorbelSection({ col, project }: { col: Column; project: Project }) {
               <NumberField value={cb.fd} digits={0} min={1} max={5000} onCommit={(v) => upd(cb.id, { fd: v })} />
             </div>
             <div className="faint" style={{ fontSize: 10 }}>b · d · a (cm) · Fd (kN)</div>
+            <div className="field-row" style={{ marginTop: 3 }}>
+              <NumberField
+                value={cm(cb.tipH ?? (cb.d + 0.05) / 2)}
+                digits={0}
+                min={cm((cb.d + 0.05) / 2)}
+                max={cm(cb.d + 0.05)}
+                onCommit={(v) => upd(cb.id, { tipH: v / 100 })}
+              />
+              <div className="faint" style={{ fontSize: 10, alignSelf: 'center' }}>
+                altura da ponta (cm) — ≥ h/2 (perfil trapezoidal)
+              </div>
+            </div>
             <div className="faint" style={{ fontSize: 11, marginTop: 3 }} title={r.notes.join(' ')}>
               {r.kind} — tirante {(r.asTie * 1e4).toFixed(1)} cm² · costura {(r.asStitch * 1e4).toFixed(1)} cm² —{' '}
               <b>{r.ok ? 'OK' : 'FALHA (biela)'}</b>
@@ -829,6 +841,23 @@ function FoundationSection({ col, project }: { col: Column; project: Project }) 
               }
             />
           </div>
+        </div>
+      )}
+
+      {effKind === 'sapata' && (
+        <div className="field">
+          <label className="label">Forma da sapata</label>
+          <select
+            className="select"
+            style={{ width: '100%' }}
+            value={ov?.footingShape ?? 'piramidal'}
+            onChange={(e) =>
+              patch({ footingShape: e.target.value === 'reta' ? 'reta' : undefined })
+            }
+          >
+            <option value="piramidal">Piramidal (faces inclinadas, h0 na borda)</option>
+            <option value="reta">Reta (altura constante)</option>
+          </select>
         </div>
       )}
 

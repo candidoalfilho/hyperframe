@@ -112,6 +112,8 @@ export interface CorbelDef {
   /** carga vertical de CÁLCULO, kN */
   fd: number
   hd?: number
+  /** altura da PONTA (perfil trapezoidal); ausente = 0,5·(d+5cm), ≥ h/2 §22.5 */
+  tipH?: number
 }
 
 /**
@@ -527,6 +529,8 @@ export interface FoundationOverride {
   nPiles?: number
   /** deslocamento do CG da fundação, m (global x/y) */
   offset?: Vec2
+  /** sapata: reta (h constante) ou piramidal (faces inclinadas, default) */
+  footingShape?: 'reta' | 'piramidal'
   /** sapata de divisa: pilar interno que recebe a viga alavanca */
   strapToColumnId?: string
   /** sapata ASSOCIADA: pilar vizinho que divide a mesma sapata */
