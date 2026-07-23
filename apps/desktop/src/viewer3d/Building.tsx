@@ -5,6 +5,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 import type { ElementRef } from '@hyperframe/engine'
 import { useStore } from '../store'
 import { NO_RAYCAST } from './coords'
+import FrameAxes from './FrameAxes'
 import {
   buildBoxes,
   buildFoundations,
@@ -85,6 +86,7 @@ export default function Building() {
 
   const showRegions = useStore((s) => s.d3.showRegions)
   const showFoundations = useStore((s) => s.d3.showFoundations)
+  const wireframeMode = useStore((s) => s.d3.wireframeMode)
   const foundations = useStore((s) => s.results?.foundations ?? null)
   const boxes = useMemo(() => buildBoxes(project), [project])
   const foundationSolids = useMemo(
@@ -118,7 +120,9 @@ export default function Building() {
 
   return (
     <group>
-      {boxes.map((b) => {
+      {wireframeMode && <FrameAxes />}
+      {!wireframeMode &&
+        boxes.map((b) => {
         const faded = isolate && !b.levels.includes(activeIdx)
         const solid = !faded && !ghostAll
         const opacity = faded ? 0.07 : ghostAll ? 0.15 : 1
@@ -198,7 +202,8 @@ export default function Building() {
         )
       })}
 
-      {showFoundations &&
+      {!wireframeMode &&
+        showFoundations &&
         !isolate &&
         foundationSolids.map((f) => {
           const solid = !ghostAll
@@ -244,7 +249,8 @@ export default function Building() {
           )
         })}
 
-      {showRegions &&
+      {!wireframeMode &&
+        showRegions &&
         regionSolids.map((r) => {
           const faded = isolate && !r.levels.includes(activeIdx)
           const solid = !faded && !ghostAll
@@ -283,7 +289,8 @@ export default function Building() {
           )
         })}
 
-      {showSlabs &&
+      {!wireframeMode &&
+        showSlabs &&
         slabs.map((s) => {
           const faded = isolate && s.levelIndex !== activeIdx
           const solid = !faded && !ghostAll

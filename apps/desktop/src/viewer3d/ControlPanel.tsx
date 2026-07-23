@@ -132,6 +132,15 @@ export default function ControlPanel() {
 
       {results && (
         <>
+          <label style={rowStyle}>
+            <input
+              type="checkbox"
+              style={checkStyle}
+              checked={d3.wireframeMode}
+              onChange={(e) => setD3({ wireframeMode: e.currentTarget.checked })}
+            />
+            Modo unifilar
+          </label>
           <div style={{ height: 1, background: 'var(--border)', margin: '2px 0' }} />
           <label style={rowStyle}>
             <input

@@ -536,6 +536,14 @@
 - [x] Cálculo continua via `designRaft` (rígido, punção por pilar) —
   Copiloto/API; card na aba Fundações e muro DESENHÁVEL ficam p/ a próxima
 
+## v0.2.33 — Modo unifilar no 3D (PR #1 — @danubiolagoa) ✅
+
+- [x] PRIMEIRA CONTRIBUIÇÃO EXTERNA: modo unifilar (só os eixos do pórtico)
+  p/ visualizar diagramas — obrigado @danubiolagoa!
+- [x] Aplicado sobre o main atual (o branch estava 15 versões atrás) com
+  co-autoria no commit; ajustes de review: checkbox só com análise rodada
+  (evitava cena vazia), acesso O(1) aos nós, linewidth removido (WebGL ignora)
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
