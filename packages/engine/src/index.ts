@@ -20,6 +20,7 @@ export { checkConsistency, type ConsistencyIssue, type IssueSeverity } from './m
 export * from './geometry/geometry'
 export { detectFaces } from './geometry/faces'
 export { clipHalfPlane, clipPolygon, overlapArea, areaCentroid } from './geometry/clip'
+export { arcPoints, arcLength } from './geometry/arc'
 export * from './drawing/types'
 
 export * from './analysis/types'
