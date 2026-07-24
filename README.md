@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.34-orange) ![tests](https://img.shields.io/badge/testes-402%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.35-orange) ![tests](https://img.shields.io/badge/testes-406%20passando-brightgreen)
 
-## O que já faz (v0.2.34)
+## O que já faz (v0.2.35)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -15,7 +15,7 @@ sistema e código-fonte no site.
   variável por trecho** e **furos na alma**), lajes com detecção automática de contorno
   fechado, cargas de alvenaria (**inteiras ou por trecho**), **regiões de
   escada/reservatório**, **furos/aberturas de laje** (shaft, elevador — escadas abrem furo
-  automático, com X de vazio na planta), **underlay de DXF de arquitetura**, **múltiplas
+  automático, com X de vazio na planta), **GEOMETRIA CURVA** (curvar trecho de viga ou borda de laje por flecha — balcões e sacadas curvas viram polilinha em arco e TODO o pipeline funciona: pórtico com torção, grelha, quinhões, 3D, pranchas), **underlay de DXF de arquitetura**, **múltiplas
   plantas de forma** (térreo ≠ tipo ≠ cobertura) — com undo/redo, atalhos e **verificação
   de consistência** (avisos graves/médios/leves antes da análise)
 - **3D sincronizado**: seleção cruzada 2D↔3D, isolamento de pavimento, sombras, deformada

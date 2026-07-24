@@ -1,4 +1,4 @@
-import { useMemo, useRef, type ChangeEvent, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import {
   CONCRETE_CLASSES,
   FINISH_LOAD_PRESETS,
@@ -9,6 +9,7 @@ import {
   STAIR_DEFAULTS,
   TANK_DEFAULTS,
   WALL_PRESETS,
+  arcPoints,
   columnSectionInfo,
   concreteProps,
   designCorbel,
@@ -1073,6 +1074,39 @@ function RectSectionFields({
 // viga
 // ---------------------------------------------------------------------------
 
+/** curvar trecho de viga / borda de laje: flecha (sagitta) → polilinha densa */
+function CurveTool({
+  count,
+  kindLabel,
+  onApply,
+}: {
+  count: number
+  kindLabel: string
+  onApply: (index: number, sagittaM: number) => void
+}) {
+  const [idx, setIdx] = useState(1)
+  const [sag, setSag] = useState(50)
+  return (
+    <div className="field">
+      <label className="label">Curvar {kindLabel} (arco por flecha)</label>
+      <div className="field-row">
+        <NumberField value={Math.min(idx, count)} digits={0} min={1} max={count} onCommit={(v) => setIdx(Math.round(v))} />
+        <NumberField value={sag} digits={0} min={-500} max={500} onCommit={(v) => setSag(v)} />
+        <button
+          className="btn"
+          style={{ fontSize: 11 }}
+          onClick={() => onApply(Math.min(idx, count) - 1, sag / 100)}
+        >
+          Curvar
+        </button>
+      </div>
+      <div className="faint" style={{ fontSize: 10, marginTop: 2 }}>
+        nº do {kindLabel} · flecha (cm) — vira polilinha em arco (desfazer c/ ⌘Z)
+      </div>
+    </div>
+  )
+}
+
 function BeamInspector({ beam }: { beam: Beam }) {
   const updateBeam = useStore((s) => s.updateBeam)
   const deleteElement = useStore((s) => s.deleteElement)
@@ -1123,6 +1157,27 @@ function BeamInspector({ beam }: { beam: Beam }) {
       {beam.path.length > 2 && <SegmentSectionsEditor beam={beam} />}
 
       <BeamOpeningsEditor beam={beam} length={length} />
+
+      <CurveTool
+        count={beam.path.length - 1}
+        kindLabel="trecho"
+        onApply={(i, sag) => {
+          const a = beam.path[i]
+          const b = beam.path[i + 1]
+          const arc = arcPoints(a, b, sag)
+          if (arc.length === 0) return
+          const path = [...beam.path.slice(0, i + 1), ...arc, ...beam.path.slice(i + 1)]
+          let segmentSections = beam.segmentSections
+          if (segmentSections) {
+            segmentSections = [
+              ...segmentSections.slice(0, i),
+              ...Array(arc.length + 1).fill(segmentSections[i] ?? null),
+              ...segmentSections.slice(i + 1),
+            ]
+          }
+          updateBeam(beam.id, { path, segmentSections })
+        }}
+      />
 
       <MemberForcesSection kind="beam" id={beam.id} />
 
@@ -1527,6 +1582,31 @@ function SlabInspector({ slab }: { slab: Slab }) {
           </div>
         </>
       )}
+
+      <CurveTool
+        count={slab.polygon.length}
+        kindLabel="borda"
+        onApply={(i, sagOut) => {
+          const n = slab.polygon.length
+          const a = slab.polygon[i]
+          const b = slab.polygon[(i + 1) % n]
+          // + = flecha p/ FORA da laje (independe do sentido do polígono):
+          // testa o lado comparando o meio do arco com o centróide
+          const cx = slab.polygon.reduce((sum, p) => sum + p.x, 0) / n
+          const cy = slab.polygon.reduce((sum, p) => sum + p.y, 0) / n
+          const probe = arcPoints(a, b, Math.abs(sagOut), 2)
+          if (probe.length === 0) return
+          const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+          const dProbe = Math.hypot(probe[0].x - cx, probe[0].y - cy)
+          const dMid = Math.hypot(mid.x - cx, mid.y - cy)
+          const outwardIsPositive = dProbe > dMid
+          const sag = (sagOut >= 0) === outwardIsPositive ? Math.abs(sagOut) : -Math.abs(sagOut)
+          const arc = arcPoints(a, b, sag)
+          if (arc.length === 0) return
+          const polygon = [...slab.polygon.slice(0, i + 1), ...arc, ...slab.polygon.slice(i + 1)]
+          updateSlab(slab.id, { polygon })
+        }}
+      />
 
       <DeleteButton onClick={() => deleteElement({ kind: 'slab', id: slab.id })} />
     </>

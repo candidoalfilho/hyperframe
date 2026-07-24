@@ -555,6 +555,18 @@
 - [x] UI: coluna f₁ (Hz) na aba Lajes com chip ok/err e tooltip do limite
 - [x] 4 testes (âncora 18/√4 = 9 Hz) — 402 no total
 
+## v0.2.35 — Pacote de geometria curva ✅
+
+- [x] `arcPoints`/`arcLength` (corda + flecha, R = c²/8s + s/2): discretização
+  com erro de corda ≤ 2 cm (2–24 subdivisões automáticas)
+- [x] Inspetor da VIGA: "Curvar trecho" (nº + flecha em cm, + = esquerda do
+  sentido) — o trecho vira polilinha em arco; seções por trecho preservadas;
+  a torção da viga curva o pórtico já captura (§17.5 dimensiona)
+- [x] Inspetor da LAJE: "Curvar borda" (+ = p/ FORA, detecção automática do
+  lado pelo centróide) — Marcus sai (não retangular) e a grelha assume
+- [x] Tudo desfazível (⌘Z); 4 testes de âncora geométrica — 406 no total
+- [ ] Futuro: ferramenta de arco no ato do desenho + arco reeditável (metadado)
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
