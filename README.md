@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.33-orange) ![tests](https://img.shields.io/badge/testes-398%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.34-orange) ![tests](https://img.shields.io/badge/testes-402%20passando-brightgreen)
 
-## O que já faz (v0.2.33)
+## O que já faz (v0.2.34)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -32,7 +32,7 @@ sistema e código-fonte no site.
   (NBR 8681), **rigidez das vigas com mesa colaborante** (§14.6.2.2 — inércia T no pórtico) e **redistribuição opcional de M⁻ das vigas** (§14.6.4.3, δ 0,75–1 com verificação de x/d)
 - **Estabilidade e serviço**: γz e parâmetro α (§15.5), **2ª ordem global aproximada
   0,95·γz** (§15.7.2), deslocamentos laterais (tab. 13.3), **flechas de vigas e lajes**
-  (Branson + fluência, L/250), **fissuração ELS-W** (wk vs tab. 13.4)
+  (Branson + fluência, L/250), **fissuração ELS-W** (wk vs tab. 13.4) e **VIBRAÇÃO DE PISO §23.3** (f₁ = 18/√δ imediata QP ≥ 1,2·fcrit por uso — academia 8 Hz, dança 7, escritório 4, demais 3,5 — coluna própria na aba Lajes)
 - **Dimensionamento NBR 6118**: vigas (flexão com **MESA COLABORANTE §14.6.2.2** — seção T automática nos positivos quando há laje colada ao vão, bf = bw + mín(0,5·b2; 0,10·a) por lado com a por continuidade, LN na mesa ou decomposição mesa+alma — economia real de armadura + cisalhamento + **torção §17.5** +
   **armadura de pele** + barras; **VIGA-PAREDE §22.4 detectada sozinha** — l/h < 2/3 troca a flexão por tirante CEB com z próprio, malha de alma e biela do apoio), **consolos §22.5 como ELEMENTO do pilar** (nível/face/geometria/Fd no inspetor, verificação ao vivo, sólido no 3D, CARGA no pórtico — G = Fd/1,4 + momento da excentricidade — e desenho na elevação do pilar; biela-tirante z = 0,8d ou atrito-cisalhamento μ = 1,4, Hd ≥ 0,2·Fd, costura), **pilares a flexo-compressão oblíqua** (integração da
   seção + pilar-padrão), **PILAR-PAREDE/núcleo rígido §15.9** (maior dimensão > 5× a
@@ -127,7 +127,7 @@ packages/engine     # núcleo puro TypeScript (zero dependências)
   src/drawing       # pranchas (primitivas neutras → SVG/DXF)
   src/dxf           # parser (underlay) e writer (R12) de DXF próprios
   src/report        # memorial de cálculo em PDF (writer PDF próprio, zero deps)
-  test              # 398 testes (âncoras analíticas, normas, equilíbrio global)
+  test              # 402 testes (âncoras analíticas, normas, equilíbrio global)
 apps/desktop        # Tauri 2 + React 19 + three.js
   src/editor2d      # editor de planta SVG (snap, ferramentas, camadas, underlay)
   src/viewer3d      # visualizador 3D (R3F): edifício, deformada, diagramas

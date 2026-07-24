@@ -544,6 +544,17 @@
   co-autoria no commit; ajustes de review: checkbox só com análise rodada
   (evitava cena vazia), acesso O(1) aos nós, linewidth removido (WebGL ignora)
 
+## v0.2.34 — Vibração de piso (§23.3) ✅
+
+- [x] `checkFloorVibration`: f₁ = 18/√δ (Rayleigh; δ = flecha IMEDIATA
+  quase-permanente — fluência removida, fissuração mantida a favor da
+  segurança) ≥ 1,2·fcrit; `fcritForUse` pelo rótulo NBR 6120 (academia 8 ·
+  dança 7 · escritório 4 · demais 3,5 Hz — Tabela 23.1, valores adotados)
+- [x] Integrado ao runSlabDesign p/ TODOS os métodos (Marcus, grelha
+  unificada, nervurada): campo `vibration`, nota §23.3 e status atenção
+- [x] UI: coluna f₁ (Hz) na aba Lajes com chip ok/err e tooltip do limite
+- [x] 4 testes (âncora 18/√4 = 9 Hz) — 402 no total
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

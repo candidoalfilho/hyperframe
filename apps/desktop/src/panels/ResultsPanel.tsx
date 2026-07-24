@@ -712,6 +712,7 @@ function LajesTab({ results }: { results: AnalysisResults }) {
             <th>Malha A/B</th>
             <th>Negativos</th>
             <th>Flecha (mm)</th>
+            <th>f₁ (Hz)</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -748,10 +749,22 @@ function LajesTab({ results }: { results: AnalysisResults }) {
                     </td>
                   </>
                 ) : (
-                  <td colSpan={6} className="faint">
+                  <td colSpan={7} className="faint">
                     manual — {s.notes.join(' · ') || 'laje não retangular: dimensionar à parte'}
                   </td>
                 )}
+                <td>
+                  {s.vibration ? (
+                    <span
+                      className={`chip ${s.vibration.ok ? 'ok' : 'err'}`}
+                      title={`§23.3: f₁ ≥ 1,2·fcrit = ${s.vibration.limit.toFixed(1)} Hz`}
+                    >
+                      {s.vibration.f1.toFixed(1)}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </td>
                 <td>
                   <StatusChip s={s.status} />
                 </td>

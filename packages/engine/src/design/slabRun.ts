@@ -3,6 +3,7 @@ import type { SlabDesignResultItem, SlabGridDesign } from '../analysis/types'
 import { dist, pointInPolygon, projectOnSegment, TOL } from '../geometry/geometry'
 import { concreteProps, coverFor, fyd as fydOf } from '../nbr/nbr6118/materials'
 import { designSlab, pickSlabBars, type EdgeCondition } from '../nbr/nbr6118/slabDesign'
+import { checkFloorVibration, fcritForUse } from '../nbr/nbr6118/vibration'
 import { designBeamFlexure } from '../nbr/nbr6118/beamDesign'
 import { designRibbedSlab, ribbedSelfWeight } from '../nbr/nbr6118/ribbedSlab'
 import {
@@ -299,6 +300,32 @@ export function runSlabDesign(
         status,
         notes: [...notes, ...design.notes],
       })
+    }
+  }
+  // ---- vibração de piso §23.3 (f1 = 18/√δ,imediata ≥ 1,2·fcrit) ----
+  const labelBySlab = new Map<string, string | undefined>()
+  for (const pl of project.plans) {
+    for (const sl of pl.slabs) labelBySlab.set(sl.id, sl.liveLoadLabel)
+  }
+  for (const item of out) {
+    const defl =
+      item.design?.deflection ?? item.gridDesign?.deflection ?? item.ribbedDesign?.deflection
+    if (defl === undefined || defl <= 1e-9) continue
+    // flecha armazenada inclui fluência (×(1+1,32)) — vibração usa a imediata
+    const vib = checkFloorVibration({
+      deltaQpImmediate: defl / (1 + 1.32),
+      fcrit: fcritForUse(labelBySlab.get(item.slabId)),
+    })
+    item.vibration = vib
+    if (!vib.ok) {
+      if (item.status === 'ok') item.status = 'atencao'
+      item.notes.push(
+        `Vibração (§23.3): f1 = ${vib.f1.toFixed(1)} Hz < 1,2·fcrit = ${vib.limit.toFixed(1)} Hz — piso sujeito a vibração perceptível; aumentar espessura/rigidez ou travar o vão.`,
+      )
+    } else {
+      item.notes.push(
+        `Vibração (§23.3): f1 = ${vib.f1.toFixed(1)} Hz ≥ 1,2·fcrit = ${vib.limit.toFixed(1)} Hz — OK.`,
+      )
     }
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }))

@@ -69,6 +69,12 @@ export {
 } from './nbr/nbr6118/cracking'
 export { designStair, type StairDesignInput, type StairDesignOutput } from './nbr/nbr6118/stairs'
 export {
+  checkFloorVibration,
+  fcritForUse,
+  type FloorVibrationInput,
+  type FloorVibrationOutput,
+} from './nbr/nbr6118/vibration'
+export {
   designTank,
   type TankDesignInput,
   type TankDesignOutput,

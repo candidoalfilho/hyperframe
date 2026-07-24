@@ -405,6 +405,8 @@ export interface SlabDesignResultItem {
   ribbedDesign: import('../nbr/nbr6118/ribbedSlab').RibbedDesignOutput | null
   /** presente quando o método de lajes é GRELHA (maciças de qualquer forma) */
   gridDesign: SlabGridDesign | null
+  /** vibração de piso §23.3: f1 = 18/√δ,imediata,QP ≥ 1,2·fcrit */
+  vibration?: { f1: number; fcrit: number; limit: number; ok: boolean }
   status: 'ok' | 'atencao' | 'falha'
   notes: string[]
 }
