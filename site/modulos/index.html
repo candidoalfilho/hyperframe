@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Módulos — HyperFrame</title>
+<meta name="description" content="Tudo que o HyperFrame faz, por módulo: concreto armado, alvenaria estrutural NBR 16868, fundações e geotecnia, estabilidade, incêndio, pranchas executivas e Copiloto IA. 100% gratuito e open source." />
+<style>
+:root{--paper:#f6f4ee;--card:#fbfaf6;--ink:#1a1912;--soft:#514d41;--hair:#e0dbcc;--accent:#ffa028;--deep:#a86400;
+--serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;--mono:'SF Mono',ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.6}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+header{padding:56px 0 8px}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(34px,5vw,56px);margin:0 0 10px}
+.sub{color:var(--soft);max-width:62ch}
+a{color:var(--deep);text-decoration:none}a:hover{text-decoration:underline}
+.back{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin:36px 0 60px}
+.card{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:22px}
+.card h2{font-family:var(--serif);font-weight:400;font-size:22px;margin:0 0 4px}
+.tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--deep)}
+.card ul{margin:10px 0 0;padding-left:18px;color:var(--soft);font-size:14px}
+.card li{margin:4px 0}
+.new{background:var(--accent);color:#241a06;font-size:10px;font-weight:700;border-radius:999px;padding:2px 8px;vertical-align:middle;margin-left:6px}
+.cta{border-top:1px solid var(--hair);padding:34px 0 64px;text-align:center;color:var(--soft)}
+.btn{display:inline-block;background:var(--accent);color:#241a06;border:1px solid #e08b12;font-weight:700;font-size:14px;padding:11px 22px;border-radius:999px}
+</style>
+<script>
+window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+document.addEventListener('click', function (e) {
+  var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+  if (!a) return;
+  var m = (a.getAttribute('href') || '').match(/([^\/]+\.(dmg|exe))(\?|$)/);
+  if (m) va('event', { name: 'download', data: { file: m[1] } });
+});
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<header class="wrap">
+  <p class="back"><a href="../">← HyperFrame</a></p>
+  <h1>Um app. Todos os módulos.</h1>
+  <p class="sub">Tudo abaixo vem no mesmo binário, 100% gratuito e open source (MIT) — sem licenças por módulo, sem produtos separados. O prédio híbrido (pilotis em concreto + torre em alvenaria) vive num único modelo.</p>
+</header>
+<div class="wrap grid">
+  <div class="card"><span class="tag">NBR 6118</span><h2>Concreto Armado</h2>
+    <ul><li>Pórtico espacial com diafragma rígido, γz e 2ª ordem 0,95·γz</li>
+    <li>Vigas com mesa colaborante (seção T), torção, vigas-parede §22.4</li>
+    <li>Pilares a flexo-compressão oblíqua, pilar-parede §15.9, consolos §22.5</li>
+    <li>Lajes por Marcus ou grelha de pavimento unificada (continuidade real), nervuradas, lisas com punção §19.5 completa</li>
+    <li>Escadas retas/L/U, reservatórios, geometria curva (balcões em arco)</li></ul></div>
+  <div class="card"><span class="tag">NBR 16868</span><h2>Alvenaria Estrutural <span class="new">NOVO</span></h2>
+    <ul><li>Parede como elemento: bloco de concreto/cerâmico, famílias 14/19</li>
+    <li>Acúmulo vertical por pavimento e fpk de prisma especificado por pavimento</li>
+    <li>Aberturas criando grupos de paredes com concentração de carga</li>
+    <li>Contraventamento ao vento por rigidez: cisalhamento e flexocompressão</li>
+    <li>Tração de borda resolvida: ponto de graute + armadura calculada</li></ul></div>
+  <div class="card"><span class="tag">NBR 6122</span><h2>Fundações & Geotecnia</h2>
+    <ul><li>Sapatas (isoladas, associadas, de divisa com viga alavanca), blocos 1–16 estacas (Blévot/CEB), tubulões, radier</li>
+    <li>Editáveis por pilar: verificação com dimensões fixadas</li>
+    <li>Interação solo-estrutura por SPT (molas, recalques), muro de arrimo</li>
+    <li>Planta e detalhamento de fundações com armaduras</li></ul></div>
+  <div class="card"><span class="tag">NBR 6123 · 8681</span><h2>Ações & Estabilidade</h2>
+    <ul><li>Vento com S1/S2/S3, excentricidade de 7,5% (torção) e desaprumo global</li>
+    <li>19 combinações ELU/ELS automáticas</li>
+    <li>Flechas, fissuração ELS-W e vibração de piso §23.3 por uso</li></ul></div>
+  <div class="card"><span class="tag">NBR 14432 · 15200</span><h2>Incêndio</h2>
+    <ul><li>TRRF automático por ocupação × altura</li>
+    <li>Método tabular (vigas/lajes) e analítico (pilares)</li></ul></div>
+  <div class="card"><span class="tag">Executivo</span><h2>Pranchas & Detalhamento</h2>
+    <ul><li>Armação executiva de vigas (cortes pelo diagrama real, traspasse, quadro de ferros) e editor de armaduras</li>
+    <li>Pilares em elevação (arranques, emendas por tramo), lajes em planta, fundações detalhadas</li>
+    <li>DXF R12 e PDF vetorial 1:1 com moldura e carimbo ABNT; memorial completo em PDF</li>
+    <li>Quantitativos com custo (concreto, fôrma, aço)</li></ul></div>
+  <div class="card"><span class="tag">IA</span><h2>Copiloto</h2>
+    <ul><li>Chat que lê o modelo, roda a análise e edita com aprovação manual</li>
+    <li>Claude (API) ou modelos locais via Ollama — offline e privado</li></ul></div>
+</div>
+<div class="cta wrap">
+  <p>Tudo isso num download de ~3 MB.</p>
+  <p><a class="btn" href="../downloads/">Baixar o HyperFrame →</a></p>
+</div>
+</body>
+</html>
