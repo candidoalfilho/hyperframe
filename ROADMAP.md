@@ -601,6 +601,21 @@
   σmin = −160,8 kPa, T = 5,71 kN, As = 0,13 cm² — 5 testes, 415 no total
 - [ ] Fase 3: modulação 1ª/2ª fiada + elevações + quantitativo de blocos
 
+## v0.2.38 — ALVENARIA Fase 3: modulação + elevações + blocos ✅
+
+- [x] `modulateWall`: módulo M-20 (bloco 39+1, meio 19+1, fiada 20 cm),
+  amarração defasada (fiada A começa com inteiro, B com meio), aviso de
+  comprimento não modular, última fiada em CANALETA (cinta de respaldo)
+- [x] `buildMasonryElevationDrawing`: elevação com TODOS os blocos fiada a
+  fiada, aberturas recortadas + VERGA em canaleta (apoio 30 cm, 1 φ 10),
+  cotas (módulos e fiadas) e QUADRO DE BLOCOS por pavimento
+- [x] Pranchas: "Alvenaria — elevação" com seletor de parede (sem exigir
+  análise) — SVG/DXF/PDF com carimbo
+- [x] Âncora: 4,00×2,80 ⇒ 20 módulos, 14 fiadas, A=10 int/B=9+2 meios,
+  canaletas 9+2 — 4 testes, 419 no total
+- [ ] Futuro: janelas c/ peitoril (contraverga), pontos de graute do vento
+  desenhados na elevação, quantitativo global de blocos no Quantitativos
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

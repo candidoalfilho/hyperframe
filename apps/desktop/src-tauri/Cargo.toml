@@ -1,6 +1,6 @@
 [package]
 name = "hyperframe"
-version = "0.2.37"
+version = "0.2.38"
 description = "HyperFrame — Análise e dimensionamento estrutural (ABNT)"
 authors = ["Cândido Alfredo"]
 edition = "2021"

@@ -8,6 +8,7 @@ import {
   buildFoundationDetailDrawing,
   buildFoundationPlanDrawing,
   buildLoadPlanDrawing,
+  buildMasonryElevationDrawing,
   buildSectionCutDrawing,
   buildSlabRebarDrawing,
   composeSheet,
@@ -26,7 +27,7 @@ import { IconChevronDown, IconDownload } from '../components/Icons'
  * (formatos A0–A4, escala automática ou fixa).
  */
 
-type Tipo = 'forma' | 'corte' | 'cargas' | 'fundacoes' | 'fundacoes-det' | 'lajes' | 'vigas' | 'pilares' | 'pilar-elev'
+type Tipo = 'forma' | 'corte' | 'cargas' | 'fundacoes' | 'fundacoes-det' | 'lajes' | 'vigas' | 'pilares' | 'pilar-elev' | 'alv-elev'
 
 /** nome de arquivo seguro: minúsculas, sem acentos, hifens */
 function slug(s: string): string {
@@ -50,6 +51,7 @@ const TITLES: Record<Tipo, string> = {
   vigas: 'Armação de vigas',
   pilares: 'Pilares — seções e armaduras',
   'pilar-elev': 'Pilar — elevação executiva',
+  'alv-elev': 'Alvenaria — elevação de parede',
 }
 
 export default function PranchasPanel() {
@@ -60,6 +62,7 @@ export default function PranchasPanel() {
   const [planId, setPlanId] = useState('')
   const [beamId, setBeamId] = useState('')
   const [colId, setColId] = useState('')
+  const [mwId, setMwId] = useState('')
   const [cutDir, setCutDir] = useState<'x' | 'y'>('x')
   const [cutAxisId, setCutAxisId] = useState('')
   const [withSheet, setWithSheet] = useState(false)
@@ -102,6 +105,15 @@ export default function PranchasPanel() {
   )
   const effectiveCol = colOptions.find((o) => o.id === colId) ?? colOptions[0] ?? null
 
+  const mwOptions = useMemo(
+    () =>
+      project.plans.flatMap((pl) =>
+        (pl.masonryWalls ?? []).map((w) => ({ id: w.id, name: `${w.name} — ${pl.name}`, wall: w })),
+      ),
+    [project],
+  )
+  const effectiveMw = mwOptions.find((o) => o.id === mwId) ?? mwOptions[0] ?? null
+
   const content = useMemo<Drawing | null>(() => {
     try {
       if (tipo === 'forma') {
@@ -116,6 +128,9 @@ export default function PranchasPanel() {
               label: effectiveCutAxis.label,
             })
           : null
+      }
+      if (tipo === 'alv-elev') {
+        return effectiveMw ? buildMasonryElevationDrawing(project, effectiveMw.wall) : null
       }
       if (!results) return null
       if (tipo === 'cargas') return buildLoadPlanDrawing(project, results.foundationLoads)
@@ -142,7 +157,7 @@ export default function PranchasPanel() {
     } catch {
       return null
     }
-  }, [tipo, project, results, effectivePlanId, effectiveBeam, cutDir, effectiveCutAxis, effectiveCol])
+  }, [tipo, project, results, effectivePlanId, effectiveBeam, cutDir, effectiveCutAxis, effectiveCol, effectiveMw])
 
   const sheet = useMemo(() => {
     if (!content) return null
@@ -152,7 +167,9 @@ export default function PranchasPanel() {
           ? project.plans.find((p) => p.id === effectivePlanId)?.name
           : tipo === 'vigas'
             ? effectiveBeam?.label
-            : tipo === 'pilar-elev'
+            : tipo === 'alv-elev'
+              ? effectiveMw?.name
+              : tipo === 'pilar-elev'
               ? effectiveCol?.name
               : tipo === 'corte'
               ? `Eixo ${effectiveCutAxis?.label ?? ''}`
@@ -184,7 +201,9 @@ export default function PranchasPanel() {
       ? project.plans.find((p) => p.id === effectivePlanId)?.name ?? 'planta'
       : tipo === 'vigas'
         ? effectiveBeam?.label ?? 'viga'
-        : tipo === 'pilar-elev'
+        : tipo === 'alv-elev'
+          ? effectiveMw?.name ?? 'parede'
+          : tipo === 'pilar-elev'
           ? effectiveCol?.name ?? 'pilar'
           : tipo === 'corte'
           ? `corte-${effectiveCutAxis?.label ?? ''}`
@@ -270,6 +289,9 @@ export default function PranchasPanel() {
           <option value="pilar-elev" disabled={!results}>
             Pilar — elevação
           </option>
+          <option value="alv-elev" disabled={mwOptions.length === 0}>
+            Alvenaria — elevação
+          </option>
         </select>
 
         {(tipo === 'forma' || tipo === 'lajes') && (
@@ -312,6 +334,21 @@ export default function PranchasPanel() {
               {cutAxes.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.label} ({a.pos.toFixed(2).replace('.', ',')} m)
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {tipo === 'alv-elev' && mwOptions.length > 0 && (
+          <>
+            <span className="faint" style={{ fontSize: 11, marginLeft: 10 }}>
+              Parede
+            </span>
+            <select className="select" value={effectiveMw?.id ?? ''} onChange={(e) => setMwId(e.target.value)}>
+              {mwOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
                 </option>
               ))}
             </select>

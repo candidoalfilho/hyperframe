@@ -219,9 +219,12 @@ export {
   checkMasonryShearFlex,
   masonryPiers,
   MASONRY_EFF,
+
   type MasonryCheckInput,
   type MasonryCheckOutput,
 } from './nbr/nbr16868/masonry'
+export { modulateWall, lintelLength, BLOCK } from './nbr/nbr16868/modulation'
+export { buildMasonryElevationDrawing } from './drawing/masonryElevation'
 export {
   composeSheet,
   type SheetFormat,
