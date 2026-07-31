@@ -24,6 +24,12 @@ a{color:var(--deep);text-decoration:none}a:hover{text-decoration:underline}
 .new{background:var(--accent);color:#241a06;font-size:10px;font-weight:700;border-radius:999px;padding:2px 8px;vertical-align:middle;margin-left:6px}
 .cta{border-top:1px solid var(--hair);padding:34px 0 64px;text-align:center;color:var(--soft)}
 .btn{display:inline-block;background:var(--accent);color:#241a06;border:1px solid #e08b12;font-weight:700;font-size:14px;padding:11px 22px;border-radius:999px}
+
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .6s ease,transform .6s cubic-bezier(.22,.61,.36,1);transition-delay:var(--d,0s)}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+.card{transition:transform .3s cubic-bezier(.22,.61,.36,1),box-shadow .3s,border-color .3s}
+.card:hover{transform:translateY(-4px);box-shadow:0 14px 32px -18px rgba(26,25,18,.25);border-color:var(--accent)}
 </style>
 <script>
 window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -80,5 +86,18 @@ document.addEventListener('click', function (e) {
   <p>Tudo isso num download de ~3 MB.</p>
   <p><a class="btn" href="../downloads/">Baixar o HyperFrame →</a></p>
 </div>
-</body>
+<script>
+(function(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var i = 0;
+  document.querySelectorAll('.card, header > *, .cta > *').forEach(function(el){
+    el.classList.add('reveal');
+    el.style.setProperty('--d', ((i++ % 3) * 0.09) + 's');
+  });
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+})();
+</script></body>
 </html>

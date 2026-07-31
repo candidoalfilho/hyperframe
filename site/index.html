@@ -71,7 +71,7 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 h1,h2{font-family:var(--serif);font-weight:400;letter-spacing:-.015em}
 h2{font-size:clamp(30px,4.2vw,46px);line-height:1.12;margin:0 0 14px}
 .sub{color:var(--ink-soft);font-size:17px;max-width:56ch;margin:0}
-.section{padding:96px 0}
+.section{padding:118px 0}
 .hairline-t{border-top:1px solid var(--hairline)}
 
 /* ---------- barra de anúncio ---------- */
@@ -120,7 +120,7 @@ h2{font-size:clamp(30px,4.2vw,46px);line-height:1.12;margin:0 0 14px}
 .nav-menu-mobile{display:none}
 
 /* ---------- hero ---------- */
-.hero{padding:88px 0 40px}
+.hero{padding:104px 0 48px}
 .hero-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:48px;align-items:end}
 .hero h1{font-size:clamp(42px,6.4vw,80px);line-height:1.04;margin:0}
 .hero h1 em{font-style:italic}
@@ -333,6 +333,23 @@ footer{padding:56px 0 64px;font-size:13px;color:var(--ink-soft)}
   html{scroll-behavior:auto}
   .btn .arr{transition:none}
 }
+
+/* ---------- fluxo Sable: reveals suaves, ritmo e micro-interações ---------- */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1);transition-delay:var(--d,0s)}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+.hero h1,.hero-right p,.hero-ctas{opacity:0;transform:translateY(18px);animation:heroIn .8s cubic-bezier(.22,.61,.36,1) forwards}
+.hero-right p{animation-delay:.15s}
+.hero-ctas{animation-delay:.3s}
+@keyframes heroIn{to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.hero h1,.hero-right p,.hero-ctas{animation:none;opacity:1;transform:none}}
+.plus-div{display:flex;align-items:center;justify-content:center;gap:14px;color:var(--hairline-strong);height:0;position:relative;z-index:1}
+.plus-div::before,.plus-div::after{content:"";flex:1;max-width:180px;height:1px;background:var(--hairline)}
+.plus-div span{font-family:var(--mono);font-size:15px;color:var(--ink-faint);line-height:1}
+.feature{transition:transform .35s cubic-bezier(.22,.61,.36,1),box-shadow .35s,border-color .35s;border-radius:12px}
+.feature:hover{transform:translateY(-4px);box-shadow:0 14px 34px -18px rgba(26,25,18,.28);border-color:var(--accent)}
+.media-frame{transition:transform .8s cubic-bezier(.22,.61,.36,1)}
+.section{scroll-margin-top:80px}
 </style>
 <!-- Vercel Web Analytics (site estático: script tag, sem npm) -->
 <!-- eventos de download (Vercel Analytics: evento "download" c/ arquivo) -->
@@ -773,6 +790,32 @@ function toggleMenu(btn){
 }
 document.querySelectorAll('#mmenu a').forEach(a =>
   a.addEventListener('click', () => document.getElementById('mmenu').classList.remove('open')));
+</script>
+
+<script>
+(function(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var targets = document.querySelectorAll('section .wrap > *, section.norms > *, .cta-in > *');
+  var i = 0;
+  targets.forEach(function(el){
+    el.classList.add('reveal');
+    el.style.setProperty('--d', ((i++ % 4) * 0.08) + 's');
+  });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+  // divisores "+" entre as seções principais (ritmo Sable)
+  document.querySelectorAll('section.section.hairline-t').forEach(function(sec){
+    sec.classList.remove('hairline-t');
+    var d = document.createElement('div');
+    d.className = 'plus-div';
+    d.innerHTML = '<span>+</span>';
+    sec.parentNode.insertBefore(d, sec);
+  });
+})();
 </script>
 </body>
 </html>
