@@ -349,22 +349,21 @@ footer{padding:56px 0 64px;font-size:13px;color:var(--ink-soft)}
 .plus-div{display:flex;align-items:center;justify-content:center;gap:14px;color:var(--hairline-strong);height:0;position:relative;z-index:1}
 .plus-div::before,.plus-div::after{content:"";flex:1;max-width:180px;height:1px;background:var(--hairline)}
 .plus-div span{font-family:var(--mono);font-size:15px;color:var(--ink-faint);line-height:1}
-.feature{transition:transform .35s cubic-bezier(.22,.61,.36,1),box-shadow .35s,border-color .35s;border-radius:12px}
-.feature:hover{transform:translateY(-4px);box-shadow:0 14px 34px -18px rgba(26,25,18,.28);border-color:var(--accent)}
+.feature{transition:background .25s}
+.feature:hover{background:color-mix(in srgb,var(--card) 60%,transparent)}
+.feature:hover .num{color:var(--accent-deep)}
 .media-frame{transition:transform .8s cubic-bezier(.22,.61,.36,1)}
 .section{scroll-margin-top:80px}
 
 /* ---------- design system (ref. Sable): tipografia sans tight + numeração ---------- */
 h1,h2{font-family:var(--sans);font-weight:650;letter-spacing:-.032em}
-.hero h1{line-height:1.03;font-weight:700}
+.hero h1{line-height:1.05;font-weight:600;letter-spacing:-.026em}
 h2{line-height:1.08}
 .sub{font-size:16.5px;line-height:1.65}
 .btn{border-radius:12px;transition:transform .2s cubic-bezier(.22,.61,.36,1),background .2s,box-shadow .2s}
 .btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px -10px rgba(224,139,18,.5)}
 .btn:active{transform:translateY(0) scale(.985)}
 .btn-ghost:hover{box-shadow:0 8px 20px -14px rgba(26,25,18,.35)}
-#recursos .wrap{counter-reset:feat}
-.feature::before{counter-increment:feat;content:"0" counter(feat);font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--ink-faint);display:block;margin-bottom:10px}
 .media-frame.reveal{transform:translateY(26px) scale(.975)}
 .nav{transition:box-shadow .3s}
 .nav.scrolled{box-shadow:0 8px 30px -18px rgba(26,25,18,.25)}
