@@ -130,3 +130,75 @@ describe('runMasonry F2 (vento distribuído por rigidez)', () => {
     if (w1.length > 1) expect(w1[0].wind!.vd).toBeGreaterThanOrEqual(w1[w1.length - 1].wind!.vd)
   })
 })
+
+// ---------------------------------------------------------------------------
+// FASE 4: integração — lajes sobre paredes, transferência e efeito arco
+// ---------------------------------------------------------------------------
+
+import { archEffect } from '../src/nbr/nbr16868/masonry'
+import { masonryWallStackLoads } from '../src/design/masonryRun'
+import { runSlabDesign } from '../src/design/slabRun'
+import { analyze } from '../src/analyze'
+
+describe('archEffect (calculadora)', () => {
+  it('h ≥ 0,6·L arqueia: w=50, L=4, h=2,8 ⇒ wViga=17,86 · ΔR=64,3 kN/lado', () => {
+    const r = archEffect({ w: 50, span: 4, wallHeight: 2.8 })
+    expect(r.arches).toBe(true)
+    expect(r.wBeam).toBeCloseTo((50 * 4) / (4 * 2.8), 2)
+    expect(r.extraSupportEach).toBeCloseTo(((50 - r.wBeam) * 4) / 2, 2)
+  })
+  it('parede baixa não arqueia (w integral na viga)', () => {
+    const r = archEffect({ w: 50, span: 4, wallHeight: 2 })
+    expect(r.arches).toBe(false)
+    expect(r.wBeam).toBe(50)
+  })
+})
+
+describe('Fase 4 — integração', () => {
+  it('laje apoiada SÓ em paredes é dimensionada (parede conta como apoio)', () => {
+    const project = createSampleProject()
+    project.settings.slabMethod = 'grelha'
+    const plan = [...project.plans].sort((a, b) => b.slabs.length - a.slabs.length)[0]
+    const sl = plan.slabs[0]
+    // remove as vigas do contorno e cerca a laje com paredes
+    plan.masonryWalls = sl.polygon.map((p, i) => ({
+      id: `mw${i}`,
+      name: `PAR${i + 1}`,
+      path: [p, sl.polygon[(i + 1) % sl.polygon.length]],
+      thickness: 0.14,
+      block: 'concreto' as const,
+      fpk: 8000,
+    }))
+    const items = runSlabDesign(project)
+    const item = items.find((i) => i.slabId === sl.id)
+    expect(item).toBeTruthy() // antes da Fase 4, sem vigas ⇒ null
+  })
+
+  it('masonryWallStackLoads acumula g/q na base e transferência aumenta ΣFz(G)', () => {
+    const base = analyze(createSampleProject())
+    const project = createSampleProject()
+    // parede no plano do TIPO sobre o traçado de uma viga do mesmo prédio:
+    // usa a planta do tipo e a viga do térreo (planta diferente) p/ transferir
+    // parede na COBERTURA (planta própria) morrendo sobre viga do TIPO
+    const plans = [...project.plans].sort((a, b) => b.slabs.length - a.slabs.length)
+    const planTipo = plans[0]
+    const planCob = plans.find((pl) => pl.id !== planTipo.id)!
+    const anyBeam = planTipo.beams[0]
+    planCob.masonryWalls = [
+      {
+        id: 'mwT',
+        name: 'PAR1',
+        path: [anyBeam.path[0], anyBeam.path[anyBeam.path.length - 1]],
+        thickness: 0.14,
+        block: 'concreto',
+        fpk: 8000,
+      },
+    ]
+    const stacks = masonryWallStackLoads(project)
+    expect(stacks).toHaveLength(1)
+    expect(stacks[0].g).toBeGreaterThan(5)
+    const withWall = analyze(project)
+    const sum = (r: typeof base) => r.cases.elu.G!.reactions.reduce((s, x) => s + x.fz, 0)
+    expect(sum(withWall)).toBeGreaterThan(sum(base) + 1)
+  })
+})

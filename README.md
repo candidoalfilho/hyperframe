@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.38-orange) ![tests](https://img.shields.io/badge/testes-419%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.39-orange) ![tests](https://img.shields.io/badge/testes-423%20passando-brightgreen)
 
-## O que já faz (v0.2.38)
+## O que já faz (v0.2.39)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -65,7 +65,7 @@ sistema e código-fonte no site.
   prisma), acúmulo vertical de cargas por pavimento (peso próprio + quinhão das lajes),
   compressão simples com NRd = fd·t·[1 − (λ/40)³] (fk = 0,7/0,6·fpk, γm = 2,0, λ ≤ 24),
   aba própria de resultados com **fpk mínimo de prisma POR PAVIMENTO** (a especificação
-  que vai p/ a obra), paredes no 3D; **Fase 2**: ABERTURAS (portas/janelas criando grupos isolados com concentração de carga pelas vergas) e **CONTRAVENTAMENTO AO VENTO** (distribuição por rigidez I = t·L³, cisalhamento fvk = 0,15+0,5·σ ≤ 1,4 MPa, flexocompressão com tração de borda ⇒ graute + armadura calculada); **Fase 3**: MODULAÇÃO M-20 com amarração defasada (fiadas A/B), **ELEVAÇÃO DE PAREDE** em prancha (fiadas desenhadas, vergas em canaleta com apoio de 30 cm, cinta de respaldo, cotas) e **QUADRO DE BLOCOS por pavimento** (inteiros/meios/canaletas) — SVG/DXF/PDF
+  que vai p/ a obra), paredes no 3D; **Fase 2**: ABERTURAS (portas/janelas criando grupos isolados com concentração de carga pelas vergas) e **CONTRAVENTAMENTO AO VENTO** (distribuição por rigidez I = t·L³, cisalhamento fvk = 0,15+0,5·σ ≤ 1,4 MPa, flexocompressão com tração de borda ⇒ graute + armadura calculada); **Fase 3**: MODULAÇÃO M-20 com amarração defasada (fiadas A/B), **ELEVAÇÃO DE PAREDE** em prancha (fiadas desenhadas, vergas em canaleta com apoio de 30 cm, cinta de respaldo, cotas) e **QUADRO DE BLOCOS por pavimento** (inteiros/meios/canaletas) — SVG/DXF/PDF; **Fase 4 — INTEGRAÇÃO**: lajes reconhecem paredes como apoio, **TRANSFERÊNCIA alvenaria→concreto** (parede que morre sobre pavimento de outra planta vira carga linear G/Q nas vigas — o prédio híbrido calculado de ponta a ponta), calculadora de EFEITO ARCO, janelas com peitoril + CONTRAVERGA na elevação e aviso de junta de controle > 15 m
 - **Interação solo-estrutura**: sondagem SPT por camadas → **molas de apoio CRV/CRH**
   (Es = α·K·NSPT — Teixeira & Godoy p/ sapatas; **Aoki–Velloso** p/ estacas), re-análise
   do pórtico sobre apoios elásticos, **recalques ELS-QP** e distorções angulares

@@ -725,7 +725,21 @@ function MasonryWallRow({ wall }: { wall: import('@hyperframe/engine').MasonryWa
               })
             }
           />
-          <span className="faint" style={{ fontSize: 10 }}>x · larg (cm)</span>
+          <NumberField
+            value={cm(op.sill ?? 0)}
+            digits={0}
+            min={0}
+            max={200}
+            style={{ width: 48 }}
+            onCommit={(v) =>
+              updateMasonryWall(wall.id, {
+                openings: wall.openings!.map((o, j) =>
+                  j === i ? { ...o, sill: v > 0 ? v / 100 : undefined } : o,
+                ),
+              })
+            }
+          />
+          <span className="faint" style={{ fontSize: 10 }}>x · larg · peitoril (cm; 0 = porta)</span>
           <button
             className="btn-icon"
             title="Remover abertura"

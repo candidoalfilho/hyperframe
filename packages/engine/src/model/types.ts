@@ -268,8 +268,8 @@ export interface MasonryWall {
   block: 'concreto' | 'ceramico'
   /** fpk de prisma especificado (área bruta), kPa */
   fpk: number
-  /** aberturas (portas/janelas): centro x ao longo da parede + largura, m */
-  openings?: { x: number; width: number }[]
+  /** aberturas: centro x + largura; peitoril > 0 = janela (com altura), m */
+  openings?: { x: number; width: number; sill?: number; height?: number }[]
 }
 
 export interface FloorPlan {

@@ -20,12 +20,15 @@ export function buildMasonryElevationDrawing(project: Project, wall: MasonryWall
   const mod = modulateWall(length, h)
   const L = mod.modularLength
   const rows = mod.rows
-  const opens = (wall.openings ?? []).map((o) => ({
-    x0: Math.max(o.x - o.width / 2, 0),
-    x1: Math.min(o.x + o.width / 2, L),
-    sill: 0, // porta por padrão (janela: fase futura com peitoril)
-    top: Math.min(2.1, h - 0.2),
-  }))
+  const opens = (wall.openings ?? []).map((o) => {
+    const sill = o.sill ?? 0 // 0 = porta; > 0 = janela (contraverga)
+    return {
+      x0: Math.max(o.x - o.width / 2, 0),
+      x1: Math.min(o.x + o.width / 2, L),
+      sill,
+      top: Math.min(sill + (o.height ?? (sill > 0 ? 1.2 : 2.1)), h - 0.2),
+    }
+  })
 
   const inOpening = (bx0: number, bx1: number, by0: number, by1: number): boolean =>
     opens.some((o) => bx1 > o.x0 + 0.01 && bx0 < o.x1 - 0.01 && by1 > o.sill + 0.01 && by0 < o.top - 0.01)
@@ -104,6 +107,29 @@ export function buildMasonryElevationDrawing(project: Project, wall: MasonryWall
       layer: 'TEXTOS',
       align: 'center',
     })
+    if (o.sill > 0.05) {
+      // CONTRAVERGA sob o peitoril da janela (mesmo apoio de 30 cm)
+      prims.push({
+        kind: 'polyline',
+        points: [
+          { x: vx0, y: o.sill - BLOCK.height },
+          { x: vx1, y: o.sill - BLOCK.height },
+          { x: vx1, y: o.sill },
+          { x: vx0, y: o.sill },
+        ],
+        closed: true,
+        layer: 'ARMADURA',
+      })
+      prims.push({
+        kind: 'text',
+        x: (o.x0 + o.x1) / 2,
+        y: o.sill - BLOCK.height - 0.16,
+        text: `CONTRAVERGA ${i + 1} — canaleta 1 φ 10, C=${Math.round(lv * 100)}`,
+        height: 0.11,
+        layer: 'TEXTOS',
+        align: 'center',
+      })
+    }
   })
 
   // ---- cotas e quadro ----

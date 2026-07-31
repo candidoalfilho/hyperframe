@@ -19,6 +19,51 @@ const WALL_UNIT_WEIGHT = 14
  *      cisalhamento (fvk = 0,15+0,5·σ) e flexocompressão com tração de borda
  *      ⇒ graute + armadura (NBR 16868).
  */
+/** cargas acumuladas de cada parede na sua BASE (p/ transferência ao pórtico) */
+export function masonryWallStackLoads(
+  project: Project,
+): { wallId: string; name: string; planId: string; lowestLevelIndex: number; path: { x: number; y: number }[]; g: number; q: number }[] {
+  const levels = [...project.levels].sort((a, b) => a.elevation - b.elevation)
+  const gammaC = project.settings.concreteUnitWeight
+  const out: ReturnType<typeof masonryWallStackLoads> = []
+  for (const plan of project.plans) {
+    const lis = levels.map((l, i) => (l.planId === plan.id ? i : -1)).filter((i) => i >= 0)
+    if (lis.length === 0) continue
+    const li0 = Math.min(...lis)
+    for (const wall of plan.masonryWalls ?? []) {
+      let g = 0
+      let q = 0
+      for (const li of lis) {
+        const level = levels[li]
+        const hStory = (levels[li + 1]?.elevation ?? level.elevation + 2.8) - level.elevation
+        let sg = wall.thickness * hStory * WALL_UNIT_WEIGHT
+        let sq = 0
+        for (let sIdx = 0; sIdx + 1 < wall.path.length; sIdx++) {
+          const fl = flankingSlabs(plan, wall.path[sIdx], wall.path[sIdx + 1], wall.thickness)
+          for (const clear of [fl.clearLeft, fl.clearRight]) {
+            if (clear === null) continue
+            let pg = 0
+            let pq = 0
+            for (const sl of plan.slabs) {
+              const gg = sl.thickness * gammaC + sl.finishLoad
+              if (gg + sl.liveLoad > pg + pq) {
+                pg = gg
+                pq = sl.liveLoad
+              }
+            }
+            sg = Math.max(sg, wall.thickness * hStory * WALL_UNIT_WEIGHT + (clear / 2) * pg)
+            sq = Math.max(sq, (clear / 2) * pq)
+          }
+        }
+        g += sg
+        q += sq
+      }
+      out.push({ wallId: wall.id, name: wall.name, planId: plan.id, lowestLevelIndex: li0, path: wall.path, g, q })
+    }
+  }
+  return out
+}
+
 export function runMasonry(project: Project): MasonryWallResult[] {
   const out: MasonryWallResult[] = []
   const levels = [...project.levels].sort((a, b) => a.elevation - b.elevation)
@@ -149,6 +194,11 @@ export function runMasonry(project: Project): MasonryWallResult[] {
         fpk: wall.fpk,
       })
       const notes = [...check.notes]
+      if (totalLen > 15) {
+        notes.push(
+          `Comprimento ${totalLen.toFixed(1)} m > 15 m — prever JUNTA DE CONTROLE (prática usual; conferir limites da NBR 16868 p/ o bloco adotado).`,
+        )
+      }
       if ((wall.openings?.length ?? 0) > 0) {
         notes.unshift(
           `${piers.length} trecho(s) entre aberturas — concentração de carga ×${conc.toFixed(2)} no pior trecho (grupos isolados; vergas descarregam nos trechos).`,

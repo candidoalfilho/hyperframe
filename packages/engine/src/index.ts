@@ -224,6 +224,8 @@ export {
   type MasonryCheckOutput,
 } from './nbr/nbr16868/masonry'
 export { modulateWall, lintelLength, BLOCK } from './nbr/nbr16868/modulation'
+export { archEffect } from './nbr/nbr16868/masonry'
+export { masonryWallStackLoads } from './design/masonryRun'
 export { buildMasonryElevationDrawing } from './drawing/masonryElevation'
 export {
   composeSheet,

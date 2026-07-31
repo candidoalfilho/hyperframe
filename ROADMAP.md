@@ -616,6 +616,23 @@
 - [ ] Futuro: janelas c/ peitoril (contraverga), pontos de graute do vento
   desenhados na elevação, quantitativo global de blocos no Quantitativos
 
+## v0.2.39 — ALVENARIA Fase 4: integração ✅
+
+- [x] Lajes reconhecem PAREDES como apoio (nearBeam → vigas OU alvenaria)
+  — pavimento 100% alvenaria dimensiona a laje normalmente
+- [x] TRANSFERÊNCIA alvenaria→concreto: masonryWallStackLoads (g/q
+  acumulados na base) aplicados como carga linear nas vigas colineares do
+  pavimento inferior de planta diferente — mesmo mecanismo das cargas de
+  parede; efeito arco NÃO abatido (a favor da segurança)
+- [x] `archEffect` (calculadora, padrão Alvest): h ≥ 0,6·L ⇒ wViga = w·L/(4h),
+  resto vai aos apoios
+- [x] Janelas: peitoril no inspetor (0 = porta) + CONTRAVERGA em canaleta na
+  elevação; juntas de controle: aviso quando parede > 15 m
+- [x] 4 testes (laje só-paredes dimensiona; ΣFz cresce com a transferência;
+  arco w=50/L=4/h=2,8 ⇒ 17,86 kN/m) — 423 no total
+- [ ] Fase 5: interação/uniformização de grupos, catálogo de fabricantes,
+  paredes λ > 24 armadas
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

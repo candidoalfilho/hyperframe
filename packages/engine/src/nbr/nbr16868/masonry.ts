@@ -183,3 +183,22 @@ export function masonryPiers(
   }
   return piers
 }
+
+/**
+ * EFEITO ARCO (parede sobre viga — Hendry/prática): quando a parede tem
+ * altura ≥ 0,6·vão, forma-se arco e a viga recebe só o triângulo de altura
+ * ≈ L/2; o resto desce pros APOIOS. Equivalente uniforme:
+ *   wViga = w·L/(4·h) (≤ w) · ΔR(apoio) = (w − wViga)·L/2 em cada lado.
+ * Calculadora p/ abater a carga da viga de transferência (a aplicação no
+ * pórtico usa w cheio, a favor da segurança — abatimento manual/Copiloto).
+ */
+export function archEffect(inp: { w: number; span: number; wallHeight: number }): {
+  arches: boolean
+  wBeam: number
+  extraSupportEach: number
+} {
+  const arches = inp.wallHeight >= 0.6 * inp.span && inp.span > 0.2
+  if (!arches) return { arches, wBeam: inp.w, extraSupportEach: 0 }
+  const wBeam = Math.min(inp.w, (inp.w * inp.span) / (4 * inp.wallHeight))
+  return { arches, wBeam, extraSupportEach: ((inp.w - wBeam) * inp.span) / 2 }
+}

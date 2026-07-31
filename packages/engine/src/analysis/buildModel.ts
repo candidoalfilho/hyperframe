@@ -20,6 +20,7 @@ import { clipPolygon, overlapArea } from '../geometry/clip'
 import { computeWind } from '../nbr/nbr6123/wind'
 import { flankingSlabs, tSectionInertia } from './flange'
 import { columnHalfExtents } from '../model/columnSection'
+import { masonryWallStackLoads } from '../design/masonryRun'
 import { rectSectionProps } from './frame3d'
 import { notionalLoads, windNotionalRule } from '../nbr/nbr6118/imperfections'
 import type { WindGeometry } from '../nbr/api'
@@ -480,6 +481,69 @@ export function buildAnalysisModel(project: Project): {
     list.push(m.id)
     byBeam.set(m.ref.sourceId, list)
   }
+
+  // TRANSFERÊNCIA alvenaria → concreto (Fase 4): parede que morre sobre um
+  // pavimento de PLANTA DIFERENTE descarrega g/q acumulados como carga linear
+  // nas vigas colineares desse pavimento (mesmo mecanismo das cargas de
+  // parede). Efeito arco NÃO abatido — a favor da segurança (calculadora
+  // archEffect disponível p/ abatimento manual).
+  {
+    const stacks = masonryWallStackLoads(project)
+    let nTransfer = 0
+    for (const st of stacks) {
+      const liBelow = st.lowestLevelIndex - 1
+      const levelBelow = levels[liBelow]
+      if (!levelBelow?.planId || levelBelow.planId === st.planId) continue
+      const planBelow = project.plans.find((pl) => pl.id === levelBelow.planId)
+      if (!planBelow) continue
+      const byBeam = piecesIndexByLevel.get(liBelow)
+      if (!byBeam) continue
+      for (const beam of planBelow.beams) {
+        // sobreposição colinear da parede com os trechos da viga (arco-comprimento)
+        const ranges: [number, number][] = []
+        let sCum = 0
+        for (let bs = 0; bs + 1 < beam.path.length; bs++) {
+          const a = beam.path[bs]
+          const b = beam.path[bs + 1]
+          const segLen = Math.hypot(b.x - a.x, b.y - a.y)
+          for (let ws = 0; ws + 1 < st.path.length; ws++) {
+            const p1 = projectOnSegment(st.path[ws], a, b)
+            const p2 = projectOnSegment(st.path[ws + 1], a, b)
+            if (p1.d <= TOL * 4 && p2.d <= TOL * 4) {
+              const t0 = Math.max(Math.min(p1.t, p2.t), 0) * segLen
+              const t1 = Math.min(Math.max(p1.t, p2.t), 1) * segLen
+              if (t1 - t0 > 0.1) ranges.push([sCum + t0, sCum + t1])
+            }
+          }
+          sCum += segLen
+        }
+        if (ranges.length === 0) continue
+        const memberIds = byBeam.get(beam.id)
+        if (!memberIds) continue
+        for (const [x0, x1] of ranges) {
+          for (const mid of memberIds) {
+            const arc = memberArc.get(mid)
+            const s0 = arc?.s0 ?? 0
+            const s1 = arc?.s1 ?? members[mid].length
+            const ov = Math.min(s1, x1) - Math.max(s0, x0)
+            if (ov <= TOL) continue
+            const frac = Math.min(ov / (s1 - s0), 1)
+            memberLoads.G[mid].wy -= st.g * frac
+            memberLoads.Q[mid].wy -= st.q * frac
+            levelG[liBelow] += st.g * ov
+            levelQ[liBelow] += st.q * ov
+          }
+          nTransfer++
+        }
+      }
+    }
+    if (nTransfer > 0) {
+      warnings.push(
+        `Transferência alvenaria→concreto: ${nTransfer} trecho(s) de parede descarregando nas vigas do pavimento inferior (g+q acumulados; efeito arco não abatido — a favor da segurança).`,
+      )
+    }
+  }
+
 
   // alvenaria (cargas de linha permanentes) — viga inteira ou trecho [x0, x1];
   // inclui o nível 0 (alvenaria de embasamento sobre baldrames)

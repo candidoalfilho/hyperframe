@@ -359,13 +359,16 @@ function designSlabByGrid(
   const levelIdxById = new Map(levels.map((l, i) => [l.id, i]))
 
   // bordas apoiadas: amostras da borda perto de algum segmento de viga
+  const nearPath = (p: Vec2, path: Vec2[]): boolean => {
+    for (let i = 0; i + 1 < path.length; i++) {
+      if (projectOnSegment(p, path[i], path[i + 1]).d <= TOL * 3) return true
+    }
+    return false
+  }
+  // vigas OU paredes de alvenaria estrutural apoiam a laje (Fase 4)
   const nearBeam = (p: Vec2): boolean =>
-    plan.beams.some((b) => {
-      for (let i = 0; i + 1 < b.path.length; i++) {
-        if (projectOnSegment(p, b.path[i], b.path[i + 1]).d <= TOL * 3) return true
-      }
-      return false
-    })
+    plan.beams.some((b) => nearPath(p, b.path)) ||
+    (plan.masonryWalls ?? []).some((w) => nearPath(p, w.path))
   const n = slab.polygon.length
   const supportedEdges: number[] = []
   for (let e = 0; e < n; e++) {
