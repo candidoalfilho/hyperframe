@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Módulos — HyperFrame</title>
 <meta name="description" content="Tudo que o HyperFrame faz, por módulo: concreto armado, alvenaria estrutural NBR 16868, fundações e geotecnia, estabilidade, incêndio, pranchas executivas e Copiloto IA. 100% gratuito e open source." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
 :root{--paper:#f6f4ee;--card:#fbfaf6;--ink:#1a1912;--soft:#514d41;--hair:#e0dbcc;--accent:#ffa028;--deep:#a86400;
---serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;--mono:'SF Mono',ui-monospace,Menlo,monospace}
+--serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;--sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;--mono:'SF Mono',ui-monospace,Menlo,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.6}
 .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
 header{padding:56px 0 8px}
@@ -30,6 +33,13 @@ a{color:var(--deep);text-decoration:none}a:hover{text-decoration:underline}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
 .card{transition:transform .3s cubic-bezier(.22,.61,.36,1),box-shadow .3s,border-color .3s}
 .card:hover{transform:translateY(-4px);box-shadow:0 14px 32px -18px rgba(26,25,18,.25);border-color:var(--accent)}
+
+h1{font-family:var(--sans);font-weight:700;letter-spacing:-.032em;line-height:1.05}
+.card h2{font-family:var(--sans);font-weight:650;letter-spacing:-.02em}
+.grid{counter-reset:mod}
+.card::before{counter-increment:mod;content:"0" counter(mod);font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:#8a8574;display:block;margin-bottom:8px}
+.btn{border-radius:12px;transition:transform .2s,box-shadow .2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px -10px rgba(224,139,18,.5)}
 </style>
 <script>
 window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };

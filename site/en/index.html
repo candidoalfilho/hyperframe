@@ -8,6 +8,9 @@
 <meta name="description" content="Open-source structural analysis and design of reinforced-concrete buildings to the Brazilian ABNT codes (NBR 6118/6120/6123/8681). Native app for macOS and Windows." />
 <meta property="og:title" content="HyperFrame — open-source structural engineering" />
 <meta property="og:image" content="../assets/screenshot-modeling.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
 :root{
   --paper:#f6f4ee; --paper-2:#eeeade; --card:#fbfaf6; --ink:#1a1912;
@@ -15,7 +18,7 @@
   --hairline-strong:#cfc9b6; --accent:#ffa028; --accent-deep:#a86400;
   --frame:#131419; --frame-border:#2a2e3a; --frame-grid:#1e222c;
   --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,'Times New Roman',serif;
-  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,Roboto,'Helvetica Neue',Arial,sans-serif;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,Roboto,'Helvetica Neue',Arial,sans-serif;
   --mono:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --w:1040px;
 }
@@ -83,6 +86,22 @@ footer{border-top:1px solid var(--hairline);padding:32px 0 44px;margin-top:60px}
 .feature:hover{transform:translateY(-4px);box-shadow:0 14px 34px -18px rgba(26,25,18,.28);border-color:var(--accent)}
 .media-frame{transition:transform .8s cubic-bezier(.22,.61,.36,1)}
 .section{scroll-margin-top:80px}
+
+/* ---------- design system (ref. Sable): tipografia sans tight + numeração ---------- */
+h1,h2{font-family:var(--sans);font-weight:650;letter-spacing:-.032em}
+.hero h1{line-height:1.03;font-weight:700}
+h2{line-height:1.08}
+.sub{font-size:16.5px;line-height:1.65}
+.btn{border-radius:12px;transition:transform .2s cubic-bezier(.22,.61,.36,1),background .2s,box-shadow .2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px -10px rgba(224,139,18,.5)}
+.btn:active{transform:translateY(0) scale(.985)}
+.btn-ghost:hover{box-shadow:0 8px 20px -14px rgba(26,25,18,.35)}
+#recursos .wrap{counter-reset:feat}
+.feature::before{counter-increment:feat;content:"0" counter(feat);font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--ink-faint);display:block;margin-bottom:10px}
+.media-frame.reveal{transform:translateY(26px) scale(.975)}
+.nav{transition:box-shadow .3s}
+.nav.scrolled{box-shadow:0 8px 30px -18px rgba(26,25,18,.25)}
+.eyebrow{font-weight:500}
 </style>
 <!-- Vercel Web Analytics (site estático: script tag, sem npm) -->
 <!-- eventos de download (Vercel Analytics: evento "download" c/ arquivo) -->
@@ -239,6 +258,13 @@ document.addEventListener('click', function (e) {
     d.innerHTML = '<span>+</span>';
     sec.parentNode.insertBefore(d, sec);
   });
+})();
+</script>
+<script>
+(function(){
+  var nav = document.querySelector('.nav');
+  if (!nav) return;
+  addEventListener('scroll', function(){ nav.classList.toggle('scrolled', scrollY > 8); }, { passive: true });
 })();
 </script>
 </body>
