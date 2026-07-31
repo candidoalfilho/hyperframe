@@ -585,6 +585,22 @@
   flexocompressão/cisalhamento, graute+armadura; Fase 3: modulação
   1ª/2ª fiada + elevações + quantitativo de blocos; site: seção "Módulos"
 
+## v0.2.37 — ALVENARIA Fase 2: aberturas + vento ✅
+
+- [x] `masonryPiers`: aberturas (x + largura no inspetor) criam trechos
+  (grupos isolados) com concentração de carga pela tributária das vergas —
+  pior trecho governa a compressão
+- [x] `checkMasonryShearFlex`: cisalhamento fvk = 0,15+0,5·σpre ≤ 1,4 MPa
+  (σ = 0,9·Gk/A), flexocompressão linear σ = N/A ± M/W, borda comprimida
+  ≤ fd e borda TRACIONADA ⇒ bloco triangular exato (Lt, T) → graute +
+  As = T/fyd (aço integral, 16868)
+- [x] runMasonry F2: G/Q separados no acúmulo; vento por pavimento
+  (computeWind reaproveitado) distribuído às paredes alinhadas por I = t·L³;
+  coluna "Vento τd/fvd" na aba Alvenaria com tooltip (Vd, Md, As de graute)
+- [x] Âncoras: porta central ⇒ concentração 1,20; parede 4 m c/ Md=180 ⇒
+  σmin = −160,8 kPa, T = 5,71 kN, As = 0,13 cm² — 5 testes, 415 no total
+- [ ] Fase 3: modulação 1ª/2ª fiada + elevações + quantitativo de blocos
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

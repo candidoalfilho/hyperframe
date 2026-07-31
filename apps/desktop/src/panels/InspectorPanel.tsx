@@ -698,6 +698,56 @@ function MasonryWallRow({ wall }: { wall: import('@hyperframe/engine').MasonryWa
           <IconTrash size={13} />
         </button>
       </div>
+      {(wall.openings ?? []).map((op, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 3 }}>
+          <span className="faint" style={{ fontSize: 10 }}>abert.</span>
+          <NumberField
+            value={cm(op.x)}
+            digits={0}
+            min={0}
+            max={3000}
+            style={{ width: 56 }}
+            onCommit={(v) =>
+              updateMasonryWall(wall.id, {
+                openings: wall.openings!.map((o, j) => (j === i ? { ...o, x: v / 100 } : o)),
+              })
+            }
+          />
+          <NumberField
+            value={cm(op.width)}
+            digits={0}
+            min={40}
+            max={600}
+            style={{ width: 56 }}
+            onCommit={(v) =>
+              updateMasonryWall(wall.id, {
+                openings: wall.openings!.map((o, j) => (j === i ? { ...o, width: v / 100 } : o)),
+              })
+            }
+          />
+          <span className="faint" style={{ fontSize: 10 }}>x · larg (cm)</span>
+          <button
+            className="btn-icon"
+            title="Remover abertura"
+            onClick={() =>
+              updateMasonryWall(wall.id, { openings: wall.openings!.filter((_, j) => j !== i) })
+            }
+          >
+            <IconTrash size={11} />
+          </button>
+        </div>
+      ))}
+      <button
+        className="btn"
+        style={{ marginTop: 4, fontSize: 10, padding: '2px 8px' }}
+        onClick={() =>
+          updateMasonryWall(wall.id, {
+            openings: [...(wall.openings ?? []), { x: 1, width: 1 }],
+          })
+        }
+      >
+        + abertura (porta/janela)
+      </button>
       <div className="faint" style={{ fontSize: 10, marginTop: 2 }}>
         fpk (MPa) de prisma
         {worst

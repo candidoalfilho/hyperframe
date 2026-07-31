@@ -216,6 +216,8 @@ export { runFoundationDesign } from './design/foundationRun'
 export { runMasonry } from './design/masonryRun'
 export {
   checkMasonryWall,
+  checkMasonryShearFlex,
+  masonryPiers,
   MASONRY_EFF,
   type MasonryCheckInput,
   type MasonryCheckOutput,

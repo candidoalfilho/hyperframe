@@ -2682,6 +2682,7 @@ function AlvenariaTab({ results }: { results: AnalysisResults }) {
             <th>NRd (kN/m)</th>
             <th>Uso</th>
             <th>fpk nec. (MPa)</th>
+            <th>Vento τd/fvd (kPa)</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -2701,6 +2702,19 @@ function AlvenariaTab({ results }: { results: AnalysisResults }) {
                 </span>
               </td>
               <td>{fmt(m.fpkRequired / 1000, 1)}</td>
+              <td>
+                {m.wind ? (
+                  <span
+                    className={`chip ${m.wind.shearOk && m.wind.compressionOk ? 'ok' : 'err'}`}
+                    title={`Vento ${m.wind.dir}: Vd=${m.wind.vd.toFixed(1)} kN · Md=${m.wind.md.toFixed(1)} kN·m${m.wind.needsReinf ? ` · graute+As=${(m.wind.asTie * 1e4).toFixed(2)} cm²` : ''}`}
+                  >
+                    {m.wind.tauD.toFixed(0)}/{m.wind.fvd.toFixed(0)}
+                    {m.wind.needsReinf ? ' ⚠' : ''}
+                  </span>
+                ) : (
+                  '—'
+                )}
+              </td>
               <td>
                 <StatusChip s={m.status} />
               </td>

@@ -428,6 +428,18 @@ export interface MasonryWallResult {
   utilization: number
   /** fpk mínimo de prisma p/ passar, kPa */
   fpkRequired: number
+  /** contraventamento ao vento (F2) — presente quando o vento está habilitado */
+  wind?: {
+    dir: 'X' | 'Y'
+    vd: number
+    md: number
+    tauD: number
+    fvd: number
+    shearOk: boolean
+    compressionOk: boolean
+    needsReinf: boolean
+    asTie: number
+  }
   status: 'ok' | 'atencao' | 'falha'
   notes: string[]
 }
