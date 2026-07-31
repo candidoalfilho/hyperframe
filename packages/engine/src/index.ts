@@ -213,6 +213,13 @@ export { buildFoundationDetailDrawing } from './drawing/foundationDetail'
 export { buildSlabRebarDrawing } from './drawing/slabRebar'
 export { foundationShape, type FoundationShape } from './design/foundationGeometry'
 export { runFoundationDesign } from './design/foundationRun'
+export { runMasonry } from './design/masonryRun'
+export {
+  checkMasonryWall,
+  MASONRY_EFF,
+  type MasonryCheckInput,
+  type MasonryCheckOutput,
+} from './nbr/nbr16868/masonry'
 export {
   composeSheet,
   type SheetFormat,

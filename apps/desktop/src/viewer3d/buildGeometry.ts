@@ -118,6 +118,33 @@ export function buildBoxes(project: Project): BoxInstance[] {
     }
   }
 
+  // ---- paredes de alvenaria estrutural: caixa por trecho, pé-direito cheio ----
+  project.levels.forEach((level, li) => {
+    if (!level.planId || li + 1 >= project.levels.length) return
+    const plan = project.plans.find((p) => p.id === level.planId)
+    const zBot = level.elevation
+    const zTop = project.levels[li + 1].elevation
+    const hStory = zTop - zBot
+    if (!plan || hStory <= 0.1) return
+    for (const w of plan.masonryWalls ?? []) {
+      for (let sIdx = 0; sIdx + 1 < w.path.length; sIdx++) {
+        const a = w.path[sIdx]
+        const b = w.path[sIdx + 1]
+        const len = Math.hypot(b.x - a.x, b.y - a.y)
+        if (len <= 1e-6) continue
+        boxes.push({
+          key: `mw:${level.id}:${w.id}:${sIdx}`,
+          kind: 'beam',
+          id: w.id,
+          levels: [li, li + 1],
+          position: [(a.x + b.x) / 2, zBot + hStory / 2, -(a.y + b.y) / 2],
+          rotationY: Math.atan2(b.y - a.y, b.x - a.x),
+          size: [len, hStory, w.thickness],
+        })
+      }
+    }
+  })
+
   // ---- vigas: uma caixa por trecho da polilinha (seção do trecho) ----
   project.levels.forEach((level, li) => {
     if (!level.planId) return

@@ -567,6 +567,24 @@
 - [x] Tudo desfazível (⌘Z); 4 testes de âncora geométrica — 406 no total
 - [ ] Futuro: ferramenta de arco no ato do desenho + arco reeditável (metadado)
 
+## v0.2.36 — ALVENARIA ESTRUTURAL Fase 1 (NBR 16868) ✅
+
+- [x] `MasonryWall` no modelo (polilinha, bloco concreto/cerâmico, t 14/19,
+  fpk de prisma) + ferramenta "Parede estrutural" no editor (polilinha c/
+  snap/orto, Enter finaliza), camada 2D roxa e paredes no 3D
+- [x] `checkMasonryWall`: compressão simples da 16868 — fk = 0,7·fpk
+  (concreto)/0,6 (cerâmico) área bruta, γm = 2,0, λ = hef/tef ≤ 24 (não
+  armada), NRd = fd·t·[1 − (λ/40)³]; fpk mínimo sugerido
+- [x] `runMasonry`: acúmulo vertical por pavimento (pp 14 kN/m³ + meia
+  distância livre das lajes coladas) por parede idêntica entre plantas
+  compartilhadas; aba "Alvenaria" com tabela por parede×pavimento e
+  ESPECIFICAÇÃO de fpk por pavimento; edição na lista do inspetor do projeto
+- [x] Âncora: bloco 14/pé 2,80/fpk 6 ⇒ λ=20, R=0,875, NRd=257,25 kN/m —
+  7 testes novos, 410 no total
+- [ ] Fase 2: grupos de paredes c/ aberturas, contraventamento ao vento,
+  flexocompressão/cisalhamento, graute+armadura; Fase 3: modulação
+  1ª/2ª fiada + elevações + quantitativo de blocos; site: seção "Módulos"
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

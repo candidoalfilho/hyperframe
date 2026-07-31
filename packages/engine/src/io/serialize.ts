@@ -97,5 +97,8 @@ export function normalizeProject(p: Project): Project {
   if (p.underlay === undefined) p.underlay = null
   if (p.rebarOverrides === undefined) p.rebarOverrides = []
   if (p.foundationOverrides === undefined) p.foundationOverrides = []
+  for (const plan of p.plans) {
+    if (plan.masonryWalls === undefined) plan.masonryWalls = []
+  }
   return p
 }

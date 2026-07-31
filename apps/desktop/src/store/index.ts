@@ -22,6 +22,7 @@ import {
   type ElementRef,
   type FloorPlan,
   type LoadRegion,
+  type MasonryWall,
   type NewProjectParams,
   type Project,
   type ProjectSettings,
@@ -33,7 +34,7 @@ import {
   type WallLoad,
 } from '@hyperframe/engine'
 
-export type Tool = 'select' | 'column' | 'beam' | 'slab' | 'wall' | 'region'
+export type Tool = 'select' | 'column' | 'beam' | 'slab' | 'wall' | 'region' | 'mwall'
 export type ViewMode = 'plan' | '3d' | 'split'
 export type ResultsTab =
   | 'estabilidade'
@@ -43,6 +44,7 @@ export type ResultsTab =
   | 'escadas'
   | 'reservatorios'
   | 'fundacoes'
+  | 'alvenaria'
   | 'incendio'
   | 'reacoes'
   | 'quantitativos'
@@ -166,6 +168,10 @@ export interface HFState {
   addColumn: (pos: Vec2) => void
   updateColumn: (id: string, patch: Partial<Omit<Column, 'id'>>) => void
   addBeamPath: (path: Vec2[]) => void
+  /** parede de alvenaria estrutural (NBR 16868) na planta ativa */
+  addMasonryWallPath: (path: Vec2[]) => void
+  updateMasonryWall: (id: string, patch: Partial<Omit<MasonryWall, 'id'>>) => void
+  deleteMasonryWall: (id: string) => void
   updateBeam: (id: string, patch: Partial<Omit<Beam, 'id'>>) => void
   /** tenta criar laje na face fechada de vigas que contém o ponto */
   addSlabAt: (point: Vec2) => 'ok' | 'no-face' | 'exists'
@@ -473,6 +479,58 @@ export const useStore = create<HFState>()(
           results: null,
           analysisStatus: 'idle',
           selection: { kind: 'beam', id: beam.id },
+        })
+      },
+      addMasonryWallPath: (path) => {
+        if (path.length < 2) return
+        const s = get()
+        const plan = activePlanOf(s.project, s.activeLevelId)
+        if (!plan) return
+        const n = (plan.masonryWalls?.length ?? 0) + 1
+        const wall: MasonryWall = {
+          id: uid('mw'),
+          name: `PAR${n}`,
+          path,
+          thickness: 0.14,
+          block: 'concreto',
+          fpk: 6000,
+        }
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            masonryWalls: [...(pl.masonryWalls ?? []), wall],
+          })),
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+        })
+      },
+      updateMasonryWall: (id, patch) => {
+        const s = get()
+        const plan = s.project.plans.find((pl) => pl.masonryWalls?.some((w) => w.id === id))
+        if (!plan) return
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            masonryWalls: (pl.masonryWalls ?? []).map((w) => (w.id === id ? { ...w, ...patch } : w)),
+          })),
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+        })
+      },
+      deleteMasonryWall: (id) => {
+        const s = get()
+        const plan = s.project.plans.find((pl) => pl.masonryWalls?.some((w) => w.id === id))
+        if (!plan) return
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            masonryWalls: (pl.masonryWalls ?? []).filter((w) => w.id !== id),
+          })),
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
         })
       },
       updateBeam: (id, patch) => {

@@ -411,6 +411,27 @@ export interface SlabDesignResultItem {
   notes: string[]
 }
 
+/** verificação de parede de alvenaria estrutural por pavimento (NBR 16868) */
+export interface MasonryWallResult {
+  wallId: string
+  name: string
+  levelName: string
+  levelIndex: number
+  thickness: number
+  block: 'concreto' | 'ceramico'
+  fpk: number
+  /** carga de cálculo acumulada na base do pavimento, kN/m */
+  nd: number
+  lambda: number
+  r: number
+  nRd: number
+  utilization: number
+  /** fpk mínimo de prisma p/ passar, kPa */
+  fpkRequired: number
+  status: 'ok' | 'atencao' | 'falha'
+  notes: string[]
+}
+
 export interface FoundationResultItem {
   columnId: string
   name: string
@@ -719,6 +740,8 @@ export interface AnalysisResults {
   columnDesign: ColumnDesignResult[]
   slabDesign: SlabDesignResultItem[]
   foundations: FoundationResultItem[]
+  /** alvenaria estrutural (NBR 16868) — Fase 1: compressão por pavimento */
+  masonry: MasonryWallResult[]
   beamService: BeamServiceResult[]
   stairDesign: StairDesignResultItem[]
   tankDesign: TankDesignResultItem[]

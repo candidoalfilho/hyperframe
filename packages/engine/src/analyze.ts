@@ -18,6 +18,7 @@ import { DRIFT_STORY_RATIO, DRIFT_TOP_RATIO } from './nbr/api'
 import { runColumnDesign } from './design/columnRun'
 import { runSlabDesign } from './design/slabRun'
 import { runFoundationDesign } from './design/foundationRun'
+import { runMasonry } from './design/masonryRun'
 import { runBeamService } from './design/serviceRun'
 import { runDetailing } from './design/detailing'
 import { runStairDesign } from './design/stairRun'
@@ -251,6 +252,7 @@ export function analyze(project: Project): AnalysisResults {
     columnDesign,
     slabDesign,
     foundations,
+    masonry: runMasonry(project),
     beamService,
     stairDesign,
     tankDesign,

@@ -204,8 +204,11 @@ export default function Editor2D() {
   const finishChain = useCallback(() => {
     const c = chainRef.current
     const t = useStore.getState().tool
-    if (t === 'beam') {
-      if (c.length >= 2) useStore.getState().addBeamPath(c)
+    if (t === 'beam' || t === 'mwall') {
+      if (c.length >= 2) {
+        if (t === 'beam') useStore.getState().addBeamPath(c)
+        else useStore.getState().addMasonryWallPath(c)
+      }
       setChain([])
     } else if (t === 'region') {
       if (c.length < 3) {
@@ -220,7 +223,7 @@ export default function Editor2D() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = useStore.getState().tool
-      if (t !== 'beam' && t !== 'region') return
+      if (t !== 'beam' && t !== 'region' && t !== 'mwall') return
       if (e.key === 'Escape' && chainRef.current.length > 0) {
         e.preventDefault()
         e.stopPropagation()
@@ -264,7 +267,7 @@ export default function Editor2D() {
       const snap = computeSnap(raw, snapData, tolW)
       return snap ?? { point: roundPoint05(raw), kind: null }
     }
-    if (tool === 'beam' || tool === 'region') {
+    if (tool === 'beam' || tool === 'region' || tool === 'mwall') {
       const snap = computeSnap(raw, snapData, tolW)
       if (snap) return snap
       let pt = roundPoint05(raw)
@@ -376,7 +379,7 @@ export default function Editor2D() {
   }
 
   const onDoubleClick = () => {
-    if (tool === 'beam' || tool === 'region') finishChain()
+    if (tool === 'beam' || tool === 'region' || tool === 'mwall') finishChain()
   }
 
   // ---- ids de seleção/hover por camada (props primitivas p/ React.memo) ----
@@ -460,6 +463,42 @@ export default function Editor2D() {
               selectedId={selBeam}
               hoveredId={hovBeam}
             />
+          )}
+          {plan && (plan.masonryWalls?.length ?? 0) > 0 && (
+            <g pointerEvents="none">
+              {plan.masonryWalls!.map((w) =>
+                w.path.slice(0, -1).map((a, i) => {
+                  const b = w.path[i + 1]
+                  return (
+                    <line
+                      key={`${w.id}:${i}`}
+                      x1={a.x * vp.k}
+                      y1={-a.y * vp.k}
+                      x2={b.x * vp.k}
+                      y2={-b.y * vp.k}
+                      stroke="#b07ad1"
+                      strokeWidth={Math.max(w.thickness * vp.k, 3)}
+                      strokeLinecap="butt"
+                      opacity={0.55}
+                    />
+                  )
+                }),
+              )}
+              {display.showNames &&
+                vp.k >= 12 &&
+                plan.masonryWalls!.map((w) => (
+                  <text
+                    key={`${w.id}:lbl`}
+                    x={((w.path[0].x + w.path[w.path.length - 1].x) / 2) * vp.k}
+                    y={-((w.path[0].y + w.path[w.path.length - 1].y) / 2) * vp.k - 5}
+                    fontSize={10}
+                    fill="#b07ad1"
+                    textAnchor="middle"
+                  >
+                    {w.name}
+                  </text>
+                ))}
+            </g>
           )}
           {isLowestLevel && foundations && (
             <FoundationsLayer items={foundations} columns={columns} k={vp.k} />

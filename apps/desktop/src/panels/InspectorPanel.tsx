@@ -217,6 +217,15 @@ function ProjectInspector({ project }: { project: Project }) {
         </button>
       </div>
 
+      {activePlan && (activePlan.masonryWalls?.length ?? 0) > 0 && (
+        <div className="panel-section">
+          <h3 className="panel-title">Paredes estruturais (NBR 16868)</h3>
+          {activePlan.masonryWalls!.map((w) => (
+            <MasonryWallRow key={w.id} wall={w} />
+          ))}
+        </div>
+      )}
+
       <div className="panel-section">
         <h3 className="panel-title">Underlay DXF</h3>
         {!underlay ? (
@@ -644,6 +653,58 @@ function ColumnInspector({ col, project }: { col: Column; project: Project }) {
 
       <DeleteButton onClick={() => deleteElement({ kind: 'column', id: col.id })} />
     </>
+  )
+}
+
+function MasonryWallRow({ wall }: { wall: import('@hyperframe/engine').MasonryWall }) {
+  const updateMasonryWall = useStore((s) => s.updateMasonryWall)
+  const deleteMasonryWall = useStore((s) => s.deleteMasonryWall)
+  const res = useStore(
+    (s) => s.results?.masonry.filter((m) => m.wallId === wall.id) ?? [],
+  )
+  const worst = res.reduce(
+    (b, m) => (m.utilization > (b?.utilization ?? -1) ? m : b),
+    undefined as (typeof res)[number] | undefined,
+  )
+  return (
+    <div style={{ borderTop: '1px solid var(--border)', padding: '5px 0' }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <b style={{ fontSize: 12 }}>{wall.name}</b>
+        <select
+          className="select"
+          value={String(wall.thickness)}
+          onChange={(e) => updateMasonryWall(wall.id, { thickness: Number(e.target.value) })}
+        >
+          <option value="0.14">bloco 14</option>
+          <option value="0.19">bloco 19</option>
+        </select>
+        <select
+          className="select"
+          value={wall.block}
+          onChange={(e) => updateMasonryWall(wall.id, { block: e.target.value as 'concreto' | 'ceramico' })}
+        >
+          <option value="concreto">concreto</option>
+          <option value="ceramico">cerâmico</option>
+        </select>
+        <NumberField
+          value={wall.fpk / 1000}
+          digits={1}
+          min={2}
+          max={30}
+          style={{ width: 56 }}
+          onCommit={(v) => updateMasonryWall(wall.id, { fpk: v * 1000 })}
+        />
+        <button className="btn-icon" title="Excluir parede" onClick={() => deleteMasonryWall(wall.id)}>
+          <IconTrash size={13} />
+        </button>
+      </div>
+      <div className="faint" style={{ fontSize: 10, marginTop: 2 }}>
+        fpk (MPa) de prisma
+        {worst
+          ? ` · pior: ${worst.levelName} — ${(worst.utilization * 100).toFixed(0)}% (fpk nec. ${(worst.fpkRequired / 1000).toFixed(1)} MPa)`
+          : ' · rode a análise p/ verificar'}
+      </div>
+    </div>
   )
 }
 

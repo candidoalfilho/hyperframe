@@ -30,6 +30,7 @@ const TABS: [ResultsTab, string][] = [
   ['escadas', 'Escadas'],
   ['reservatorios', 'Reservatórios'],
   ['fundacoes', 'Fundações'],
+  ['alvenaria', 'Alvenaria'],
   ['incendio', 'Incêndio'],
   ['reacoes', 'Reações'],
   ['quantitativos', 'Quantitativos'],
@@ -2635,6 +2636,7 @@ export default function ResultsPanel() {
         {tab === 'escadas' && <EscadasTab results={results} />}
         {tab === 'reservatorios' && <ReservatoriosTab results={results} />}
         {tab === 'fundacoes' && <FundacoesTab results={results} project={project} />}
+        {tab === 'alvenaria' && <AlvenariaTab results={results} />}
         {tab === 'incendio' && <IncendioTab results={results} />}
         {tab === 'reacoes' && <ReacoesTab results={results} project={project} />}
         {tab === 'quantitativos' && <QuantitativosTab results={results} project={project} />}
@@ -2642,5 +2644,87 @@ export default function ResultsPanel() {
         {tab === 'relatorio' && <RelatorioTab results={results} project={project} />}
       </div>
     </div>
+  )
+}
+
+
+function AlvenariaTab({ results }: { results: AnalysisResults }) {
+  const items = results.masonry
+  if (items.length === 0) {
+    return (
+      <div className="faint" style={{ padding: 12 }}>
+        Nenhuma parede estrutural — desenhe com a ferramenta “Parede estrutural” (alvenaria NBR
+        16868) e rode a análise. Fase 1: compressão simples por pavimento com fpk mínimo sugerido.
+      </div>
+    )
+  }
+  // fpk mínimo por pavimento (o entregável p/ a obra)
+  const byLevel = new Map<string, number>()
+  for (const m of items) {
+    byLevel.set(m.levelName, Math.max(byLevel.get(m.levelName) ?? 0, m.fpkRequired))
+  }
+  return (
+    <>
+      <div className="faint" style={{ fontSize: 11, margin: '6px 0 10px' }}>
+        NBR 16868-1 — compressão simples: NRd = fd·t·[1 − (λ/40)³], fk = 0,7·fpk (concreto) /
+        0,6·fpk (cerâmico), γm = 2,0. Acúmulo vertical (pp + meia distância livre das lajes);
+        grupos de paredes e vento na Fase 2.
+      </div>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Parede</th>
+            <th>Pav.</th>
+            <th>t (cm)</th>
+            <th>Bloco</th>
+            <th>Nd (kN/m)</th>
+            <th>λ</th>
+            <th>NRd (kN/m)</th>
+            <th>Uso</th>
+            <th>fpk nec. (MPa)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((m) => (
+            <tr key={`${m.wallId}|${m.levelIndex}`} title={m.notes.join(' · ')}>
+              <td style={{ fontWeight: 600 }}>{m.name}</td>
+              <td>{m.levelName}</td>
+              <td>{Math.round(m.thickness * 100)}</td>
+              <td>{m.block === 'concreto' ? 'concreto' : 'cerâmico'}</td>
+              <td>{fmt(m.nd, 1)}</td>
+              <td>{fmt(m.lambda, 1)}</td>
+              <td>{fmt(m.nRd, 1)}</td>
+              <td>
+                <span className={`chip ${m.utilization <= 1 ? 'ok' : 'err'}`}>
+                  {(m.utilization * 100).toFixed(0)}%
+                </span>
+              </td>
+              <td>{fmt(m.fpkRequired / 1000, 1)}</td>
+              <td>
+                <StatusChip s={m.status} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <h4 style={{ margin: '14px 0 6px' }}>fpk de prisma por pavimento (especificação)</h4>
+      <table className="table" style={{ maxWidth: 380 }}>
+        <thead>
+          <tr>
+            <th>Pavimento</th>
+            <th>fpk mínimo (MPa)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...byLevel.entries()].map(([lvl, f]) => (
+            <tr key={lvl}>
+              <td>{lvl}</td>
+              <td style={{ fontWeight: 600 }}>{(Math.ceil((f / 1000) * 2) / 2).toFixed(1)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   )
 }

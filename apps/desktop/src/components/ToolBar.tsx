@@ -17,6 +17,11 @@ const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Elem
   { id: 'slab', title: 'Laje (L) — clique dentro de um contorno fechado de vigas', icon: IconSlab },
   { id: 'wall', title: 'Carga de parede (W) — clique na viga', icon: IconWall },
   {
+    id: 'mwall',
+    title: 'Parede estrutural (M) — alvenaria NBR 16868: clique nos pontos, Enter finaliza',
+    icon: IconWall,
+  },
+  {
     id: 'region',
     title: 'Região de carga (R) — escada/reservatório: clique os vértices, Enter fecha',
     icon: IconStairs,

@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.35-orange) ![tests](https://img.shields.io/badge/testes-406%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.36-orange) ![tests](https://img.shields.io/badge/testes-410%20passando-brightgreen)
 
-## O que já faz (v0.2.35)
+## O que já faz (v0.2.36)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -60,6 +60,12 @@ sistema e código-fonte no site.
   de cargas** (reações
   características por pilar), **MURO DE ARRIMO** (empuxo de Rankine, tombamento/deslizamento FS ≥ 1,5, tensões na base, fuste e talão dimensionados com notas de drenagem), **RADIER rígido** (pressão linear pela resultante, punção §19.5 por pilar, flexão por faixas com malha dupla), **baldrames sobre apoio elástico de Winkler** (ks manual,
   da sondagem ou 120·σadm; pressão no solo × σadm)
+- **ALVENARIA ESTRUTURAL (NBR 16868-1:2020) — Fase 1**: parede estrutural como
+  ELEMENTO (ferramenta própria no editor, bloco de concreto/cerâmico 14/19, fpk de
+  prisma), acúmulo vertical de cargas por pavimento (peso próprio + quinhão das lajes),
+  compressão simples com NRd = fd·t·[1 − (λ/40)³] (fk = 0,7/0,6·fpk, γm = 2,0, λ ≤ 24),
+  aba própria de resultados com **fpk mínimo de prisma POR PAVIMENTO** (a especificação
+  que vai p/ a obra), paredes no 3D — grupos, aberturas e vento na Fase 2
 - **Interação solo-estrutura**: sondagem SPT por camadas → **molas de apoio CRV/CRH**
   (Es = α·K·NSPT — Teixeira & Godoy p/ sapatas; **Aoki–Velloso** p/ estacas), re-análise
   do pórtico sobre apoios elásticos, **recalques ELS-QP** e distorções angulares

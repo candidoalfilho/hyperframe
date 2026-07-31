@@ -257,6 +257,19 @@ export interface LoadRegion {
   tank?: TankParams
 }
 
+/** parede de ALVENARIA ESTRUTURAL (NBR 16868) — polilinha em planta */
+export interface MasonryWall {
+  id: string
+  /** PAR1, PAR2… */
+  name: string
+  path: Vec2[]
+  /** espessura do bloco, m (0,14 | 0,19) */
+  thickness: number
+  block: 'concreto' | 'ceramico'
+  /** fpk de prisma especificado (área bruta), kPa */
+  fpk: number
+}
+
 export interface FloorPlan {
   id: string
   name: string
@@ -264,6 +277,8 @@ export interface FloorPlan {
   slabs: Slab[]
   wallLoads: WallLoad[]
   loadRegions: LoadRegion[]
+  /** paredes de alvenaria estrutural (NBR 16868) */
+  masonryWalls?: MasonryWall[]
 }
 
 /** entidade de underlay importada de DXF (coordenadas já em m, após escala) */
