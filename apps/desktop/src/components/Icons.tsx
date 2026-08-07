@@ -50,6 +50,13 @@ export const IconWall = (p: P) => (
   </svg>
 )
 
+export const IconMasonry = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="3" y="5" width="18" height="14" />
+    <path d="M3 9.7h18M3 14.3h18M9 5v4.7M15 5v4.7M6 9.7v4.6M12 9.7v4.6M18 9.7v4.6M9 14.3V19M15 14.3V19" opacity={0.85} />
+  </svg>
+)
+
 export const IconTrash = (p: P) => (
   <svg {...base(p)}>
     <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />

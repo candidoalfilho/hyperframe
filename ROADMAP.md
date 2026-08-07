@@ -633,6 +633,12 @@
 - [ ] Fase 5: interação/uniformização de grupos, catálogo de fabricantes,
   paredes λ > 24 armadas
 
+## v0.2.40 — Ícone próprio da alvenaria na barra ✅
+
+- [x] `IconMasonry` (tijolos com amarração): a ferramenta "Alvenaria
+  estrutural" deixou de dividir o ícone com "Carga de parede" (pareciam
+  botões duplicados na sidebar)
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

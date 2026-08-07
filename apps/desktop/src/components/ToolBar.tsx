@@ -8,6 +8,7 @@ import {
   IconStairs,
   IconTrash,
   IconWall,
+  IconMasonry,
 } from './Icons'
 
 const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Element }[] = [
@@ -18,8 +19,8 @@ const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Elem
   { id: 'wall', title: 'Carga de parede (W) — clique na viga', icon: IconWall },
   {
     id: 'mwall',
-    title: 'Parede estrutural (M) — alvenaria NBR 16868: clique nos pontos, Enter finaliza',
-    icon: IconWall,
+    title: 'Alvenaria estrutural (M) — parede NBR 16868: clique nos pontos, Enter finaliza',
+    icon: IconMasonry,
   },
   {
     id: 'region',
