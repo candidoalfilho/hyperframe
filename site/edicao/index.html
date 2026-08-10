@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Edição 2026 — HyperFrame</title>
 <meta name="description" content="A Edição 2026 do HyperFrame: 40+ versões e 120+ recursos de cálculo estrutural — concreto armado, alvenaria estrutural NBR 16868, P-Δ, fundações e detalhamento executivo. 100% gratuito e open source." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="HyperFrame — Edição 2026" />
+<meta property="og:description" content="40 versões · 120+ recursos · alvenaria estrutural NBR 16868 · grátis e open source" />
+<meta property="og:image" content="/assets/og-edicao.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="/assets/og-edicao.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -146,7 +152,7 @@ document.addEventListener('click', function (e) {
     <h2 class="reveal">Análise de gente grande.</h2>
     <p class="lead reveal" style="--d:.1s">Pórtico espacial com diafragma rígido e solver próprio — agora com 2ª ordem global de verdade.</p>
   </div></div>
-  <div class="shot reveal"><img src="../assets/screenshot-deformed.png" alt="Deformada 3D" loading="lazy" /></div>
+  <div class="shot reveal"><img src="../assets/screenshot-unifilar.png" alt="Modo unifilar com diagrama de momentos Mz no 3D" loading="lazy" /></div>
   <div class="feats">
     <div class="feat reveal"><span class="tag">novo</span><h3>P-Δ iterativo real</h3><p>Forças fictícias por pavimento re-resolvidas até convergir. Vale além do limite γz = 1,30 — e valida o γz de quebra (±10% no exemplo).</p></div>
     <div class="feat reveal" style="--d:.08s"><span class="tag">novo</span><h3>Grelha de pavimento unificada</h3><p>Todas as lajes numa malha só: continuidade real entre vizinhas e vigas flexíveis com EI real.</p></div>
@@ -204,11 +210,13 @@ document.addEventListener('click', function (e) {
     <b style="color:var(--ink)">F3 —</b> modulação M-20 com elevações fiada a fiada, vergas, contravergas e quadro de blocos ·
     <b style="color:var(--ink)">F4 —</b> lajes sobre paredes, transferência ao pilotis de concreto e efeito arco.</p>
   </div>
+  <div class="shot reveal"><img src="../assets/screenshot-alvenaria-elevacao.png" alt="Prancha de alvenaria — elevação da parede com blocos fiada a fiada" loading="lazy" /></div>
   <div class="feats">
     <div class="feat reveal"><span class="tag">híbrido</span><h3>Torre + pilotis num modelo</h3><p>A parede morre sobre a viga de concreto e o pórtico sente — sem exportar nada pra lugar nenhum.</p></div>
     <div class="feat reveal" style="--d:.08s"><span class="tag">obra</span><h3>fpk por pavimento</h3><p>A especificação de prisma que vai pro fornecedor, arredondada em meio MPa.</p></div>
     <div class="feat reveal" style="--d:.16s"><span class="tag">prancha</span><h3>Elevações com blocos</h3><p>Amarração defasada desenhada bloco a bloco, pronta pra imprimir na escala.</p></div>
   </div>
+  <div class="shot reveal"><img src="../assets/screenshot-alvenaria.png" alt="Paredes de alvenaria na planta e verificação NBR 16868 por pavimento" loading="lazy" /></div>
 </section>
 
 <section class="chapter wrap" id="fundacoes">
@@ -216,6 +224,7 @@ document.addEventListener('click', function (e) {
     <h2 class="reveal">Fundações do jeito que a obra faz.</h2>
     <p class="lead reveal" style="--d:.1s">Sapatas troncopiramidais, viga alavanca de divisa, blocos de 1 a 16 estacas, tubulões, radier e muro de arrimo — editáveis por pilar, com verificação em vez de imposição.</p>
   </div></div>
+  <div class="shot reveal"><img src="../assets/screenshot-3d-fundacoes.png" alt="Sapatas troncopiramidais no 3D" loading="lazy" /></div>
   <div class="feats">
     <div class="feat reveal"><span class="tag">divisa</span><h3>Viga alavanca</h3><p>R1 amplificada, sapata centrada e alívio no pilar interno — o clássico, automatizado.</p></div>
     <div class="feat reveal" style="--d:.08s"><span class="tag">ceb-70</span><h3>Blocos 6–16 estacas</h3><p>Malha retangular com flexão em S1 e cortante em S2 — sem clamp artificial.</p></div>
