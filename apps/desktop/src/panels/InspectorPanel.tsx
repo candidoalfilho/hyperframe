@@ -659,8 +659,12 @@ function ColumnInspector({ col, project }: { col: Column; project: Project }) {
 function MasonryWallRow({ wall }: { wall: import('@hyperframe/engine').MasonryWall }) {
   const updateMasonryWall = useStore((s) => s.updateMasonryWall)
   const deleteMasonryWall = useStore((s) => s.deleteMasonryWall)
-  const res = useStore(
-    (s) => s.results?.masonry.filter((m) => m.wallId === wall.id) ?? [],
+  // seleciona a REFERÊNCIA estável e filtra fora do selector (array novo a
+  // cada snapshot causava "Maximum update depth exceeded" / tela branca)
+  const allMasonry = useStore((s) => s.results?.masonry ?? null)
+  const res = useMemo(
+    () => allMasonry?.filter((m) => m.wallId === wall.id) ?? [],
+    [allMasonry, wall.id],
   )
   const worst = res.reduce(
     (b, m) => (m.utilization > (b?.utilization ?? -1) ? m : b),
