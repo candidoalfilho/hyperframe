@@ -68,7 +68,9 @@ body[data-nav="dark"] .side{color:var(--cream)}
 @media(min-width:1240px){.in{padding:0 48px 0 190px}}
 
 /* ---------- hero ---------- */
-.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding-top:80px;padding-bottom:60px;max-width:1500px}
+.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding-top:80px;padding-bottom:60px;max-width:1500px;position:relative;z-index:1}
+#frame3d{position:absolute;top:0;right:0;width:min(58vw,980px);height:100%;pointer-events:none;z-index:0;opacity:.9}
+@media(max-width:900px){#frame3d{width:100%;opacity:.35}}
 .hero .kick{font-family:var(--mono);font-size:11.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:26px}
 .h-line{overflow:hidden}
 .h-line span{display:block;transform:translateY(112%);animation:rise .9s cubic-bezier(.16,1,.3,1) forwards;animation-delay:var(--d,0s)}
@@ -205,6 +207,7 @@ document.addEventListener('click', function (e) {
 
 <!-- ============ HERO ============ -->
 <section class="sec sec-dark" data-theme="dark">
+  <canvas id="frame3d" aria-hidden="true"></canvas>
   <div class="in hero">
     <div class="kick">A edição 2026 · 40 versões · 120+ recursos</div>
     <h1>
@@ -528,6 +531,97 @@ document.addEventListener('click', function (e) {
     });
   }, { rootMargin: '-40% 0px -55% 0px' });
   secs.forEach(function (s) { sio.observe(s); });
+
+  // pórtico 3D wireframe no hero — projeção manual, modo de vibração no eixo X
+  var cv = document.getElementById('frame3d')
+  if (cv) {
+    var ctx = cv.getContext('2d')
+    var NX = 4, NY = 3, NZ = 9        // nós: 3 vãos × 2 vãos × 8 pavimentos
+    var BAY = 1.0, PD = 0.72          // vão e pé-direito (unidades de cena)
+    var W = (NX - 1) * BAY, D = (NY - 1) * BAY, H = (NZ - 1) * PD
+    var mouseX = 0, running = false, t0 = null
+    var DPR = Math.min(devicePixelRatio || 1, 2)
+    function resize () {
+      var r = cv.getBoundingClientRect()
+      cv.width = r.width * DPR; cv.height = r.height * DPR
+    }
+    resize(); addEventListener('resize', resize)
+    addEventListener('pointermove', function (e) {
+      mouseX = (e.clientX / innerWidth - 0.5)
+    }, { passive: true })
+    function draw (ts) {
+      if (t0 === null) t0 = ts
+      var t = (ts - t0) / 1000
+      var th = 0.55 + t * 0.06 + mouseX * 0.45 + scrollY * 0.0006
+      var sway = reduced ? 0 : Math.sin(t * 1.5) * 0.16
+      var tilt = 0.34
+      var cw = cv.width, chh = cv.height
+      var CAMD = 3.2 * Math.max(W, H)
+      var F = chh * 0.5 * CAMD / H
+      var cx = cw * 0.55, cy = chh * 0.5
+      var cth = Math.cos(th), sth = Math.sin(th)
+      var ctl = Math.cos(tilt), stl = Math.sin(tilt)
+      // projeta nó (i,j,k) → [x2d, y2d, fator de profundidade]
+      function P (i, j, k) {
+        var zn = k / (NZ - 1)
+        var x = i * BAY - W / 2 + sway * (1 - Math.cos(Math.PI * zn / 2))
+        var y = j * BAY - D / 2
+        var z = k * PD - H / 2
+        var X = x * cth - y * sth, Y = x * sth + y * cth
+        var Y2 = Y * ctl - z * stl, Z2 = Y * stl + z * ctl
+        var kk = F / (CAMD - Y2)
+        return [cx + X * kk, cy - Z2 * kk, kk]
+      }
+      ctx.clearRect(0, 0, cw, chh)
+      ctx.lineWidth = 1 * DPR
+      ctx.strokeStyle = 'rgba(242,239,231,0.15)'
+      ctx.beginPath()
+      for (var i = 0; i < NX; i++) for (var j = 0; j < NY; j++) for (var k = 0; k < NZ; k++) {
+        var a = P(i, j, k), b
+        if (i + 1 < NX) { b = P(i + 1, j, k); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]) }
+        if (j + 1 < NY) { b = P(i, j + 1, k); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]) }
+        if (k + 1 < NZ) { b = P(i, j, k + 1); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]) }
+      }
+      ctx.stroke()
+      // nós em laranja; sapatas (k=0) maiores e quadradas
+      for (var i2 = 0; i2 < NX; i2++) for (var j2 = 0; j2 < NY; j2++) for (var k2 = 0; k2 < NZ; k2++) {
+        var p = P(i2, j2, k2)
+        var r = (k2 === 0 ? 3.4 : 1.7) * DPR * p[2] * CAMD / F
+        ctx.fillStyle = k2 === 0 ? 'rgba(255,154,31,0.85)' : 'rgba(255,154,31,0.55)'
+        if (k2 === 0) ctx.fillRect(p[0] - r, p[1] - r, r * 2, r * 2)
+        else { ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 6.2832); ctx.fill() }
+      }
+      if (running && !reduced) requestAnimationFrame(draw)
+    }
+    if (reduced) { requestAnimationFrame(draw) }
+    else {
+      var hio = new IntersectionObserver(function (es) {
+        es.forEach(function (e) {
+          if (e.isIntersecting && !running) { running = true; requestAnimationFrame(draw) }
+          else if (!e.isIntersecting) running = false
+        })
+      }, { threshold: 0 })
+      hio.observe(cv)
+    }
+  }
+
+  // tilt 3D sutil nos cards com mídia (desktop, sem reduced motion)
+  if (!reduced && matchMedia('(pointer:fine)').matches) {
+    document.querySelectorAll('.card').forEach(function (card) {
+      if (!card.querySelector('.media')) return
+      card.addEventListener('pointermove', function (e) {
+        var r = card.getBoundingClientRect()
+        var rx = ((e.clientY - r.top) / r.height - 0.5) * -3.5
+        var ry = ((e.clientX - r.left) / r.width - 0.5) * 3.5
+        card.style.transform = 'perspective(900px) rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg) translateY(-4px)'
+        card.style.transition = 'transform .08s linear'
+      })
+      card.addEventListener('pointerleave', function () {
+        card.style.transform = ''
+        card.style.transition = 'transform .5s cubic-bezier(.22,.61,.36,1)'
+      })
+    })
+  }
 
   // headline pinada esmaece quando os cards passam por cima
   if (!reduced) {
