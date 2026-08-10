@@ -41,6 +41,8 @@ export {
   type SlabGridOutput,
 } from './analysis/grid'
 export { analyze, comboDisplacements, comboDiagrams, comboReactions } from './analyze'
+export { runPDelta, type PDeltaDirResult } from './analysis/pdelta'
+export { makeNodalSolver, assembleElasticSystem } from './analysis/solve'
 export { runDetailing, planSplices, STOCK_BAR_LENGTH } from './design/detailing'
 export { buildDrawingPdf } from './drawing/drawingPdf'
 

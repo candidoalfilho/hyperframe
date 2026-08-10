@@ -194,7 +194,13 @@ export interface DriftResult {
 export interface SecondOrderResult {
   applied: boolean
   /** fator aplicado aos casos de vento por direção (1,0 = sem majoração) */
-  factors: { dir: 'X+' | 'X-' | 'Y+' | 'Y-'; gammaZ: number; factor: number }[]
+  factors: {
+    dir: 'X+' | 'X-' | 'Y+' | 'Y-'
+    gammaZ: number
+    factor: number
+    /** P-Δ iterativo: fator convergido (δtopo,final/δtopo,1ª ordem) */
+    pdelta?: { factor: number; iterations: number; converged: boolean }
+  }[]
   notes: string[]
 }
 

@@ -639,6 +639,22 @@
   estrutural" deixou de dividir o ícone com "Carga de parede" (pareciam
   botões duplicados na sidebar)
 
+## v0.2.41 — P-Δ iterativo real (análise avançada 1/5) ✅
+
+- [x] `assembleElasticSystem`/`makeNodalSolver` (solve.ts): K do passe ELU
+  fatorizada uma vez; cada iteração P-Δ é só um back-substitution
+- [x] `runPDelta`: por direção de vento, na combinação ELU governante —
+  cortantes fictícios V_i = P_acum·drift_i/h_i nos mestres do diafragma,
+  re-resolvidos até convergir (tol 0,5%, máx 12 it., detecção de divergência)
+- [x] Fator adotado = MÁX(0,95·γz; P-Δ); γz > 1,30 com P-Δ convergido ⇒
+  o P-Δ assume (análise de 2ª ordem §15.7.3) em vez de só avisar; divergência
+  ⇒ alerta de instabilidade
+- [x] Validação física: no projeto exemplo o P-Δ converge em poucas iterações
+  e fica a ±10% do γz (teoria: γz É estimativa de P-Δ); monotônico com a
+  carga — 3 testes, 426 no total
+- [ ] Próximos da análise avançada: NLF por barra (Branson iterativo),
+  etapas construtivas, protensão, modal/sismo
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

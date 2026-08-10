@@ -107,21 +107,20 @@ export interface PassStiffness {
 }
 
 /** resolve todos os casos de carga p/ um passe de rigidez */
-export function solvePass(
+
+/** monta e fatoriza K do passe (reuso: solvePass e P-Δ) */
+export function assembleElasticSystem(
   project: Project,
   model: AnalysisModel,
-  internal: InternalModel,
   system: NumberedSystem,
   pass: PassStiffness,
-  cases: CaseId[],
-): Partial<Record<CaseId, CaseResult>> {
+): { K: SkylineMatrix; memberData: { kl: Float64Array; r: Float64Array; kg: Float64Array; terms: DofTerm[][] }[] } {
   const { map, nDofs } = system
   const cp = concreteProps(
     project.settings.concrete.fck,
     project.settings.concrete.aggregate,
     project.settings.concrete.gammaC,
   )
-
   // pré-computa matrizes por membro
   const memberData = model.members.map((m) => {
     const { A, Iy, Iz, J } = m.props ?? rectSectionProps(m.section.bw, m.section.h)
@@ -180,6 +179,55 @@ export function solvePass(
     }
   }
   K.factorize()
+  return { K, memberData }
+}
+
+/**
+ * P-Δ: resolvedor de cargas NODAIS arbitrárias com a rigidez do passe
+ * (K fatorizada uma vez; cada chamada é só um back-substitution).
+ */
+export function makeNodalSolver(
+  project: Project,
+  model: AnalysisModel,
+  system: NumberedSystem,
+  pass: PassStiffness,
+): (loads: { node: number; dof: number; value: number }[]) => number[][] {
+  const { K } = assembleElasticSystem(project, model, system, pass)
+  const { map, nDofs } = system
+  return (loads) => {
+    const F = new Float64Array(nDofs)
+    for (const nl of loads) {
+      for (const t of map[nl.node][nl.dof]) F[t.g] += t.f * nl.value
+    }
+    const U = K.solve(F)
+    return model.nodes.map((node) => {
+      const u = [0, 0, 0, 0, 0, 0]
+      for (let d = 0; d < 6; d++) {
+        let sum = 0
+        for (const t of map[node.id][d]) sum += t.f * U[t.g]
+        u[d] = sum
+      }
+      return u
+    })
+  }
+}
+
+export function solvePass(
+  project: Project,
+  model: AnalysisModel,
+  internal: InternalModel,
+  system: NumberedSystem,
+  pass: PassStiffness,
+  cases: CaseId[],
+): Partial<Record<CaseId, CaseResult>> {
+  const { map, nDofs } = system
+  const cp = concreteProps(
+    project.settings.concrete.fck,
+    project.settings.concrete.aggregate,
+    project.settings.concrete.gammaC,
+  )
+
+  const { K, memberData } = assembleElasticSystem(project, model, system, pass)
 
   const results: Partial<Record<CaseId, CaseResult>> = {}
   for (const caseId of cases) {

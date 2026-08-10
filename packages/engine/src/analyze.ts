@@ -19,6 +19,7 @@ import { runColumnDesign } from './design/columnRun'
 import { runSlabDesign } from './design/slabRun'
 import { runFoundationDesign } from './design/foundationRun'
 import { runMasonry } from './design/masonryRun'
+import { runPDelta, type PDeltaDirResult } from './analysis/pdelta'
 import { runBeamService } from './design/serviceRun'
 import { runDetailing } from './design/detailing'
 import { runStairDesign } from './design/stairRun'
@@ -111,7 +112,9 @@ export function analyze(project: Project): AnalysisResults {
   // (antes da envoltória: a majoração 0,95·γz de 2ª ordem altera os fatores
   //  de vento das combinações ELU — NBR 6118 §15.7.2)
   const stability = computeStability(project, model, combos, cases)
-  stability.secondOrder = applySecondOrderAmplification(project, model, combos, stability)
+  // P-Δ iterativo (forças fictícias) por direção — roda ANTES da majoração
+  const pdelta = runPDelta(project, model, system, eluPass, casesElu, combos)
+  stability.secondOrder = applySecondOrderAmplification(project, model, combos, stability, pdelta)
 
   // ---------------------------------------------------------- envoltória ELU
   const eluCombos = combos.filter((c) => c.type === 'ELU')
@@ -701,6 +704,7 @@ function applySecondOrderAmplification(
   model: AnalysisResults['model'],
   combos: LoadCombo[],
   stability: AnalysisResults['stability'],
+  pdelta: PDeltaDirResult[] = [],
 ): AnalysisResults['stability']['secondOrder'] {
   const notes: string[] = []
   const factors: AnalysisResults['stability']['secondOrder']['factors'] = []
@@ -716,9 +720,17 @@ function applySecondOrderAmplification(
   }
   let applied = false
   for (const gz of stability.gammaZ) {
+    const pd = pdelta.find((x) => x.dir === gz.dir)
     let factor = 1
     if (gz.classification === 'nos-moveis') {
       factor = Math.max(1, 0.95 * gz.value)
+      // P-Δ iterativo convergido: adota o MAIOR (real ≥ aproximado ⇒ seguro)
+      if (pd?.converged && pd.factor > factor) {
+        factor = pd.factor
+        notes.push(
+          `${gz.dir}: P-Δ iterativo (${pd.iterations} it.) deu ${pd.factor.toFixed(3)} > 0,95·γz = ${(0.95 * gz.value).toFixed(3)} — adotado o P-Δ.`,
+        )
+      }
       if (!project.settings.secondOrderGammaZ) {
         factor = 1
         notes.push(
@@ -726,15 +738,31 @@ function applySecondOrderAmplification(
         )
       }
     } else if (gz.classification === 'invalido') {
+      if (pd?.converged) {
+        // além do campo do γz, mas o P-Δ CONVERGIU: análise rigorosa assume
+        factor = pd.factor
+        notes.push(
+          `γz ${gz.dir} > 1,30 (fora do campo do método aproximado) — P-Δ ITERATIVO convergiu em ${pd.iterations} iterações: fator ${pd.factor.toFixed(3)} ADOTADO (§15.7.3, análise de 2ª ordem).`,
+        )
+      } else {
+        notes.push(
+          `γz ${gz.dir} > 1,30 e o P-Δ ${pd ? 'NÃO convergiu (estrutura possivelmente instável)' : 'não pôde ser avaliado'} — enrijecer a estrutura.`,
+        )
+        model.warnings.push(
+          `Estabilidade: γz na direção ${gz.dir} excede 1,30 ${pd ? 'e o P-Δ divergiu' : ''} — resultados ELU sem 2ª ordem global confiável.`,
+        )
+      }
+    } else if (pd?.converged && pd.factor > 1.05) {
       notes.push(
-        `γz ${gz.dir} > 1,30 — fora do campo de validade da majoração 0,95·γz; ` +
-          'necessária análise de 2ª ordem rigorosa (P-Δ) ou enrijecimento da estrutura.',
-      )
-      model.warnings.push(
-        `Estabilidade: γz na direção ${gz.dir} excede 1,30 — resultados ELU sem 2ª ordem global.`,
+        `${gz.dir}: nós fixos pelo γz, mas P-Δ mediu ${pd.factor.toFixed(3)} — monitorar (diferença entre métodos).`,
       )
     }
-    factors.push({ dir: gz.dir, gammaZ: gz.value, factor })
+    factors.push({
+      dir: gz.dir,
+      gammaZ: gz.value,
+      factor,
+      pdelta: pd ? { factor: pd.factor, iterations: pd.iterations, converged: pd.converged } : undefined,
+    })
     if (factor > 1) {
       applied = true
       const caseId = caseOfDir[gz.dir]
