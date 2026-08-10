@@ -4,373 +4,125 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>HyperFrame — Cálculo estrutural para macOS e Windows (ABNT)</title>
-<meta name="description" content="Análise e dimensionamento estrutural de edifícios de concreto armado — NBR 6118, 6120, 6123 e 8681. Pórtico espacial, γz, pilares, lajes, fundações e pranchas em DXF. No seu Mac e no seu Windows." />
-<meta name="theme-color" content="#f6f4ee" />
-
-<!-- Open Graph / Twitter -->
-<!-- Após publicar, troque og:image e og:url por URLs absolutas (ex.: https://hyperframe.eng.br/assets/screenshot-modeling.png) -->
+<meta name="description" content="Análise e dimensionamento estrutural de edifícios — concreto armado NBR 6118 e alvenaria estrutural NBR 16868. P-Δ, fundações, pranchas executivas e memorial. 100% gratuito e open source, no seu Mac e no seu Windows." />
+<meta name="theme-color" content="#131419" />
 <meta property="og:type" content="website" />
 <meta property="og:locale" content="pt_BR" />
 <meta property="og:site_name" content="HyperFrame" />
 <meta property="og:title" content="HyperFrame — Cálculo estrutural profissional. No seu Mac. No seu Windows." />
-<meta property="og:description" content="Pórtico espacial com diafragma rígido, vento NBR 6123, estabilidade global, dimensionamento completo e pranchas em DXF — 100% gratuito e open source." />
-<meta property="og:image" content="assets/screenshot-modeling.png" />
+<meta property="og:description" content="Concreto armado e alvenaria estrutural completos, P-Δ iterativo, fundações e pranchas executivas — 100% gratuito e open source." />
+<meta property="og:image" content="/assets/og-edicao.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="HyperFrame — Cálculo estrutural NBR para macOS e Windows" />
-<meta name="twitter:description" content="O primeiro software estrutural brasileiro multiplataforma — 100% gratuito e open source. Baixe para macOS." />
-
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23f6f2e8'/%3E%3Cpath d='M12 9.4V3.4M12 14.6v6M14.6 12h6M9.4 12h-6M13.8 10.2l4.3-4.3M10.2 13.8l-4.3 4.3M13.8 13.8l3.8 3.8M10.3 10.3L8.6 8.6' stroke='%23231f15' stroke-width='1.6' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='12' r='3.4' fill='%23f79c28'/%3E%3Ccircle cx='6.4' cy='6.4' r='2' fill='none' stroke='%23231f15' stroke-width='1.3'/%3E%3C/svg%3E" />
-
+<meta name="twitter:description" content="O software estrutural brasileiro multiplataforma — 100% gratuito e open source." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23131419'/%3E%3Cpath d='M12 9.4V3.4M12 14.6v6M14.6 12h6M9.4 12h-6M13.8 10.2l4.3-4.3M10.2 13.8l-4.3 4.3M13.8 13.8l3.8 3.8M10.3 10.3L8.6 8.6' stroke='%23f2efe7' stroke-width='1.6' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='12' r='3.4' fill='%23ffa028'/%3E%3Ccircle cx='6.4' cy='6.4' r='2' fill='none' stroke='%23f2efe7' stroke-width='1.3'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
-/* ==========================================================================
-   HyperFrame — landing editorial
-   Referências: enter (papel + serifa + hairlines), telepatia/pax (mídia em
-   moldura, manchete serifada) e referências do setor (grade blueprint, normas).
-   Tipos: serifa de display (títulos) + sans de sistema (UI) + mono (números)
-   ========================================================================== */
 :root{
-  --paper:#f6f4ee;
-  --paper-2:#eeeade;
-  --card:#fbfaf6;
-  --ink:#1a1912;
-  --ink-soft:#514d41;
-  --ink-faint:#8a8574;
-  --hairline:#e0dbcc;
-  --hairline-strong:#cfc9b6;
-  --accent:#ffa028;
-  --accent-deep:#a86400;
-  --frame:#131419;
-  --frame-border:#2a2e3a;
-  --frame-grid:#1e222c;
-  --ok:#1d7a4c;
-  --err:#b23a31;
-  --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,'Times New Roman',serif;
-  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,Roboto,'Helvetica Neue',Arial,sans-serif;
-  --mono:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --w:1200px;
+  --bg:#131419;--bg-2:#1b1d24;--card:#20232c;--line:#2c303b;
+  --ink:#f2efe7;--soft:#b6b2a4;--faint:#7d7a6e;
+  --accent:#ffa028;--accent-2:#ffb14e;--ok:#5fbf8a;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{
-  margin:0;background:var(--paper);color:var(--ink);
-  font-family:var(--sans);font-size:16px;line-height:1.6;
-  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
-}
-img{max-width:100%;height:auto;display:block}
-a{color:var(--accent-deep);text-decoration:none}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;font-size:16px;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline;text-underline-offset:3px}
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
 ::selection{background:#ffd9a0;color:#241a06}
-:focus-visible{outline:2px solid var(--accent-deep);outline-offset:3px;border-radius:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
 
-.wrap{max-width:var(--w);margin:0 auto;padding:0 24px}
-.eyebrow{
-  font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
-  color:var(--ink-faint);display:flex;align-items:center;gap:10px;margin:0 0 18px;
-}
-.eyebrow::before{content:"";width:26px;height:1px;background:var(--hairline-strong)}
-h1,h2{font-family:var(--serif);font-weight:400;letter-spacing:-.015em}
-h2{font-size:clamp(30px,4.2vw,46px);line-height:1.12;margin:0 0 14px}
-.sub{color:var(--ink-soft);font-size:17px;max-width:56ch;margin:0}
-.section{padding:118px 0}
-.hairline-t{border-top:1px solid var(--hairline)}
+#progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);width:0;z-index:99}
 
-/* ---------- barra de anúncio ---------- */
-.topbar{
-  background:var(--frame);color:#cfd3dd;font-size:12.5px;
-  text-align:center;padding:9px 16px;
-}
-.topbar a{color:var(--accent);font-weight:600}
+.topbar{background:var(--accent);color:#241a06;font-size:13px;font-weight:600;text-align:center;padding:9px 16px}
+.topbar a{color:#241a06;text-decoration:underline;text-underline-offset:2px}
 
-/* ---------- navegação ---------- */
-.nav{
-  position:sticky;top:0;z-index:60;
-  background:color-mix(in srgb,var(--paper) 86%,transparent);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--hairline);
-}
-@supports not (background:color-mix(in srgb,red 50%,blue)){
-  .nav{background:rgba(246,244,238,.94)}
-}
-.nav-in{
-  max-width:var(--w);margin:0 auto;padding:0 24px;height:64px;
-  display:flex;align-items:center;gap:28px;
-}
-.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px;color:var(--ink);letter-spacing:-.01em}
-.brand svg{color:var(--accent);flex:none}
-.brand b{color:var(--accent-deep);font-weight:700}
-.brand:hover{text-decoration:none}
-.nav-links{display:flex;gap:26px;margin-left:auto;align-items:center}
-.nav-links a{
-  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--ink-soft);font-weight:600;
-}
-.nav-links a:hover{color:var(--ink);text-decoration:none}
-.btn{
-  display:inline-flex;align-items:center;gap:9px;
-  background:var(--accent);color:#241a06;border:1px solid #e08b12;
-  font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:999px;
-  cursor:pointer;white-space:nowrap;font-family:var(--sans);
-}
-.btn:hover{background:#ffb14e;text-decoration:none}
-.btn .arr{transition:transform .15s ease}
-.btn:hover .arr{transform:translateX(3px)}
-.btn-ghost{background:transparent;border:1px solid var(--hairline-strong);color:var(--ink)}
-.btn-ghost:hover{background:var(--paper-2)}
-.nav-burger{display:none;margin-left:auto;background:none;border:1px solid var(--hairline-strong);border-radius:8px;padding:7px 10px;cursor:pointer;color:var(--ink);font-size:15px}
-.nav-menu-mobile{display:none}
+.nav{position:sticky;top:0;z-index:60;background:rgba(19,20,25,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav-in{max-width:1140px;margin:0 auto;padding:0 24px;height:58px;display:flex;align-items:center;gap:18px;overflow-x:auto;scrollbar-width:none}
+.nav-in::-webkit-scrollbar{display:none}
+.nav b a{color:var(--ink);font-size:15px;white-space:nowrap}
+.nav b a em{color:var(--accent);font-style:normal}
+.nav a{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--soft);white-space:nowrap}
+.nav a:hover{color:var(--ink);text-decoration:none}
+.nav .cta-mini{margin-left:auto;background:var(--accent);color:#241a06;font-family:var(--sans);font-weight:700;font-size:12.5px;letter-spacing:0;text-transform:none;padding:8px 16px;border-radius:10px}
+.nav .cta-mini:hover{text-decoration:none;background:var(--accent-2)}
 
-/* ---------- hero ---------- */
-.hero{padding:104px 0 48px}
-.hero-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:48px;align-items:end}
-.hero h1{font-size:clamp(42px,6.4vw,80px);line-height:1.04;margin:0}
-.hero h1 em{font-style:italic}
-.hero-right p{color:var(--ink-soft);font-size:16.5px;margin:0 0 26px}
-.hero-ctas{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
-.link-quiet{font-size:13.5px;font-weight:600;color:var(--ink-soft)}
+.hero{padding:104px 0 56px}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent);margin-bottom:22px}
+h1{font-weight:800;letter-spacing:-.04em;line-height:.98;font-size:clamp(48px,9vw,116px);margin:0}
+h1 em{font-style:normal;color:var(--accent)}
+.hero p.lead{color:var(--soft);font-size:19px;max-width:56ch;margin:28px 0 0}
+.hero-ctas{margin-top:36px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-block;background:var(--accent);color:#241a06;font-weight:700;font-size:15px;padding:14px 26px;border-radius:12px;transition:transform .2s,box-shadow .2s;border:0;cursor:pointer}
+.btn:hover{transform:translateY(-2px);box-shadow:0 14px 34px -12px rgba(255,160,40,.55);text-decoration:none}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin-top:44px}
+.stat{border:1px solid var(--line);background:var(--bg-2);border-radius:14px;padding:14px 20px;min-width:140px}
+.stat b{display:block;font-size:30px;font-weight:800;letter-spacing:-.03em}
+.stat span{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
 
-/* ---------- moldura de mídia (estilo produto, grade blueprint) ---------- */
-.stage{padding:40px 0 0}
-.media-frame{
-  position:relative;background:var(--frame);
-  border:1px solid var(--frame-border);border-radius:22px;
-  padding:clamp(12px,2.4vw,28px);
-  background-image:
-    linear-gradient(var(--frame-grid) 1px,transparent 1px),
-    linear-gradient(90deg,var(--frame-grid) 1px,transparent 1px);
-  background-size:34px 34px;
-  box-shadow:0 30px 80px -30px rgba(26,25,18,.45);
-  overflow:hidden;
-}
-.media-frame img{border-radius:10px;border:1px solid var(--frame-border);width:100%}
-.frame-tag{
-  position:absolute;top:14px;right:16px;z-index:2;
-  font-family:var(--mono);font-size:11px;letter-spacing:.12em;
-  color:var(--accent);background:rgba(19,20,25,.78);border:1px solid var(--frame-border);
-  padding:4px 10px;border-radius:999px;
-}
-.stat-strip{
-  display:grid;grid-template-columns:repeat(4,1fr);
-  border:1px solid var(--hairline);border-radius:14px;background:var(--card);
-  margin:-34px auto 0;position:relative;z-index:2;max-width:920px;
-  overflow:hidden;box-shadow:0 16px 40px -24px rgba(26,25,18,.35);
-}
-.stat{padding:16px 18px;border-left:1px solid var(--hairline);text-align:center}
-.stat:first-child{border-left:none}
-.stat b{display:block;font-family:var(--sans);font-size:15px;font-weight:650;color:var(--ink);letter-spacing:-.01em}
-.stat span{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+.shot{border:1px solid var(--line);border-radius:16px;overflow:hidden;margin:44px 0 0;box-shadow:0 40px 90px -40px rgba(0,0,0,.7);position:relative}
+.shot img{width:100%;display:block}
+.frame-tag{position:absolute;top:14px;right:16px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--accent);background:rgba(19,20,25,.82);border:1px solid var(--line);padding:4px 10px;border-radius:999px}
 
-/* ---------- normas ---------- */
-.norms{padding:84px 0 0}
-.norms-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);
-  border:1px solid var(--hairline);border-radius:14px;overflow:hidden;background:var(--card);
-}
-.norm{padding:30px 18px;text-align:center;border-left:1px solid var(--hairline)}
-.norm:first-child{border-left:none}
-.norm .n{font-family:var(--serif);font-size:clamp(26px,3.4vw,38px);letter-spacing:-.02em}
-.norm .n small{font-size:.42em;color:var(--ink-faint);letter-spacing:.12em;vertical-align:.62em;margin-right:2px}
-.norm p{margin:6px 0 0;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
-.norms-note{text-align:center;color:var(--ink-faint);font-size:12.5px;margin:14px 0 0}
+.marquee{border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;padding:15px 0;margin:70px 0 0}
+.marquee-in{display:flex;gap:56px;white-space:nowrap;animation:mq 28s linear infinite;font-family:var(--mono);font-size:13px;letter-spacing:.22em;color:var(--faint)}
+.marquee-in span b{color:var(--accent);font-weight:600}
+@keyframes mq{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.marquee-in{animation:none}}
 
-/* ---------- recursos numerados ---------- */
-.feature{
-  display:grid;grid-template-columns:110px 1fr 1.35fr;gap:28px;
-  padding:30px 0;border-top:1px solid var(--hairline);align-items:baseline;
-}
-.feature:last-of-type{border-bottom:1px solid var(--hairline)}
-.feature .num{font-family:var(--mono);font-size:13px;color:var(--ink-faint)}
-.feature h3{
-  font-family:var(--serif);font-weight:400;font-size:24px;line-height:1.2;
-  margin:0;letter-spacing:-.01em;
-}
-.feature p{margin:0;color:var(--ink-soft);font-size:15px}
-.chip{
-  display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
-  border:1px solid var(--hairline-strong);border-radius:999px;padding:2px 9px;
-  color:var(--accent-deep);vertical-align:3px;margin-left:8px;
-}
+.chapter{padding:104px 0 64px;border-top:1px solid var(--line)}
+.chapter:first-of-type{border-top:0}
+.ch-head{display:grid;grid-template-columns:110px 1fr;gap:26px;align-items:start;margin-bottom:40px}
+.ch-num{font-family:var(--mono);font-weight:600;font-size:14px;letter-spacing:.2em;color:var(--accent);border:1px solid var(--line);border-radius:999px;padding:8px 0;text-align:center;position:sticky;top:78px}
+.chapter h2{font-weight:750;letter-spacing:-.035em;line-height:1.04;font-size:clamp(32px,5vw,56px);margin:0}
+.chapter .lead{color:var(--soft);font-size:17px;max-width:60ch;margin:14px 0 0}
+.feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:32px}
+.feat{background:var(--bg-2);border:1px solid var(--line);border-radius:14px;padding:20px;transition:transform .3s cubic-bezier(.22,.61,.36,1),border-color .3s}
+.feat:hover{transform:translateY(-4px);border-color:var(--accent)}
+.feat h3{margin:0 0 6px;font-size:15.5px;font-weight:650;letter-spacing:-.01em}
+.feat p{margin:0;color:var(--soft);font-size:13.5px;line-height:1.55}
+.feat .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:8px}
 
-/* ---------- vitrines ---------- */
-.case{
-  display:grid;grid-template-columns:1.25fr 1fr;gap:clamp(28px,5vw,72px);
-  align-items:center;padding:54px 0;
-}
-.case.flip .case-media{order:2}
-.case h3{font-family:var(--serif);font-weight:400;font-size:clamp(26px,3vw,36px);line-height:1.15;margin:0 0 12px;letter-spacing:-.015em}
-.case > div > p{color:var(--ink-soft);font-size:15.5px;margin:0}
-.case ul{margin:18px 0 0;padding:0;list-style:none;color:var(--ink-soft);font-size:14px}
-.case li{padding:8px 0;border-top:1px solid var(--hairline);display:flex;gap:10px}
-.case li::before{content:"—";color:var(--accent-deep);flex:none}
+/* downloads */
+.dl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:34px}
+.dl{background:var(--bg-2);border:1px solid var(--line);border-radius:16px;padding:26px}
+.dl .os{font-weight:750;font-size:19px;letter-spacing:-.02em}
+.dl .ver{font-family:var(--mono);font-size:11px;color:var(--faint);margin:2px 0 16px}
+.dl .sha{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:12px;word-break:break-all}
+.dl-extra{color:var(--faint);font-size:13px;margin-top:18px}
+.gatekeeper{background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:12px;padding:16px 20px;margin-top:22px;font-size:13.5px;color:var(--soft)}
 
-/* ---------- citação ---------- */
-.pull{background:var(--paper-2);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
-.pull-in{max-width:900px;margin:0 auto;padding:84px 24px;text-align:center}
-.pull blockquote{
-  font-family:var(--serif);font-style:italic;font-size:clamp(24px,3.4vw,38px);
-  line-height:1.3;margin:0;letter-spacing:-.01em;
-}
-.pull figcaption{margin-top:18px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
+/* comparativo */
+.cmp{width:100%;border-collapse:collapse;margin-top:32px;font-size:14px}
+.cmp th,.cmp td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line)}
+.cmp th{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.cmp td:first-child{color:var(--soft)}
+.cmp .yes{color:var(--ok);font-weight:600}
+.cmp .hf{color:var(--accent);font-weight:700}
 
-/* ---------- comparativo ---------- */
-.tbl-wrap{overflow-x:auto;border:1px solid var(--hairline);border-radius:14px;background:var(--card)}
-table{border-collapse:collapse;width:100%;min-width:680px;font-size:14px}
-th,td{padding:14px 18px;text-align:left;border-top:1px solid var(--hairline);vertical-align:top}
-thead th{
-  border-top:none;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--ink-faint);font-weight:600;padding-top:18px;
-}
-td:first-child,th:first-child{padding-left:22px;color:var(--ink-soft)}
-.col-hf{background:#fdf7ea;border-left:1px solid var(--hairline);border-right:1px solid var(--hairline);color:var(--ink)}
-thead .col-hf{color:var(--accent-deep)}
-.yes{color:var(--ok);font-weight:700}
-.no{color:var(--err);font-weight:700}
-.tbl-note{color:var(--ink-faint);font-size:12.5px;margin:12px 2px 0}
-td b{font-family:var(--mono);font-weight:600}
+/* FAQ */
+details{border-bottom:1px solid var(--line);padding:4px 0}
+summary{cursor:pointer;font-weight:600;font-size:15.5px;padding:14px 0;list-style:none;display:flex;justify-content:space-between;align-items:center}
+summary::after{content:"+";font-family:var(--mono);color:var(--accent);font-size:18px;transition:transform .25s}
+details[open] summary::after{transform:rotate(45deg)}
+details p{color:var(--soft);font-size:14.5px;margin:0 0 16px;max-width:70ch}
 
-/* ---------- preços ---------- */
-.plans{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:44px}
-.plan{
-  border:1px solid var(--hairline);border-radius:16px;background:var(--card);
-  padding:26px 22px;display:flex;flex-direction:column;position:relative;
-}
-.plan h3{margin:0;font-size:15px;font-weight:700;letter-spacing:.02em}
-.plan .aud{font-size:12px;color:var(--ink-faint);margin:2px 0 16px}
-.plan .price{font-family:var(--serif);font-size:36px;letter-spacing:-.02em;line-height:1;white-space:nowrap}
-.plan .price small{font-family:var(--sans);font-size:13px;color:var(--ink-faint);letter-spacing:0}
-.plan .per{font-size:12px;color:var(--ink-faint);margin:6px 0 16px}
-.plan ul{list-style:none;margin:0 0 22px;padding:0;font-size:13.5px;color:var(--ink-soft)}
-.plan li{padding:6px 0;border-top:1px solid var(--hairline);display:flex;gap:9px}
-.plan li::before{content:"✓";color:var(--ok);font-weight:700;flex:none}
-.plan .btn,.plan .btn-ghost{margin-top:auto;justify-content:center}
-.plan-featured{
-  background:var(--frame);border-color:#3a4152;color:#e8eaf0;
-  box-shadow:0 26px 60px -28px rgba(26,25,18,.55);
-}
-.plan-featured .aud,.plan-featured .per{color:#9aa1b2}
-.plan-featured ul{color:#c6cad4}
-.plan-featured li{border-top-color:#2a2e3a}
-.plan-featured li::before{color:var(--accent)}
-.badge-pop{
-  position:absolute;top:-11px;left:50%;transform:translateX(-50%);
-  background:var(--accent);color:#241a06;font-size:10.5px;font-weight:800;
-  letter-spacing:.1em;text-transform:uppercase;border-radius:999px;padding:4px 12px;
-}
-.disc{font-size:10.5px;font-family:var(--mono);letter-spacing:.04em;color:var(--ok);border:1px solid #cbdfd0;background:#edf5ee;border-radius:999px;padding:3px 9px;display:inline-block;margin-bottom:14px}
-.plans-note{color:var(--ink-soft);font-size:13.5px;text-align:center;margin:28px auto 0;max-width:72ch}
+.cta{padding:120px 0;text-align:center;border-top:1px solid var(--line)}
+.cta h2{font-weight:800;letter-spacing:-.04em;font-size:clamp(36px,6vw,72px);margin:0 0 16px}
+.cta .fine{color:var(--faint);font-size:13px;margin-top:22px;font-family:var(--mono)}
+footer{border-top:1px solid var(--line);padding:34px 0;color:var(--faint);font-size:13px;text-align:center}
+footer a{color:var(--soft)}
 
-/* ---------- FAQ ---------- */
-.faq{max-width:820px;margin:44px auto 0}
-details{border-top:1px solid var(--hairline)}
-details:last-child{border-bottom:1px solid var(--hairline)}
-summary{
-  cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:18px;
-  padding:20px 4px;font-family:var(--serif);font-size:19px;letter-spacing:-.01em;
-}
-summary::-webkit-details-marker{display:none}
-summary::after{content:"+";font-family:var(--mono);color:var(--ink-faint);font-size:18px;flex:none}
-details[open] summary::after{content:"–"}
-details p{margin:0 0 22px;padding:0 4px;color:var(--ink-soft);font-size:15px;max-width:66ch}
-
-/* ---------- CTA final ---------- */
-.cta{
-  background:var(--frame);color:#e8eaf0;
-  background-image:
-    linear-gradient(var(--frame-grid) 1px,transparent 1px),
-    linear-gradient(90deg,var(--frame-grid) 1px,transparent 1px);
-  background-size:34px 34px;
-  border-top:1px solid var(--hairline);
-}
-.cta-in{max-width:760px;margin:0 auto;padding:96px 24px;text-align:center}
-.cta h2{color:#f2f3f7}
-.cta .sub{color:#9aa1b2;margin:0 auto 34px}
-.cta form{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.cta input[type=email]{
-  background:#0e0f13;border:1px solid #3a4152;border-radius:999px;color:#e8eaf0;
-  font-size:14px;padding:12px 20px;min-width:300px;font-family:var(--sans);
-}
-.cta input[type=email]::placeholder{color:#6b7284}
-.cta .micro{font-size:12px;color:#6b7284;margin-top:16px}
-.cta .micro a{color:#9aa1b2}
-
-/* ---------- rodapé ---------- */
-footer{padding:56px 0 64px;font-size:13px;color:var(--ink-soft)}
-.foot-grid{display:flex;gap:40px;justify-content:space-between;flex-wrap:wrap;margin-bottom:34px}
-.foot-links{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
-.foot-links a{color:var(--ink-soft)}
-.legal{color:var(--ink-faint);font-size:12px;max-width:88ch;line-height:1.7}
-
-/* ---------- responsivo ---------- */
-@media (max-width:980px){
-  .hero-grid{grid-template-columns:1fr;gap:30px}
-  .feature{grid-template-columns:64px 1fr;gap:14px 16px}
-  .feature p{grid-column:2}
-  .case,.case.flip{grid-template-columns:1fr}
-  .case.flip .case-media{order:0}
-  .plans{grid-template-columns:1fr 1fr}
-  .stat-strip{grid-template-columns:1fr 1fr;margin-top:-20px}
-  .stat:nth-child(odd){border-left:none}
-  .stat:nth-child(n+3){border-top:1px solid var(--hairline)}
-}
-@media (max-width:640px){
-  .section{padding:64px 0}
-  .nav-links{display:none}
-  .nav-burger{display:block}
-  .nav-menu-mobile.open{
-    display:flex;flex-direction:column;gap:2px;
-    border-bottom:1px solid var(--hairline);background:var(--paper);padding:10px 24px 18px;
-  }
-  .nav-menu-mobile a{padding:10px 0;font-size:14px;font-weight:600;color:var(--ink)}
-  .plans{grid-template-columns:1fr}
-  .norms-grid{grid-template-columns:1fr 1fr}
-  .norm:nth-child(odd){border-left:none}
-  .norm:nth-child(n+3){border-top:1px solid var(--hairline)}
-  .hero{padding:56px 0 24px}
-  .cta input[type=email]{min-width:0;width:100%}
-  .cta form{flex-direction:column;align-items:stretch}
-  .cta .btn{justify-content:center}
-}
-@media (prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  .btn .arr{transition:none}
-}
-
-/* ---------- fluxo Sable: reveals suaves, ritmo e micro-interações ---------- */
-.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1);transition-delay:var(--d,0s)}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1);transition-delay:var(--d,0s)}
 .reveal.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
-.hero h1,.hero-right p,.hero-ctas{opacity:0;transform:translateY(18px);animation:heroIn .8s cubic-bezier(.22,.61,.36,1) forwards}
-.hero-right p{animation-delay:.15s}
-.hero-ctas{animation-delay:.3s}
-@keyframes heroIn{to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.hero h1,.hero-right p,.hero-ctas{animation:none;opacity:1;transform:none}}
-.plus-div{display:flex;align-items:center;justify-content:center;gap:14px;color:var(--hairline-strong);height:0;position:relative;z-index:1}
-.plus-div::before,.plus-div::after{content:"";flex:1;max-width:180px;height:1px;background:var(--hairline)}
-.plus-div span{font-family:var(--mono);font-size:15px;color:var(--ink-faint);line-height:1}
-.feature{transition:background .25s}
-.feature:hover{background:color-mix(in srgb,var(--card) 60%,transparent)}
-.feature:hover .num{color:var(--accent-deep)}
-.media-frame{transition:transform .8s cubic-bezier(.22,.61,.36,1)}
-.section{scroll-margin-top:80px}
-
-/* ---------- design system (ref. Sable): tipografia sans tight + numeração ---------- */
-h1,h2{font-family:var(--sans);font-weight:650;letter-spacing:-.032em}
-.hero h1{line-height:1.05;font-weight:600;letter-spacing:-.026em}
-h2{line-height:1.08}
-.sub{font-size:16.5px;line-height:1.65}
-.btn{border-radius:12px;transition:transform .2s cubic-bezier(.22,.61,.36,1),background .2s,box-shadow .2s}
-.btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px -10px rgba(224,139,18,.5)}
-.btn:active{transform:translateY(0) scale(.985)}
-.btn-ghost:hover{box-shadow:0 8px 20px -14px rgba(26,25,18,.35)}
-.media-frame.reveal{transform:translateY(26px) scale(.975)}
-.nav{transition:box-shadow .3s}
-.nav.scrolled{box-shadow:0 8px 30px -18px rgba(26,25,18,.25)}
-.eyebrow{font-weight:500}
+@media (max-width:640px){.ch-head{grid-template-columns:1fr}.ch-num{position:static;width:90px}}
 </style>
-<!-- Vercel Web Analytics (site estático: script tag, sem npm) -->
-<!-- eventos de download (Vercel Analytics: evento "download" c/ arquivo) -->
 <script>
 window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
 document.addEventListener('click', function (e) {
@@ -383,464 +135,214 @@ document.addEventListener('click', function (e) {
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
+<div id="progress"></div>
+<div class="topbar">✦ Saiu a <a href="edicao/">Edição 2026</a> — 40 versões, 120+ recursos, alvenaria estrutural completa. <a href="edicao/">Ver tudo →</a></div>
+<nav class="nav"><div class="nav-in">
+  <b><a href="#">Hyper<em>Frame</em></a></b>
+  <a href="#modele">01 Modele</a><a href="#analise">02 Analise</a><a href="#dimensione">03 Dimensione</a>
+  <a href="#alvenaria">04 Alvenaria</a><a href="#detalhe">05 Detalhe</a><a href="#aberto">06 Aberto</a>
+  <a href="edicao/">Edição 2026</a><a href="modulos/">Módulos</a><a href="en/">EN</a>
+  <a class="cta-mini" href="#downloads">Baixar grátis</a>
+</div></nav>
 
-<!-- anúncio -->
-<div class="topbar">
-  ✦ Saiu a <a href="edicao/">Edição 2026</a> — 40 versões, 120+ recursos, alvenaria estrutural completa.
-  <a href="edicao/">Ver tudo&nbsp;→</a>
-</div>
-
-<!-- navegação -->
-<nav class="nav" aria-label="Principal">
-  <div class="nav-in">
-    <a class="brand" href="#" aria-label="HyperFrame — início">
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 9.4V2.6M12 14.6v6.9M14.6 12h6.8M9.4 12H2.6M13.8 10.2l4.9-4.9M10.2 13.8l-4.9 4.9M13.8 13.8l4.3 4.3M10.3 10.3L8.4 8.4" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="12" r="3.3" fill="#f79c28" stroke="none"/><circle cx="6" cy="6" r="2.3" stroke-width="1.2"/></svg>
-      <span>Hyper<b>Frame</b></span>
-    </a>
-    <div class="nav-links">
-      <a href="edicao/">Edição 2026</a>
-      <a href="modulos/">Módulos</a>
-      <a href="#recursos">Recursos</a>
-      <a href="#comparativo">Comparativo</a>
-      <a href="#downloads">Downloads</a>
-      <a href="#faq">FAQ</a>
-      <a href="en/" hreflang="en" aria-label="English version" style="font-family:var(--mono);font-size:11px;letter-spacing:.12em">EN</a>
-      <a class="btn" href="#lista" style="margin-left:6px">Entrar na lista <span class="arr">→</span></a>
-    </div>
-    <button class="nav-burger" aria-label="Abrir menu" aria-expanded="false" onclick="toggleMenu(this)">☰</button>
+<header class="hero wrap">
+  <div class="kicker reveal">CÁLCULO ESTRUTURAL · NORMAS ABNT · OPEN SOURCE</div>
+  <h1 class="reveal" style="--d:.08s">Cálculo estrutural<br/>profissional.<br/><em>No seu Mac.</em><br/><em>No seu Windows.</em></h1>
+  <p class="lead reveal" style="--d:.16s">Concreto armado e alvenaria estrutural completos — do pórtico espacial com P-Δ
+  à prancha executiva impressa na escala. 100% gratuito, 100% open source, num app de 3 MB.</p>
+  <div class="hero-ctas reveal" style="--d:.24s">
+    <a class="btn" href="#downloads">Baixar grátis →</a>
+    <a class="btn btn-ghost" href="edicao/">Ver a Edição 2026</a>
   </div>
-  <div class="nav-menu-mobile" id="mmenu">
-    <a href="#recursos">Recursos</a>
-    <a href="#comparativo">Comparativo</a>
-    <a href="#downloads">Downloads</a>
-    <a href="#faq">FAQ</a>
-    <a href="en/">English version</a>
-    <a href="#lista"><b>Entrar na lista →</b></a>
+  <div class="stats">
+    <div class="stat reveal" style="--d:.28s"><b data-count="426">0</b><span>testes ancorados</span></div>
+    <div class="stat reveal" style="--d:.34s"><b data-count="8">0</b><span>normas ABNT</span></div>
+    <div class="stat reveal" style="--d:.4s"><b data-count="120">0</b><span>+ recursos</span></div>
+    <div class="stat reveal" style="--d:.46s"><b>R$ 0</b><span>pra sempre</span></div>
   </div>
-</nav>
-
-<main>
-
-<!-- ======================================================= hero -->
-<header class="hero">
-  <div class="wrap">
-    <p class="eyebrow">Análise e dimensionamento estrutural · ABNT</p>
-    <div class="hero-grid">
-      <h1>Cálculo estrutural profissional. <em>No seu Mac. No&nbsp;seu&nbsp;Windows.</em></h1>
-      <div class="hero-right">
-        <p>
-          Pórtico espacial com diafragma rígido, vento da NBR&nbsp;6123, estabilidade
-          global, dimensionamento de pilares, vigas, lajes e fundações — e pranchas
-          em DXF. <b>100% gratuito e open source</b>, sem plano pago e sem recurso trancado.
-        </p>
-        <div class="hero-ctas">
-          <a class="btn" href="#downloads">Baixar grátis <span class="arr">→</span></a>
-          <a class="link-quiet" href="#lista">Entrar na lista&nbsp;↓</a>
-        </div>
-        <p style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-top:14px">
-          100% open source (licença MIT) ·
-          <a href="https://github.com/candidoalfilho/hyperframe" rel="noopener">código no GitHub&nbsp;↗</a>
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <div class="wrap stage">
-    <div class="media-frame">
-      <span class="frame-tag">v0.2.41 · NBR 6118:2023</span>
-      <img src="assets/screenshot-modeling.png" width="1600" height="1000" fetchpriority="high"
-        alt="HyperFrame: planta de forma 2D com eixos e cotas ao lado do modelo 3D de um edifício de 8 pavimentos" />
-    </div>
-    <div class="stat-strip" role="list">
-      <div class="stat" role="listitem"><b>γz nas 4 direções</b><span>estabilidade na hora</span></div>
-      <div class="stat" role="listitem"><b>82 ms</b><span>análise completa</span></div>
-      <div class="stat" role="listitem"><b>120 testes</b><span>suíte de validação</span></div>
-      <div class="stat" role="listitem"><b>macOS · Windows</b><span>e demo no navegador</span></div>
-    </div>
+  <div class="shot reveal" style="--d:.2s">
+    <span class="frame-tag">v0.2.41 · NBR 6118:2023</span>
+    <img src="assets/screenshot-modeling.png" alt="HyperFrame — modelagem 2D e 3D com alvenaria estrutural" />
   </div>
 </header>
 
-<!-- ======================================================= normas -->
-<section class="norms" aria-label="Normas atendidas">
-  <div class="wrap">
-    <div class="norms-grid">
-      <div class="norm"><div class="n"><small>NBR</small>6118</div><p>Concreto armado</p></div>
-      <div class="norm"><div class="n"><small>NBR</small>6120</div><p>Cargas</p></div>
-      <div class="norm"><div class="n"><small>NBR</small>6123</div><p>Vento</p></div>
-      <div class="norm"><div class="n"><small>NBR</small>8681</div><p>Combinações</p></div>
-    </div>
-    <p class="norms-note">+ NBR 6122 no pré-dimensionamento de sapatas · isopletas e coeficiente de arrasto sempre editáveis.</p>
+<div class="marquee"><div class="marquee-in">
+  <span><b>NBR 6118</b> concreto</span><span><b>NBR 16868</b> alvenaria estrutural</span><span><b>NBR 6122</b> fundações</span><span><b>NBR 6123</b> vento</span><span><b>NBR 8681</b> combinações</span><span><b>NBR 6120</b> cargas</span><span><b>NBR 14432</b> incêndio</span><span><b>NBR 15200</b> concreto em incêndio</span>
+  <span><b>NBR 6118</b> concreto</span><span><b>NBR 16868</b> alvenaria estrutural</span><span><b>NBR 6122</b> fundações</span><span><b>NBR 6123</b> vento</span><span><b>NBR 8681</b> combinações</span><span><b>NBR 6120</b> cargas</span><span><b>NBR 14432</b> incêndio</span><span><b>NBR 15200</b> concreto em incêndio</span>
+</div></div>
+
+<section class="chapter wrap" id="modele">
+  <div class="ch-head"><div class="ch-num">CAP. 01</div><div>
+    <h2 class="reveal">Modele como quem desenha forma.</h2>
+    <p class="lead reveal" style="--d:.1s">Eixos com bulbos, pilares, vigas em polilinha, lajes de contorno automático, escadas, reservatórios — e paredes de alvenaria estrutural. Tudo com snap, orto, undo e o 3D acendendo o que você seleciona.</p>
+  </div></div>
+  <div class="feats">
+    <div class="feat reveal"><span class="tag">dxf</span><h3>Arquitetura de fundo</h3><p>Importe o DXF e lance a estrutura por cima. Depois exporte as pranchas de volta em DXF R12.</p></div>
+    <div class="feat reveal" style="--d:.08s"><span class="tag">curvas</span><h3>Balcões em arco</h3><p>Curvar trecho de viga ou borda de laje por flecha — o pipeline inteiro entende, da torção à prancha.</p></div>
+    <div class="feat reveal" style="--d:.16s"><span class="tag">plantas</span><h3>Térreo ≠ tipo ≠ cobertura</h3><p>Múltiplas plantas de forma com pé-direito variável e verificação de consistência antes de calcular.</p></div>
   </div>
 </section>
 
-<!-- ======================================================= recursos -->
-<section class="section" id="recursos">
-  <div class="wrap">
-    <p class="eyebrow">Recursos</p>
-    <h2>Tudo que o edifício de concreto precisa.<br/>Sem módulo surpresa.</h2>
-    <p class="sub" style="margin-bottom:52px">Do lançamento da forma ao DXF da armação — no mesmo aplicativo, no mesmo plano.</p>
-
-    <div class="feature">
-      <span class="num">01</span>
-      <h3>Modelagem 2D e 3D sincronizadas</h3>
-      <p>Planta de forma com snap, orto e cotas automáticas; o 3D acende o que você seleciona.
-         Importe o DXF da arquitetura como fundo e lance os pilares por cima.</p>
-    </div>
-    <div class="feature">
-      <span class="num">02</span>
-      <h3>Pórtico espacial de verdade</h3>
-      <p>Seis graus de liberdade por nó, diafragma rígido mestre-escravo por pavimento e dois
-         passes de rigidez ELU/ELS conforme a NBR&nbsp;6118 §15.7.3. Gerado sozinho, a partir da forma.</p>
-    </div>
-    <div class="feature">
-      <span class="num">03</span>
-      <h3>Vento NBR 6123 automático</h3>
-      <p>S1, S2 e S3 a partir da cidade e da geometria; coeficiente de arrasto estimado da Fig.&nbsp;4
-         — e sempre editável. Quatro direções, sem planilha do lado.</p>
-    </div>
-    <div class="feature">
-      <span class="num">04</span>
-      <h3>Estabilidade global na primeira classe</h3>
-      <p>γz e parâmetro α em cada direção, deslocamentos laterais contra os limites da
-         tabela&nbsp;13.3 — com classificação nós fixos/móveis na hora.</p>
-    </div>
-    <div class="feature">
-      <span class="num">05</span>
-      <h3>Dimensionamento completo<span class="chip">v0.2</span></h3>
-      <p>Vigas à flexão e cisalhamento; pilares a flexo-compressão oblíqua por integração da
-         seção; lajes maciças por Marcus; sapatas com presets de solo. Flechas com fissuração e fluência.</p>
-    </div>
-    <div class="feature">
-      <span class="num">06</span>
-      <h3>Pranchas e tabela de aço</h3>
-      <p>Armação de vigas com posições e estribos, seções de pilares, planta de forma —
-         exportação DXF que abre no seu CAD, e resumo de aço por bitola.</p>
-    </div>
+<section class="chapter wrap" id="analise">
+  <div class="ch-head"><div class="ch-num">CAP. 02</div><div>
+    <h2 class="reveal">Analise com rigor de norma.</h2>
+    <p class="lead reveal" style="--d:.1s">Pórtico espacial com diafragma rígido e solver próprio, dois passes de rigidez, 19 combinações automáticas — e 2ª ordem global de verdade.</p>
+  </div></div>
+  <div class="shot reveal"><img src="assets/screenshot-unifilar.png" alt="Modo unifilar com diagrama de momentos" loading="lazy" /></div>
+  <div class="feats">
+    <div class="feat reveal"><span class="tag">novo</span><h3>P-Δ iterativo real</h3><p>Forças fictícias convergidas por direção — vale além do limite γz = 1,30 e valida o γz de quebra.</p></div>
+    <div class="feat reveal" style="--d:.08s"><span class="tag">lajes</span><h3>Grelha unificada</h3><p>Pavimento inteiro numa malha: continuidade real entre lajes e vigas flexíveis com EI real.</p></div>
+    <div class="feat reveal" style="--d:.16s"><span class="tag">vento</span><h3>NBR 6123 completo</h3><p>S1/S2/S3, desaprumo global e excentricidade de 7,5% torcendo o diafragma.</p></div>
+    <div class="feat reveal" style="--d:.24s"><span class="tag">conforto</span><h3>Vibração de piso §23.3</h3><p>f₁ contra o limite por uso — o piso que passa na flecha mas treme, pego antes da obra.</p></div>
   </div>
 </section>
 
-<!-- ======================================================= vitrines -->
-<section class="section hairline-t" aria-label="O produto em detalhe" style="padding-top:56px">
-  <div class="wrap">
-
-    <div class="case">
-      <div class="case-media media-frame">
-        <img src="assets/screenshot-pilares.png" width="1600" height="1000" loading="lazy"
-          alt="Aba Pilares: tabela de dimensionamento a flexo-compressão oblíqua com utilização e arranjo por pilar" />
-      </div>
-      <div>
-        <p class="eyebrow" style="margin-bottom:12px">Pilares</p>
-        <h3>Dimensionados, não estimados.</h3>
-        <p>Flexo-compressão oblíqua por integração da seção, pilar-padrão com curvatura
-           aproximada e momentos mínimos — arranjo de barras escolhido automaticamente.</p>
-        <ul>
-          <li>Utilização, λ e combinação governante por pilar</li>
-          <li>ρ entre 0,4% e 4%, estribos por regra da norma</li>
-          <li>Curva de interação varrida em todas as direções</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="case flip">
-      <div class="case-media media-frame">
-        <img src="assets/screenshot-prancha.png" width="1600" height="1000" loading="lazy"
-          alt="Prancha de armação da viga V1 com editor de armaduras por vão, barras com ganchos, estribos distribuídos e quadro de ferros por posição" />
-      </div>
-      <div>
-        <p class="eyebrow" style="margin-bottom:12px">Pranchas</p>
-        <h3>A prancha sai daqui.</h3>
-        <p>Elevação da viga com posições, negativos sobre os apoios, estribos por vão e seção
-           com os ferros — detalhamento preliminar honesto, pronto para a sua revisão.</p>
-        <ul>
-          <li>Exportação DXF (abre no AutoCAD e afins)</li>
-          <li>Planta de forma e seções de pilares incluídas</li>
-          <li>Tabela de aço por bitola, com perdas</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="case">
-      <div class="case-media media-frame">
-        <img src="assets/screenshot-results.png" width="1600" height="1000" loading="lazy"
-          alt="Painel de estabilidade global: γz nas quatro direções, parâmetro α e deslocamentos laterais contra os limites" />
-      </div>
-      <div>
-        <p class="eyebrow" style="margin-bottom:12px">Estabilidade</p>
-        <h3>Veja a estrutura trabalhar.</h3>
-        <p>Deformada por combinação, diagramas em fita sobre as barras e o relatório de
-           estabilidade com M1, ΔM e classificação — 13 combinações ELU e 6 ELS da NBR&nbsp;8681.</p>
-        <ul>
-          <li>γz com nós fixos/móveis explicado</li>
-          <li>Drift por pavimento vs. h/850 e H/1700</li>
-          <li>Reações, quantitativos e memória resumida</li>
-        </ul>
-      </div>
-    </div>
-
+<section class="chapter wrap" id="dimensione">
+  <div class="ch-head"><div class="ch-num">CAP. 03</div><div>
+    <h2 class="reveal">Dimensione o edifício inteiro.</h2>
+    <p class="lead reveal" style="--d:.1s">Vigas com mesa colaborante, pilares a flexo-compressão oblíqua, pilar-parede, consolos, lajes com punção completa, escadas em L/U, fundações com viga alavanca e radier — cada um com o § citado.</p>
+  </div></div>
+  <div class="shot reveal"><img src="assets/screenshot-results.png" alt="Resultados de dimensionamento" loading="lazy" /></div>
+  <div class="feats">
+    <div class="feat reveal"><span class="tag">§14.6.2.2</span><h3>Seção T automática</h3><p>Mesa colaborante nos positivos — menos aço de verdade, no quadro de ferros e no orçamento.</p></div>
+    <div class="feat reveal" style="--d:.08s"><span class="tag">§19.5</span><h3>Punção completa</h3><p>Interno, borda e canto com K·MSd, aberturas e conectores até C″ — laje lisa sem susto.</p></div>
+    <div class="feat reveal" style="--d:.16s"><span class="tag">§22</span><h3>Regiões especiais</h3><p>Viga-parede detectada sozinha, consolos como elemento do pilar, bielas e tirantes.</p></div>
+    <div class="feat reveal" style="--d:.24s"><span class="tag">nbr 6122</span><h3>Fundações editáveis</h3><p>Sapata piramidal, divisa com viga alavanca, blocos 1–16 estacas, radier e solo-estrutura por SPT.</p></div>
   </div>
 </section>
 
-<!-- ======================================================= citação -->
-<figure class="pull" style="margin:0">
-  <div class="pull-in">
-    <blockquote>
-      “100% gratuito, 100% open source — para sempre.<br/>
-      Software de engenharia não deveria fazer refém.”
-    </blockquote>
-    <figcaption>— a promessa HyperFrame</figcaption>
-  </div>
-</figure>
-
-<!-- ======================================================= comparativo -->
-<section class="section" id="comparativo">
-  <div class="wrap">
-    <p class="eyebrow">Comparativo</p>
-    <h2>A conta é simples.</h2>
-    <p class="sub" style="margin-bottom:40px">Mesmas normas, mesmo edifício — sem exigir um PC dedicado nem internet permanente.</p>
-
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th><span style="position:absolute;left:-9999px">Critério</span></th>
-            <th class="col-hf">HyperFrame</th>
-            <th>Software tradicional A</th>
-            <th>Software tradicional B</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>Roda no macOS</td><td class="col-hf yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
-          <tr><td>Preço</td><td class="col-hf"><b>R$ 0</b> <span style="color:var(--ink-faint)">(100% open source)</span></td><td><b>≈ R$ 2.700/ano</b></td><td><b>≈ R$ 2.900/ano</b></td></tr>
-          <tr><td>Código aberto (cálculo auditável)</td><td class="col-hf yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
-          <tr><td>Funciona offline, sem ativação</td><td class="col-hf yes">✓</td><td>Exige internet/ativação</td><td>Ativação por máquina</td></tr>
-          <tr><td>Estudante usa o software completo</td><td class="col-hf yes">✓</td><td>Versão limitada</td><td>Demo não salva</td></tr>
-          <tr><td>Interface</td><td class="col-hf">2026</td><td>Outra década</td><td>Outra década</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="tbl-note">Valores de entrada dos softwares estruturais tradicionais mais usados no Brasil (planos anualizados, coletados nos sites oficiais em julho/2026, arredondados e sujeitos a alteração). Nomes omitidos de propósito — a comparação é com a categoria, não com marcas.</p>
+<section class="chapter wrap" id="alvenaria">
+  <div class="ch-head"><div class="ch-num">CAP. 04</div><div>
+    <h2 class="reveal" style="color:var(--accent)">Alvenaria estrutural. Inteira.</h2>
+    <p class="lead reveal" style="--d:.1s">NBR 16868-1:2020 do fpk à fiada: paredes como elemento, grupos com aberturas, contraventamento ao vento com graute calculado, modulação M-20 e elevações bloco a bloco. O que custa caro em outro lugar, aqui é grátis — e no mesmo modelo do concreto.</p>
+  </div></div>
+  <div class="shot reveal"><img src="assets/screenshot-alvenaria-elevacao.png" alt="Elevação de alvenaria com blocos, verga e quadro" loading="lazy" /></div>
+  <div class="feats">
+    <div class="feat reveal"><span class="tag">obra</span><h3>fpk por pavimento</h3><p>A especificação de prisma que vai pro fornecedor de blocos, pavimento a pavimento.</p></div>
+    <div class="feat reveal" style="--d:.08s"><span class="tag">híbrido</span><h3>Torre + pilotis juntos</h3><p>A parede morre sobre a viga de concreto e o pórtico sente — transferência calculada, efeito arco incluso.</p></div>
+    <div class="feat reveal" style="--d:.16s"><span class="tag">prancha</span><h3>Elevações executivas</h3><p>Fiadas com amarração, vergas, contravergas, cinta de respaldo e quadro de blocos — em PDF na escala.</p></div>
   </div>
 </section>
 
-<!-- ======================================================= preços -->
-<!-- ======================================================= open source + downloads -->
-<section class="section hairline-t" id="downloads">
-  <div class="wrap">
-    <p class="eyebrow">Código aberto</p>
-    <h2>100% open source. <em>Sempre.</em></h2>
-    <p class="sub">
-      O código completo — motor de cálculo, interface e este site — é público.
-      Engenharia se confere: audite cada verificação de norma, rode os 300+ testes,
-      contribua. Sem caixa-preta e sem recurso trancado.
-    </p>
-    <div class="hero-ctas" style="margin:18px 0 34px">
-      <a class="btn" href="https://github.com/candidoalfilho/hyperframe" rel="noopener">Ver o código no GitHub <span class="arr">→</span></a>
-      <a class="link-quiet" href="downloads/">Todas as versões&nbsp;→</a>
-    </div>
-
-    <div class="plans" role="list" aria-label="Downloads por sistema">
-      <div class="plan" role="listitem">
-        <h3>macOS</h3>
-        <p class="aud">Apple Silicon (M1 ou superior)</p>
-        <div class="price" style="font-size:26px">v0.2.41</div>
-        <p class="per">.dmg · 2,6 MB · grátis</p>
-        <ul>
-          <li>App nativo (Tauri) — leve e offline</li>
-          <li>1ª abertura: Ajustes do Sistema → Privacidade e Segurança → "Abrir Assim Mesmo"; se o macOS disser "danificado", rode <span style="font-family:var(--mono);font-size:11px">xattr -cr /Applications/HyperFrame.app</span></li>
-          <li style="font-family:var(--mono);font-size:11px;word-break:break-all">sha256 a53ae8ed…5d44</li>
-          <li>Anterior: <a href="downloads/HyperFrame_0.2.40_aarch64.dmg" download>v0.2.40 ↓</a></li>
-        </ul>
-        <a class="btn" href="downloads/HyperFrame_0.2.41_aarch64.dmg" download>Baixar para macOS ↓</a>
-      </div>
-      <div class="plan" role="listitem">
-        <h3>Windows</h3>
-        <p class="aud">Windows 10/11 · x64</p>
-        <div class="price" style="font-size:26px">v0.2.41</div>
-        <p class="per">instalador .exe · 2,3 MB · grátis</p>
-        <ul>
-          <li>Instala o WebView2 automaticamente se faltar</li>
-          <li>SmartScreen: "Mais informações" → "Executar assim mesmo" (build sem assinatura)</li>
-          <li style="font-family:var(--mono);font-size:11px;word-break:break-all">sha256 6d2f293b…d751</li>
-        </ul>
-        <a class="btn" href="downloads/HyperFrame_0.2.41_x64-setup.exe" download>Baixar para Windows ↓</a>
-      </div>
-      <div class="plan" role="listitem">
-        <h3>Linux</h3>
-        <p class="aud">AppImage / .deb — em preparação</p>
-        <div class="price" style="font-size:26px">em breve</div>
-        <p class="per">via GitHub Releases</p>
-        <ul>
-          <li>Build por CI (GitHub Actions)</li>
-          <li>Compile do fonte hoje: <span style="font-family:var(--mono);font-size:11.5px">npm run tauri build</span></li>
-        </ul>
-        <a class="btn btn-ghost" href="https://github.com/candidoalfilho/hyperframe/releases" rel="noopener">Acompanhar releases</a>
-      </div>
-    </div>
-    <p class="legal" style="margin-top:14px">
-      Cada versão publica binário + código-fonte + checksum. Histórico completo na <a href="downloads/">página de downloads</a> e no
-      <a href="https://github.com/candidoalfilho/hyperframe/releases" rel="noopener">GitHub Releases</a>;
-      o changelog é o próprio ROADMAP do repositório.
-    </p>
+<section class="chapter wrap" id="detalhe">
+  <div class="ch-head"><div class="ch-num">CAP. 05</div><div>
+    <h2 class="reveal">Detalhe até o quadro de ferros.</h2>
+    <p class="lead reveal" style="--d:.1s">Armação executiva de vigas com cortes pelo diagrama real, pilares em elevação com arranques e emendas, lajes em planta, fundações detalhadas — DXF e PDF vetorial 1:1 com carimbo ABNT, mais memorial de 15 seções.</p>
+  </div></div>
+  <div class="shot reveal"><img src="assets/screenshot-prancha.png" alt="Prancha executiva" loading="lazy" /></div>
+  <div class="feats">
+    <div class="feat reveal"><span class="tag">escala</span><h3>PDF que imprime certo</h3><p>Vetorial 1:1 com a folha — a cota do carimbo é a cota do papel.</p></div>
+    <div class="feat reveal" style="--d:.08s"><span class="tag">editor</span><h3>Editor de armaduras</h3><p>Ajuste n/φ/passo por posição com aviso de As insuficiente — o programa confere você.</p></div>
+    <div class="feat reveal" style="--d:.16s"><span class="tag">r$</span><h3>Quantitativos com custo</h3><p>Concreto, fôrma e aço por elemento, com preços editáveis e custo por m².</p></div>
   </div>
 </section>
 
-<section class="section hairline-t" id="gratis">
-  <div class="wrap">
-    <p class="eyebrow">Preço</p>
-    <h2>R$ 0. <em>Sem pegadinha.</em></h2>
-    <p class="sub">
-      O HyperFrame é <b>100% gratuito e 100% open source</b> — todos os recursos, todos os
-      pavimentos, sem marca d'água, sem assinatura e sem "versão Pro". Estudante e
-      escritório usam exatamente o mesmo software. O código é público, a comunidade
-      audita e melhora, e o projeto cresce com quem usa.
-    </p>
-    <div class="hero-ctas" style="margin-top:22px">
-      <a class="btn" href="#downloads">Baixar agora <span class="arr">→</span></a>
-      <a class="link-quiet" href="https://github.com/candidoalfilho/hyperframe" rel="noopener">Contribuir no GitHub&nbsp;↗</a>
+<section class="chapter wrap" id="aberto">
+  <div class="ch-head"><div class="ch-num">CAP. 06</div><div>
+    <h2 class="reveal">Aberto por princípio.</h2>
+    <p class="lead reveal" style="--d:.1s">MIT no GitHub, formato de arquivo documentado, Copiloto de IA que edita com a sua aprovação (Claude via API ou Ollama offline) — e a primeira contribuição da comunidade já mergeada com crédito.</p>
+  </div></div>
+  <table class="cmp reveal">
+    <thead><tr><th></th><th class="hf">HyperFrame</th><th>Software tradicional A</th><th>Software tradicional B</th></tr></thead>
+    <tbody>
+      <tr><td>Preço</td><td class="hf">R$ 0 — para sempre</td><td>R$ dezenas de milhares</td><td>R$ milhares/ano</td></tr>
+      <tr><td>Código aberto</td><td class="yes">Sim (MIT)</td><td>Não</td><td>Não</td></tr>
+      <tr><td>macOS nativo</td><td class="yes">Sim</td><td>Não</td><td>Não</td></tr>
+      <tr><td>Alvenaria estrutural</td><td class="yes">Integrada no mesmo modelo</td><td>Módulo à parte</td><td>Produto à parte</td></tr>
+      <tr><td>Tamanho do app</td><td class="hf">~3 MB</td><td>Gigabytes</td><td>Gigabytes</td></tr>
+      <tr><td>Copiloto IA</td><td class="yes">Sim, inclusive offline</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter wrap" id="downloads">
+  <div class="ch-head"><div class="ch-num">↓</div><div>
+    <h2 class="reveal">Baixe agora. Sem cadastro.</h2>
+    <p class="lead reveal" style="--d:.1s">Binários assinados com sha256 publicado. Anterior: <a href="downloads/HyperFrame_0.2.40_aarch64.dmg" download>v0.2.40 ↓</a> · <a href="downloads/">todas as versões</a> · <a href="https://github.com/candidoalfilho/hyperframe">código-fonte</a>.</p>
+  </div></div>
+  <div class="dl-cards">
+    <div class="dl reveal">
+      <div class="os"> macOS <small style="color:var(--faint);font-weight:400;font-size:12px">Apple Silicon</small></div>
+      <div class="ver">v0.2.41</div>
+      <a class="btn" href="downloads/HyperFrame_0.2.41_aarch64.dmg" download>Baixar para macOS ↓</a>
+      <span class="sha">sha256 a53ae8ed…5d44</span>
+    </div>
+    <div class="dl reveal" style="--d:.1s">
+      <div class="os">⊞ Windows <small style="color:var(--faint);font-weight:400;font-size:12px">10/11 x64</small></div>
+      <div class="ver">v0.2.41</div>
+      <a class="btn" href="downloads/HyperFrame_0.2.41_x64-setup.exe" download>Baixar para Windows ↓</a>
+      <span class="sha">sha256 6d2f293b…d751</span>
     </div>
   </div>
-</section>
-
-<!-- ======================================================= FAQ -->
-<section class="section hairline-t" id="faq">
-  <div class="wrap">
-    <p class="eyebrow">FAQ</p>
-    <h2>O que todo calculista pergunta.</h2>
-
-    <div class="faq">
-      <details>
-        <summary>Os resultados são confiáveis?</summary>
-        <p>O motor tem 120 testes automatizados — âncoras analíticas (viga biengastada, casos
-           clássicos de flexão), valores de norma calculados à mão e verificações de equilíbrio
-           global que fecham em 0,1%. Antes do lançamento comercial, publicaremos a validação
-           cruzada com softwares consagrados em edifícios-referência (política pública no
-           repositório). E vale sempre: os resultados não substituem a análise e a
-           responsabilidade técnica de um engenheiro habilitado — a ART é sua.</p>
-      </details>
-      <details>
-        <summary>Roda no meu Mac?</summary>
-        <p>Nativamente — Apple Silicon e Intel, sem máquina virtual, sem Boot Camp. É o único
-           software estrutural focado em normas brasileiras que roda em macOS. Windows também,
-           claro. E há uma demonstração que abre direto no navegador.</p>
-      </details>
-      <details>
-        <summary>Como funciona a licença?</summary>
-        <p>Não tem licença de uso, conta nem cadastro: o HyperFrame é 100% gratuito e open
-           source (MIT). Baixe, instale e use — sem login, sem internet obrigatória, sem
-           dongle. O código-fonte completo está no GitHub e é seu para sempre.</p>
-      </details>
-      <details>
-        <summary>Posso migrar do software que uso hoje?</summary>
-        <p>Hoje você importa o DXF da arquitetura e relança a forma em minutos (o editor foi
-           feito para isso). Importação IFC/BIM está no roadmap público. O modelo de dados é
-           aberto (JSON documentado) — seus projetos nunca ficam reféns.</p>
-      </details>
-      <details>
-        <summary>Quando lança?</summary>
-        <p>Já dá para baixar e usar hoje (macOS; Windows e Linux em preparação). O marco de
-           "pronto para projeto real" é a validação cruzada publicada — acompanhe pela lista
-           de e-mails ou pelo GitHub.</p>
-      </details>
-      <details>
-        <summary>É grátis mesmo? Qual é a pegadinha?</summary>
-        <p>É grátis e open source, sem pegadinha: todos os recursos, sem marca d'água, sem
-           limite de pavimentos, para estudante e para escritório. O código é público — quem
-           quiser pode auditar cada verificação de norma. No futuro o projeto pode oferecer
-           serviços opcionais (suporte, nuvem), mas o software em si é livre, sempre.</p>
-      </details>
-    </div>
+  <div class="gatekeeper reveal">
+    <b>macOS avisou que o app "está danificado"?</b> É o Gatekeeper com apps fora da App Store: rode
+    <code style="font-family:var(--mono)">xattr -cr /Applications/HyperFrame.app</code> no Terminal, ou
+    Ajustes → Privacidade e Segurança → "Abrir Assim Mesmo".
   </div>
 </section>
 
-<!-- ======================================================= CTA -->
-<section class="cta" id="lista">
-  <div class="cta-in">
-    <p class="eyebrow" style="justify-content:center;color:#6b7284">Acompanhe</p>
-    <h2>Uma nova versão a cada poucos dias.</h2>
-    <p class="sub">Sem cadastro, sem lista de e-mail: acompanhe as novidades pelo GitHub e veja tudo que o HyperFrame faz na página de módulos.</p>
-    <p style="margin-top:22px">
-      <a class="btn" href="modulos/">Ver os módulos <span class="arr">→</span></a>
-      &nbsp; <a class="btn btn-ghost" href="https://github.com/candidoalfilho/hyperframe">GitHub — código e releases</a>
-    </p>
-    <p class="micro">Prefere conversar? <a href="mailto:contato@hyperframe.com.br">contato@hyperframe.com.br</a></p>
+<section class="chapter wrap" id="faq">
+  <div class="ch-head"><div class="ch-num">FAQ</div><div>
+    <h2 class="reveal">Perguntas diretas.</h2>
+  </div></div>
+  <div class="reveal">
+    <details><summary>É gratuito mesmo? Qual a pegadinha?</summary>
+      <p>Não tem: 100% gratuito e open source (MIT), decisão permanente do projeto. O código está no GitHub e é seu para sempre — sem licença, sem conta, sem telemetria escondida.</p></details>
+    <details><summary>Roda no meu Mac?</summary>
+      <p>Nativamente — Apple Silicon, sem máquina virtual. É o único software estrutural focado em normas brasileiras que roda em macOS. Windows também, claro.</p></details>
+    <details><summary>Como funciona a licença?</summary>
+      <p>Não existe licença de uso: baixe, instale e use — sem login, sem internet obrigatória, sem dongle. O código-fonte completo está no GitHub.</p></details>
+    <details><summary>Posso migrar do software que uso hoje?</summary>
+      <p>Importe o DXF da arquitetura e relance a forma em minutos — o editor foi feito pra isso. O modelo de dados é aberto (JSON documentado); seus projetos nunca ficam reféns.</p></details>
+    <details><summary>Posso confiar nos resultados?</summary>
+      <p>Cada módulo de norma tem testes com âncoras calculadas à mão (426 hoje) e o § citado no código. A validação cruzada com softwares tradicionais está em andamento e será publicada no repositório — engenheiro confere engenheiro.</p></details>
+    <details><summary>Como contribuo?</summary>
+      <p>Issues e PRs no GitHub — a primeira contribuição externa (modo unifilar 3D) já foi mergeada com crédito de co-autoria. Feedback de quem projeta vale ouro.</p></details>
   </div>
 </section>
 
-<!-- ======================================================= rodapé -->
+<section class="cta wrap">
+  <h2 class="reveal">O edifício inteiro.<br/>De graça.</h2>
+  <p class="reveal" style="--d:.08s;color:var(--soft)">Sem cadastro. Sem licença. Sem módulo surpresa.</p>
+  <p class="reveal" style="--d:.16s;margin-top:28px">
+    <a class="btn" href="#downloads">Baixar o HyperFrame →</a>
+    <a class="btn btn-ghost" href="mailto:contato@hyperframe.com.br" style="margin-left:10px">Falar com o autor</a>
+  </p>
+  <p class="fine reveal" style="--d:.24s">open source (MIT) · sha256 publicado · feito no Brasil</p>
+</section>
+
 <footer>
-  <div class="wrap">
-    <div class="foot-grid">
-      <div>
-        <a class="brand" href="#">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 9.4V2.6M12 14.6v6.9M14.6 12h6.8M9.4 12H2.6M13.8 10.2l4.9-4.9M10.2 13.8l-4.9 4.9M13.8 13.8l4.3 4.3M10.3 10.3L8.4 8.4" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="12" r="3.3" fill="#f79c28" stroke="none"/><circle cx="6" cy="6" r="2.3" stroke-width="1.2"/></svg>
-          Hyper<b>Frame</b>
-        </a>
-        <div style="color:var(--ink-faint);font-size:12.5px;margin-top:10px">
-          Análise e dimensionamento estrutural — ABNT.<br/>
-          100% open source. Feito no Brasil. 🇧🇷
-        </div>
-      </div>
-      <div class="foot-links">
-        <a href="#recursos">Recursos</a>
-        <a href="#comparativo">Comparativo</a>
-        <a href="#downloads">Downloads</a>
-        <a href="#faq">FAQ</a>
-        <a href="https://github.com/candidoalfilho/hyperframe" rel="noopener">GitHub ↗</a>
-        <a href="en/">English</a>
-      </div>
-    </div>
-    <p class="legal">
-      © 2026 HyperFrame — software em desenvolvimento, 100% open source. Os resultados não
-      substituem a análise, o julgamento e a responsabilidade técnica de engenheiro habilitado
-      (ART/CREA). Valores de mercado citados no comparativo foram coletados nos sites oficiais
-      dos fornecedores em julho/2026 (planos de entrada, anualizados, arredondados) e estão
-      sujeitos a alteração; nenhuma marca de terceiros é citada ou endossada.
-    </p>
-  </div>
+  HyperFrame · <a href="edicao/">Edição 2026</a> · <a href="modulos/">Módulos</a> · <a href="downloads/">Downloads</a> · <a href="en/">English</a> · <a href="https://github.com/candidoalfilho/hyperframe">GitHub</a>
 </footer>
 
-</main>
-
-<script>
-function toggleMenu(btn){
-  const m = document.getElementById('mmenu');
-  const open = m.classList.toggle('open');
-  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-document.querySelectorAll('#mmenu a').forEach(a =>
-  a.addEventListener('click', () => document.getElementById('mmenu').classList.remove('open')));
-</script>
-
 <script>
 (function(){
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var targets = document.querySelectorAll('section .wrap > *, section.norms > *, .cta-in > *');
-  var i = 0;
-  targets.forEach(function(el){
-    el.classList.add('reveal');
-    el.style.setProperty('--d', ((i++ % 4) * 0.08) + 's');
-  });
-  var io = new IntersectionObserver(function(entries){
-    entries.forEach(function(e){
-      if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
-    });
-  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var bar = document.getElementById('progress');
+  addEventListener('scroll', function(){
+    var h = document.documentElement;
+    bar.style.width = (100 * h.scrollTop / (h.scrollHeight - h.clientHeight)) + '%';
+  }, { passive: true });
+  if (reduced) { document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); }); return; }
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
   document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
-  // divisores "+" entre as seções principais (ritmo Sable)
-  document.querySelectorAll('section.section.hairline-t').forEach(function(sec){
-    sec.classList.remove('hairline-t');
-    var d = document.createElement('div');
-    d.className = 'plus-div';
-    d.innerHTML = '<span>+</span>';
-    sec.parentNode.insertBefore(d, sec);
-  });
-})();
-</script>
-<script>
-(function(){
-  var nav = document.querySelector('.nav');
-  if (!nav) return;
-  addEventListener('scroll', function(){ nav.classList.toggle('scrolled', scrollY > 8); }, { passive: true });
+  var cio = new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if (!e.isIntersecting) return;
+      cio.unobserve(e.target);
+      var el = e.target, target = +el.dataset.count, t0 = null;
+      function step(ts){
+        if (!t0) t0 = ts;
+        var p = Math.min((ts - t0) / 1100, 1);
+        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+  }, { threshold: 0.5 });
+  document.querySelectorAll('[data-count]').forEach(function(el){ cio.observe(el); });
 })();
 </script>
 </body>
