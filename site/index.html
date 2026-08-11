@@ -71,6 +71,8 @@ body[data-nav="dark"] .side{color:var(--cream)}
 .hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding-top:80px;padding-bottom:60px;max-width:1500px;position:relative;z-index:1}
 #frame3d{position:absolute;top:0;right:0;width:min(58vw,980px);height:100%;pointer-events:none;z-index:0;opacity:.9}
 @media(max-width:900px){#frame3d{width:100%;opacity:.35}}
+#fin3d{position:absolute;top:0;right:0;width:min(50vw,860px);height:100%;pointer-events:none;z-index:0;opacity:.85}
+@media(max-width:900px){#fin3d{width:100%;opacity:.3}}
 .hero .kick{font-family:var(--mono);font-size:11.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:26px}
 .h-line{overflow:hidden}
 .h-line span{display:block;transform:translateY(112%);animation:rise .9s cubic-bezier(.16,1,.3,1) forwards;animation-delay:var(--d,0s)}
@@ -155,7 +157,7 @@ details[open] summary::after{transform:rotate(45deg)}
 details p{color:var(--ink-soft);font-size:14.5px;margin:0 0 16px;max-width:70ch}
 
 /* final CTA + footer */
-.fin{min-height:86svh;display:flex;flex-direction:column;justify-content:center;text-align:left}
+.fin{min-height:86svh;display:flex;flex-direction:column;justify-content:center;text-align:left;position:relative;z-index:1}
 .fin h2{font-weight:800;letter-spacing:-.028em;line-height:.98;font-size:clamp(52px,10vw,150px);margin:0}
 .fin .em{color:var(--accent)}
 .fin .fine{font-family:var(--mono);font-size:12px;opacity:.5;margin-top:26px}
@@ -469,6 +471,7 @@ document.addEventListener('click', function (e) {
 
 <!-- ============ FINAL (dark) ============ -->
 <section class="sec sec-dark" data-theme="dark">
+  <canvas id="fin3d" aria-hidden="true"></canvas>
   <div class="in fin">
     <h2 class="rv2">O edifício inteiro.<br/><span class="em">De graça.</span></h2>
     <p class="rv2" style="--d:.1s;margin-top:34px">
@@ -532,41 +535,51 @@ document.addEventListener('click', function (e) {
   }, { rootMargin: '-40% 0px -55% 0px' });
   secs.forEach(function (s) { sio.observe(s); });
 
-  // pórtico 3D wireframe no hero — projeção manual, modo de vibração no eixo X
-  var cv = document.getElementById('frame3d')
-  if (cv) {
+  // pórticos 3D wireframe — projeção manual, sem dependências.
+  // Cada torre monta pavimento por pavimento (progress 0→1), balança no modo
+  // fundamental com rajadas amortecidas e reage a mouse/scroll.
+  var mouseX = 0
+  addEventListener('pointermove', function (e) { mouseX = e.clientX / innerWidth - 0.5 }, { passive: true })
+  function initTower (cv, o) {
     var ctx = cv.getContext('2d')
-    var NX = 4, NY = 3, NZ = 9        // nós: 3 vãos × 2 vãos × 8 pavimentos
-    var BAY = 1.0, PD = 0.72          // vão e pé-direito (unidades de cena)
-    var W = (NX - 1) * BAY, D = (NY - 1) * BAY, H = (NZ - 1) * PD
-    var mouseX = 0, running = false, t0 = null
+    var NX = 4, NY = 3, NZ = 9, BAY = 1.0, PD = 0.72
+    var W = (NX - 1) * BAY, DEP = (NY - 1) * BAY, H = (NZ - 1) * PD
     var DPR = Math.min(devicePixelRatio || 1, 2)
+    var t0 = null, running = false, amp = 0.13, nextGust = 3.2, landed = []
     function resize () {
       var r = cv.getBoundingClientRect()
       cv.width = r.width * DPR; cv.height = r.height * DPR
     }
     resize(); addEventListener('resize', resize)
-    addEventListener('pointermove', function (e) {
-      mouseX = (e.clientX / innerWidth - 0.5)
-    }, { passive: true })
+    function ease (x) { return 1 - Math.pow(1 - x, 3) }
     function draw (ts) {
       if (t0 === null) t0 = ts
       var t = (ts - t0) / 1000
-      var th = 0.55 + t * 0.06 + mouseX * 0.45 + scrollY * 0.0006
-      var sway = reduced ? 0 : Math.sin(t * 1.5) * 0.16
+      var prog = reduced ? 1 : (o.progress ? o.progress(t) : 1)
+      if (o.gusts && !reduced && t > nextGust) { amp = 0.5; nextGust = t + 4 + Math.random() * 5 }
+      amp = 0.13 + (amp - 0.13) * 0.986
+      var sway = reduced ? 0 : Math.sin(t * 1.6) * amp * Math.min(1, prog * 1.3)
+      var th = o.th0 + (reduced ? 0 : t * o.rot + mouseX * 0.55 + scrollY * (o.scrollRot || 0))
       var tilt = 0.34
       var cw = cv.width, chh = cv.height
       var CAMD = 3.2 * Math.max(W, H)
-      var F = chh * 0.5 * CAMD / H
-      var cx = cw * 0.55, cy = chh * 0.5
+      var F = chh * (o.scale || 0.5) * CAMD / H
+      var cx = cw * (o.cx || 0.55), cy = chh * 0.5
       var cth = Math.cos(th), sth = Math.sin(th)
       var ctl = Math.cos(tilt), stl = Math.sin(tilt)
-      // projeta nó (i,j,k) → [x2d, y2d, fator de profundidade]
+      // fator de montagem por pavimento (0 = não existe, 1 = assentado)
+      var fk = []
+      for (var k = 0; k < NZ; k++) {
+        fk[k] = Math.max(0, Math.min(1, prog * (NZ + 2) - k))
+        if (fk[k] >= 1 && landed[k] === undefined) landed[k] = t
+        if (fk[k] < 0.5 && landed[k] !== undefined && t - landed[k] > 1.5) landed[k] = undefined
+      }
       function P (i, j, k) {
         var zn = k / (NZ - 1)
+        var drop = (1 - ease(fk[k])) * 1.1
         var x = i * BAY - W / 2 + sway * (1 - Math.cos(Math.PI * zn / 2))
-        var y = j * BAY - D / 2
-        var z = k * PD - H / 2
+        var y = j * BAY - DEP / 2
+        var z = k * PD - H / 2 + drop
         var X = x * cth - y * sth, Y = x * sth + y * cth
         var Y2 = Y * ctl - z * stl, Z2 = Y * stl + z * ctl
         var kk = F / (CAMD - Y2)
@@ -574,35 +587,59 @@ document.addEventListener('click', function (e) {
       }
       ctx.clearRect(0, 0, cw, chh)
       ctx.lineWidth = 1 * DPR
-      ctx.strokeStyle = 'rgba(242,239,231,0.15)'
-      ctx.beginPath()
-      for (var i = 0; i < NX; i++) for (var j = 0; j < NY; j++) for (var k = 0; k < NZ; k++) {
-        var a = P(i, j, k), b
-        if (i + 1 < NX) { b = P(i + 1, j, k); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]) }
-        if (j + 1 < NY) { b = P(i, j + 1, k); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]) }
-        if (k + 1 < NZ) { b = P(i, j, k + 1); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]) }
+      // vigas e pilares pavimento a pavimento — alpha acompanha a montagem
+      for (var k2 = 0; k2 < NZ; k2++) {
+        if (fk[k2] <= 0) continue
+        ctx.strokeStyle = 'rgba(242,239,231,' + (0.15 * fk[k2]).toFixed(3) + ')'
+        ctx.beginPath()
+        for (var i = 0; i < NX; i++) for (var j = 0; j < NY; j++) {
+          var a = P(i, j, k2), b
+          if (i + 1 < NX) { b = P(i + 1, j, k2); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]) }
+          if (j + 1 < NY) { b = P(i, j + 1, k2); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]) }
+          if (k2 + 1 < NZ && fk[k2 + 1] > 0) { b = P(i, j, k2 + 1); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]) }
+        }
+        ctx.stroke()
       }
-      ctx.stroke()
-      // nós em laranja; sapatas (k=0) maiores e quadradas
-      for (var i2 = 0; i2 < NX; i2++) for (var j2 = 0; j2 < NY; j2++) for (var k2 = 0; k2 < NZ; k2++) {
-        var p = P(i2, j2, k2)
-        var r = (k2 === 0 ? 3.4 : 1.7) * DPR * p[2] * CAMD / F
-        ctx.fillStyle = k2 === 0 ? 'rgba(255,154,31,0.85)' : 'rgba(255,154,31,0.55)'
-        if (k2 === 0) ctx.fillRect(p[0] - r, p[1] - r, r * 2, r * 2)
+      // nós laranja; flash quando o pavimento assenta; sapatas quadradas na base
+      for (var i2 = 0; i2 < NX; i2++) for (var j2 = 0; j2 < NY; j2++) for (var k3 = 0; k3 < NZ; k3++) {
+        if (fk[k3] <= 0) continue
+        var p = P(i2, j2, k3)
+        var flash = landed[k3] !== undefined ? Math.exp(-(t - landed[k3]) * 2.5) : 0
+        var r = (k3 === 0 ? 3.4 : 1.7) * (1 + flash * 1.7) * DPR * p[2] * CAMD / F
+        var al = Math.min(1, (k3 === 0 ? 0.85 : 0.55) * fk[k3] + flash * 0.45)
+        ctx.fillStyle = 'rgba(255,154,31,' + al.toFixed(3) + ')'
+        if (k3 === 0) ctx.fillRect(p[0] - r, p[1] - r, r * 2, r * 2)
         else { ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 6.2832); ctx.fill() }
       }
       if (running && !reduced) requestAnimationFrame(draw)
     }
-    if (reduced) { requestAnimationFrame(draw) }
+    if (reduced) requestAnimationFrame(draw)
     else {
-      var hio = new IntersectionObserver(function (es) {
+      var io = new IntersectionObserver(function (es) {
         es.forEach(function (e) {
           if (e.isIntersecting && !running) { running = true; requestAnimationFrame(draw) }
           else if (!e.isIntersecting) running = false
         })
       }, { threshold: 0 })
-      hio.observe(cv)
+      io.observe(cv)
     }
+  }
+  var heroCv = document.getElementById('frame3d')
+  if (heroCv) initTower(heroCv, {
+    th0: 0.55, rot: 0.07, scrollRot: 0.0012, gusts: true, scale: 0.5, cx: 0.55,
+    progress: function (t) { return Math.min(1, Math.max(0, (t - 0.2) / 2.2)) }
+  })
+  var finCv = document.getElementById('fin3d')
+  if (finCv) {
+    var finSec = finCv.parentElement
+    initTower(finCv, {
+      th0: 0.95, rot: 0.05, gusts: true, scale: 0.46, cx: 0.5,
+      // montagem scrubada pelo scroll: rolar constrói, voltar desmonta
+      progress: function () {
+        var r = finSec.getBoundingClientRect()
+        return Math.max(0, Math.min(1, (innerHeight - r.top) / (innerHeight * 1.15)))
+      }
+    })
   }
 
   // tilt 3D sutil nos cards com mídia (desktop, sem reduced motion)
@@ -633,6 +670,7 @@ document.addEventListener('click', function (e) {
         es.forEach(function (e) {
           var r = e.intersectionRatio;
           pin.style.opacity = String(Math.max(0.06, 1 - r * 1.35));
+          pin.style.transform = 'translateY(' + (-r * 46).toFixed(1) + 'px) scale(' + (1 - r * 0.05).toFixed(3) + ')';
         });
       }, { threshold: [0, .1, .2, .3, .4, .5, .6, .7] });
       fio.observe(cards);
