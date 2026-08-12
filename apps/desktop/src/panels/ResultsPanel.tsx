@@ -222,6 +222,8 @@ function EstabilidadeTab({ results, project }: { results: AnalysisResults; proje
         </>
       )}
 
+      <ModalSeismicSection results={results} />
+
       <SectionTitle>Coeficiente γz (NBR 6118 §15.5.3)</SectionTitle>
       {st.gammaZ.length === 0 ? (
         <Empty text="Sem resultados de γz — ação horizontal (vento) desabilitada?" />
@@ -524,6 +526,134 @@ function VigasTab({ results }: { results: AnalysisResults }) {
 }
 
 /** furos em vigas (NBR 6118 §13.2.5) */
+function ModalSeismicSection({ results }: { results: AnalysisResults }) {
+  const modal = results.modal
+  const seismic = results.seismic
+
+  return (
+    <>
+      <SectionTitle>Análise modal — períodos e formas (mestres do diafragma)</SectionTitle>
+      {!modal ? (
+        <Empty text="Sem modos extraídos (estrutura sem diafragma rígido)." />
+      ) : (
+        <>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Modo</th>
+                <th>T (s)</th>
+                <th>f (Hz)</th>
+                <th>massa ef. X</th>
+                <th>massa ef. Y</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modal.modes.slice(0, 6).map((m) => (
+                <tr key={m.n}>
+                  <td>{m.n}</td>
+                  <td style={{ fontWeight: m.n === 1 ? 700 : 400 }}>{fmt(m.T, 3)}</td>
+                  <td>{fmt(m.freq, 2)}</td>
+                  <td>{fmt(100 * m.effMassX, 1)}%</td>
+                  <td>{fmt(100 * m.effMassY, 1)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>
+            Massa considerada {fmt(modal.totalMass, 1)} t (G + {fmt(100 * modal.liveFraction, 0)}%
+            Q) · capturado ΣX {fmt(100 * modal.sumEffX, 0)}% · ΣY {fmt(100 * modal.sumEffY, 0)}%
+            (critério espectral: ≥ 90%). Rigidez ELS (Ecs).
+          </div>
+        </>
+      )}
+
+      <SectionTitle>Sismo — forças horizontais equivalentes (NBR 15421 §9)</SectionTitle>
+      {!seismic ? (
+        <Empty text="Ação sísmica desabilitada — habilite em Configurações → Sismo (NBR 15421)." />
+      ) : seismic.method === 'isento' ? (
+        <Empty text="Zona sísmica 0: nenhum requisito de resistência sísmica é exigido (§4)." />
+      ) : (
+        <>
+          <div style={{ fontSize: 12.5, margin: '4px 0 8px' }}>
+            ag = {fmt(seismic.ag, 3)}g (zona {seismic.zone}, terreno {seismic.soilClass}) · ags0 ={' '}
+            {fmt(seismic.ags0, 3)}g · ags1 = {fmt(seismic.ags1, 3)}g · {seismic.systemLabel} (R ={' '}
+            {fmt(seismic.R, 1)}; Cd = {fmt(seismic.Cd, 1)}) · I = {fmt(seismic.I, 2)} · W ={' '}
+            {fmt(seismic.W, 0)} kN · Ta = {fmt(seismic.Ta, 3)} s
+            {seismic.method === 'simplificado' && ' · processo simplificado (zona 1)'}
+          </div>
+          {seismic.dirs.map((d) => (
+            <div key={d.dir} style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, margin: '6px 0 4px' }}>
+                Direção {d.dir} — T = {fmt(d.T, 3)} s (
+                {d.periodSource === 'modal'
+                  ? 'modal'
+                  : d.periodSource === 'limitado-cup'
+                    ? 'modal limitado a Cup·Ta'
+                    : 'Ta aproximado'}
+                ) · Cs = {fmt(d.cs, 4)} · H = {fmt(d.H, 1)} kN · k = {fmt(d.k, 2)}{' '}
+                {d.allDriftsOk ? (
+                  <span className="chip ok">drifts OK</span>
+                ) : (
+                  <span className="chip err">drift excedido</span>
+                )}{' '}
+                {d.allThetaOk ? (
+                  <span className="chip ok">θ OK</span>
+                ) : (
+                  <span className="chip warn">θ &gt; limite (§9.6)</span>
+                )}
+              </div>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Pavimento</th>
+                    <th>Fx (kN)</th>
+                    <th>V (kN)</th>
+                    <th>δx (cm)</th>
+                    <th>Δx (cm)</th>
+                    <th>limite (cm)</th>
+                    <th>θ</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...d.rows].reverse().map((r) => (
+                    <tr key={r.levelIndex}>
+                      <td>{r.levelName}</td>
+                      <td>{fmt(r.force, 1)}</td>
+                      <td>{fmt(r.shear, 1)}</td>
+                      <td>{fmt(100 * r.deltaX, 2)}</td>
+                      <td>{fmt(100 * r.drift, 2)}</td>
+                      <td>{fmt(100 * r.driftLimit, 2)}</td>
+                      <td>{fmt(r.theta, 3)}</td>
+                      <td>
+                        {r.driftOk && r.thetaOk ? (
+                          <span className="chip ok">OK</span>
+                        ) : (
+                          <span className="chip err">verificar</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+          {seismic.notes.map((n, i) => (
+            <div key={i} className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>
+              {n}
+            </div>
+          ))}
+          <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>
+            δx = Cd·δxe/I (§9.5); limite de Δx por categoria (tab. 9); θ = P·Δ/(V·hs·Cd) (§9.6).
+            Verificação com K fissurada (ELU). Entrada nas combinações de dimensionamento
+            (NBR 8681, excepcionais): próxima fase.
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
 function BeamOpeningsSection({ items }: { items: AnalysisResults['beamOpenings'] }) {
   return (
     <>
@@ -2090,6 +2220,61 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
               .join(' · ')}
             .
           </p>
+        )}
+
+        {results.modal && (
+          <>
+            <p style={{ fontSize: 11.5, fontWeight: 700, margin: '10px 0 4px' }}>
+              Análise modal (rigidez ELS; massa = G + {fmt(100 * results.modal.liveFraction, 0)}%
+              Q = {fmt(results.modal.totalMass, 1)} t)
+            </p>
+            <table style={rTable}>
+              <thead>
+                <tr>
+                  <th style={rTh}>Modo</th>
+                  <th style={rTh}>T (s)</th>
+                  <th style={rTh}>f (Hz)</th>
+                  <th style={rTh}>massa ef. X</th>
+                  <th style={rTh}>massa ef. Y</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.modal.modes.slice(0, 4).map((m) => (
+                  <tr key={m.n}>
+                    <td style={rTd}>{m.n}</td>
+                    <td style={rTd}>{fmt(m.T, 3)}</td>
+                    <td style={rTd}>{fmt(m.freq, 2)}</td>
+                    <td style={rTd}>{fmt(100 * m.effMassX, 1)}%</td>
+                    <td style={rTd}>{fmt(100 * m.effMassY, 1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+        {results.seismic && results.seismic.method !== 'isento' && (
+          <>
+            <p style={{ fontSize: 11.5, fontWeight: 700, margin: '10px 0 4px' }}>
+              Ação sísmica — NBR 15421 §9 ({results.seismic.method === 'simplificado'
+                ? 'processo simplificado, zona 1'
+                : 'forças horizontais equivalentes'})
+            </p>
+            <p style={{ fontSize: 11.5, margin: '2px 0 6px' }}>
+              ag = {fmt(results.seismic.ag, 3)}g · terreno {results.seismic.soilClass} · ags0 ={' '}
+              {fmt(results.seismic.ags0, 3)}g · ags1 = {fmt(results.seismic.ags1, 3)}g ·{' '}
+              {results.seismic.systemLabel} (R = {fmt(results.seismic.R, 1)}; Cd ={' '}
+              {fmt(results.seismic.Cd, 1)}) · I = {fmt(results.seismic.I, 2)} · W ={' '}
+              {fmt(results.seismic.W, 0)} kN ·{' '}
+              {results.seismic.dirs
+                .map(
+                  (d) =>
+                    `${d.dir}: T = ${fmt(d.T, 3)} s, Cs = ${fmt(d.cs, 4)}, H = ${fmt(d.H, 1)} kN, ` +
+                    `drifts ${d.allDriftsOk ? 'OK' : 'EXCEDIDOS'}`,
+                )
+                .join(' · ')}
+              . δx = Cd·δxe/I (§9.5); θ conforme §9.6.
+            </p>
+          </>
         )}
 
         {/* 4 — quantitativos */}

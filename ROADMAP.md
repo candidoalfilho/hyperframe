@@ -655,6 +655,29 @@
 - [ ] Próximos da análise avançada: NLF por barra (Branson iterativo),
   etapas construtivas, protensão, modal/sismo
 
+## v0.2.43 — Análise modal + sismo NBR 15421 (análise avançada 2/5) ✅
+
+- [x] `nbr/nbr15421/seismic.ts`: zonas (tab. 1), Ca/Cv (tab. 3 c/ interpolação
+  0,10–0,15g), espectro de projeto Sa(T) (§5.3), I (§7), R/Ω0/Cd (tab. 6),
+  Ta = CT·hn^x e Cup (§9.2), Cs com teto ags1/(T·R/I) e piso 0,01 (§9.1),
+  distribuição vertical Cvx com expoente k (§9.3), θ de estabilidade (§9.6)
+- [x] `analysis/modal.ts`: análise modal por FLEXIBILIDADE condensada nos
+  mestres do diafragma (ux/uy por pavimento; K ELS fatorizada — cada carga
+  unitária é um back-substitution) + autovalores por Jacobi cíclico; períodos,
+  formas, massa efetiva por direção (critério ≥ 90%)
+- [x] `analysis/seismic.ts`: forças horizontais equivalentes com T modal
+  limitado a Cup·Ta, zona 0 isenta, zona 1 processo simplificado (1%·Wx),
+  drifts δx = Cd·δxe/I contra limites por categoria (0,020/0,015/0,010·hsx)
+  e θ ≤ 0,5/Cd — relatório por direção e pavimento
+- [x] UI: Configurações → "Sismo (NBR 15421)" (zona, ag do mapa, terreno,
+  categoria, sistema, fração de Q); aba Estabilidade com modos + tabelas
+  sísmicas; memorial com bloco modal/sismo
+- [x] 26 testes novos (452 no total): âncoras à mão do espectro/Ca/Cv/Cs/k,
+  Jacobi e shear building 2 GDL com solução fechada, massa efetiva = 100%,
+  H = Cs·W, ΣFx = H, teto Cup·Ta, monotonicidade com solo mais mole
+- [ ] Fase 2: sismo nas COMBINAÇÕES de dimensionamento (NBR 8681
+  excepcionais) + torção acidental de 5% + método espectral completo (SRSS)
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

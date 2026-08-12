@@ -27,6 +27,8 @@ import { runTankDesign } from './design/tankRun'
 import { runFireCheck } from './design/fireRun'
 import { runOpeningChecks } from './design/openingsRun'
 import { footingSprings, pileCapSprings } from './geotech/soil'
+import { runModal } from './analysis/modal'
+import { runSeismic } from './analysis/seismic'
 import { columnSectionInfo } from './model/columnSection'
 import { ribbedGeometry } from './nbr/nbr6118/ribbedSlab'
 import type {
@@ -115,6 +117,12 @@ export function analyze(project: Project): AnalysisResults {
   // P-Δ iterativo (forças fictícias) por direção — roda ANTES da majoração
   const pdelta = runPDelta(project, model, system, eluPass, casesElu, combos)
   stability.secondOrder = applySecondOrderAmplification(project, model, combos, stability, pdelta)
+
+  // ------------------------------------------------------- modal + sismo
+  // modal com rigidez ELS (Ecs integral); sismo com K ELU (fissurada, §9.5)
+  const liveFraction = project.settings.seismic?.liveFraction ?? 0
+  const modal = runModal(project, model, system, elsPass, liveFraction)
+  const seismic = runSeismic(project, model, system, eluPass, modal)
 
   // ---------------------------------------------------------- envoltória ELU
   const eluCombos = combos.filter((c) => c.type === 'ELU')
@@ -251,6 +259,8 @@ export function analyze(project: Project): AnalysisResults {
     cases,
     envelopeELU,
     stability,
+    modal,
+    seismic,
     beamDesign,
     columnDesign,
     slabDesign,

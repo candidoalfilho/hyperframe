@@ -18,7 +18,7 @@ import { useStore } from '../store'
 import { NumberField, OptionalNumberField } from './NumberField'
 import { cm, fmt } from './format'
 import { IconClose, IconTrash } from '../components/Icons'
-import type { PileKind, SoilKind, SoilLayerSPT } from '@hyperframe/engine'
+import type { PileKind, SeismicParams, SoilKind, SoilLayerSPT } from '@hyperframe/engine'
 import {
   COPILOT_MODELS,
   getApiKey,
@@ -126,6 +126,18 @@ export default function SettingsModal() {
   const windDis = !wind.enabled
 
   const updWind = (patch: Partial<WindParams>) => updateSettings({ wind: { ...wind, ...patch } })
+
+  const seismic: SeismicParams = st.seismic ?? {
+    enabled: false,
+    zone: 2,
+    soilClass: 'C',
+    category: 1,
+    system: 'portico-concreto-usual',
+    liveFraction: 0,
+  }
+  const seismicDis = !seismic.enabled
+  const updSeismic = (patch: Partial<SeismicParams>) =>
+    updateSettings({ seismic: { ...seismic, ...patch } })
 
   const setCaOverride = (axis: 'x' | 'y', v: number | undefined) => {
     const next = { ...(wind.caOverride ?? {}), [axis]: v }
@@ -398,6 +410,141 @@ export default function SettingsModal() {
                   />
                 </div>
               </div>
+            </div>
+          </Section>
+
+          {/* ------------------------------------------------ sismo */}
+          <Section title="Sismo (NBR 15421)">
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 12.5,
+                marginBottom: 10,
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={seismic.enabled}
+                onChange={(e) => updSeismic({ enabled: e.target.checked })}
+              />
+              Considerar ação sísmica (análise modal + forças equivalentes)
+            </label>
+
+            <div style={{ opacity: seismicDis ? 0.5 : 1 }}>
+              <div className="field-row">
+                <div className="field">
+                  <label className="label">Zona sísmica (tab. 1)</label>
+                  <select
+                    className="select"
+                    style={{ width: '100%' }}
+                    disabled={seismicDis}
+                    value={String(seismic.zone)}
+                    onChange={(e) =>
+                      updSeismic({ zone: Number(e.target.value) as 0 | 1 | 2 | 3 | 4 })
+                    }
+                  >
+                    <option value="0">Zona 0 — ag = 0,025g (isenta)</option>
+                    <option value="1">Zona 1 — ag ≤ 0,05g</option>
+                    <option value="2">Zona 2 — ag ≤ 0,10g</option>
+                    <option value="3">Zona 3 — ag ≤ 0,15g</option>
+                    <option value="4">Zona 4 — ag = 0,15g</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label className="label">ag do mapa (g; vazio = teto da zona)</label>
+                  <OptionalNumberField
+                    value={seismic.agOverride}
+                    digits={3}
+                    min={0.01}
+                    max={0.2}
+                    disabled={seismicDis}
+                    placeholder="automático"
+                    style={{ width: '100%' }}
+                    onCommit={(v) => updSeismic({ agOverride: v })}
+                  />
+                </div>
+              </div>
+
+              <div className="field-row">
+                <div className="field">
+                  <label className="label">Classe do terreno (tab. 2)</label>
+                  <select
+                    className="select"
+                    style={{ width: '100%' }}
+                    disabled={seismicDis}
+                    value={seismic.soilClass}
+                    onChange={(e) =>
+                      updSeismic({ soilClass: e.target.value as 'A' | 'B' | 'C' | 'D' | 'E' })
+                    }
+                  >
+                    <option value="A">A — rocha sã (Vs ≥ 1500 m/s)</option>
+                    <option value="B">B — rocha</option>
+                    <option value="C">C — rocha alterada / solo muito rígido</option>
+                    <option value="D">D — solo rígido</option>
+                    <option value="E">E — solo mole</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label className="label">Categoria de utilização</label>
+                  <select
+                    className="select"
+                    style={{ width: '100%' }}
+                    disabled={seismicDis}
+                    value={String(seismic.category)}
+                    onChange={(e) => updSeismic({ category: Number(e.target.value) as 1 | 2 | 3 })}
+                  >
+                    <option value="1">I — geral (I = 1,0)</option>
+                    <option value="2">II — ocupação especial (I = 1,25)</option>
+                    <option value="3">III — essencial (I = 1,5)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="label">Sistema sismorresistente (tab. 6)</label>
+                <select
+                  className="select"
+                  style={{ width: '100%' }}
+                  disabled={seismicDis}
+                  value={seismic.system}
+                  onChange={(e) =>
+                    updSeismic({ system: e.target.value as SeismicParams['system'] })
+                  }
+                >
+                  <option value="portico-concreto-usual">
+                    Pórticos de concreto — usual (R=3; Cd=2,5)
+                  </option>
+                  <option value="portico-concreto-intermediario">
+                    Pórticos de concreto — intermediário (R=5; Cd=4,5)
+                  </option>
+                  <option value="pilar-parede-usual">Pilares-parede — usual (R=4; Cd=4)</option>
+                  <option value="dual-usual">Dual: pórticos + pilares-parede (R=4,5)</option>
+                  <option value="dual-intermediario">
+                    Dual: pórticos intermediários + pilares-parede (R=5,5)
+                  </option>
+                  <option value="pendulo-invertido">Pêndulo invertido (R=2,5)</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label className="label">Fração da acidental no peso sísmico (§8.2)</label>
+                <NumberField
+                  value={seismic.liveFraction}
+                  digits={2}
+                  min={0}
+                  max={1}
+                  disabled={seismicDis}
+                  style={{ width: '100%' }}
+                  onCommit={(v) => updSeismic({ liveFraction: v })}
+                />
+              </div>
+              <Note>
+                0 em geral; 0,25 em depósitos e estacionamentos. Períodos via extração modal
+                (limitados a Cup·Ta) e drifts verificados com δx = Cd·δxe/I.
+              </Note>
             </div>
           </Section>
 

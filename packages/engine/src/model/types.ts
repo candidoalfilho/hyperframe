@@ -343,6 +343,29 @@ export type CAA = 'I' | 'II' | 'III' | 'IV'
 export type WindCategory = 1 | 2 | 3 | 4 | 5
 export type WindClass = 'A' | 'B' | 'C'
 
+/** Parâmetros sísmicos — NBR 15421:2023 */
+export interface SeismicParams {
+  enabled: boolean
+  /** zona sísmica (tab. 1); ag adotado = valor superior da faixa */
+  zone: 0 | 1 | 2 | 3 | 4
+  /** ag do mapa em fração de g (sobrepõe o valor da zona, p.ex. 0,075) */
+  agOverride?: number
+  /** classe do terreno (§6.2, tab. 2) */
+  soilClass: 'A' | 'B' | 'C' | 'D' | 'E'
+  /** categoria de utilização (§7): 1 geral, 2 ocupação especial, 3 essencial */
+  category: 1 | 2 | 3
+  /** sistema sismorresistente (tab. 6) → R, Ω0, Cd */
+  system:
+    | 'portico-concreto-usual'
+    | 'portico-concreto-intermediario'
+    | 'pilar-parede-usual'
+    | 'dual-usual'
+    | 'dual-intermediario'
+    | 'pendulo-invertido'
+  /** fração da carga acidental no peso sísmico W (0,25 p/ depósitos; §8.2) */
+  liveFraction: number
+}
+
 export interface WindParams {
   enabled: boolean
   /** velocidade básica V0, m/s (isopletas NBR 6123) */
@@ -455,6 +478,8 @@ export interface ProjectSettings {
   steel: SteelMaterial
   caa: CAA
   wind: WindParams
+  /** análise sísmica NBR 15421 (opcional; ausente = desabilitada) */
+  seismic?: SeismicParams
   soil: SoilParams
   /** interação solo-estrutura (molas de fundação + recalques) */
   soilInteraction: SoilInteractionParams

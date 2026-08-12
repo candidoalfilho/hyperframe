@@ -754,6 +754,10 @@ export interface AnalysisResults {
     T: { min: number[]; max: number[] }[]
   }
   stability: StabilityResults
+  /** análise modal (períodos/formas nos mestres do diafragma) — null sem diafragma */
+  modal: import('./modal').ModalResults | null
+  /** verificação sísmica NBR 15421 (forças equivalentes) — null se desabilitada */
+  seismic: import('./seismic').SeismicResults | null
   beamDesign: BeamSpanDesign[]
   columnDesign: ColumnDesignResult[]
   slabDesign: SlabDesignResultItem[]

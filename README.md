@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.42-orange) ![tests](https://img.shields.io/badge/testes-426%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.43-orange) ![tests](https://img.shields.io/badge/testes-452%20passando-brightgreen)
 
-## O que já faz (v0.2.42)
+## O que já faz (v0.2.43)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -25,7 +25,11 @@ sistema e código-fonte no site.
   alma das vigas** recortados no sólido (§13.2.5)
 - **Análise**: pórtico espacial (6 GDL/nó) gerado automaticamente, diafragma rígido
   mestre-escravo por pavimento, solver skyline LDLᵀ próprio, dois passes de rigidez
-  (ELU com 0,4/0,8·Eci·Ic — NBR 6118 §15.7.3 — e ELS integral)
+  (ELU com 0,4/0,8·Eci·Ic — NBR 6118 §15.7.3 — e ELS integral), **ANÁLISE MODAL**
+  (períodos e formas por flexibilidade condensada nos mestres + Jacobi, massa efetiva
+  por direção) e **SISMO NBR 15421** (zonas/Ca/Cv/espectro de projeto, forças
+  horizontais equivalentes com T modal limitado a Cup·Ta, drifts δx = Cd·δxe/I contra
+  os limites por categoria e θ de estabilidade §9.6)
 - **Cargas e combinações**: peso próprio, NBR 6120 (presets), quinhões de laje a 45°
   **ou pelas reações da grelha** (método selecionável), vento NBR 6123 (S1/S2/S3, Ca estimado da Fig. 4, editável), **desaprumo global**
   (§11.3.3.4.1, combinado ao vento pela regra da norma), **excentricidade do vento de 7,5% da face** (torção no diafragma, NBR 6123 §6.6), 13 combinações ELU + 6 ELS

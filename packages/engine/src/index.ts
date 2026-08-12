@@ -42,6 +42,39 @@ export {
 } from './analysis/grid'
 export { analyze, comboDisplacements, comboDiagrams, comboReactions } from './analyze'
 export { runPDelta, type PDeltaDirResult } from './analysis/pdelta'
+export {
+  runModal,
+  jacobiEig,
+  modalFromFlexibility,
+  type ModalResults,
+  type ModalMode,
+} from './analysis/modal'
+export {
+  runSeismic,
+  type SeismicResults,
+  type SeismicDirResult,
+  type SeismicStoryRow,
+} from './analysis/seismic'
+export {
+  ZONE_AG,
+  seismicAmplification,
+  designSpectrum,
+  IMPORTANCE,
+  DRIFT_LIMIT,
+  SEISMIC_SYSTEMS,
+  approxPeriod,
+  CUP,
+  seismicResponseCoefficient,
+  distributionExponent,
+  verticalDistribution,
+  amplifiedDisplacement,
+  stabilityCoefficient,
+  type SoilClass,
+  type SeismicZone,
+  type UtilizationCategory,
+  type SeismicSystemId,
+  type DesignSpectrum,
+} from './nbr/nbr15421/seismic'
 export { makeNodalSolver, assembleElasticSystem } from './analysis/solve'
 export { runDetailing, planSplices, STOCK_BAR_LENGTH } from './design/detailing'
 export { buildDrawingPdf } from './drawing/drawingPdf'
