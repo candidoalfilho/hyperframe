@@ -101,6 +101,9 @@ h1 .em{color:var(--accent)}
 .ch-pin .lead a{color:var(--accent-deep);text-decoration:underline;text-underline-offset:3px}
 .sec-dark .ch-pin .lead a{color:var(--accent)}
 .ch-cards{position:relative;z-index:2;padding-top:8svh;padding-bottom:110px}
+/* capítulo Baixar: sem pin — título e botões de download na MESMA tela */
+#baixar .ch-pin{position:static;min-height:0;padding:110px 0 0}
+#baixar .ch-cards{padding-top:40px;padding-bottom:90px}
 @media(max-width:900px){
   .ch-pin{position:static;min-height:0;padding:90px 0 10px}
   .ch-pin h2{font-size:clamp(44px,12vw,80px)}
@@ -109,11 +112,23 @@ h1 .em{color:var(--accent)}
 
 /* bento grid */
 .bento{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
-.card{grid-column:span 12;border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;
-  opacity:0;transform:translateY(30px);transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1);transition-delay:var(--d,0s)}
+.card{grid-column:span 12;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;position:relative;
+  opacity:0;transform:translateY(30px);
+  transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1),
+    border-color .35s,box-shadow .45s cubic-bezier(.22,.61,.36,1);transition-delay:var(--d,0s)}
 .card.rv{opacity:1;transform:none}
-.sec-dark .card{background:var(--dark-2);border:1px solid var(--dark-line)}
-.sec-light .card{background:var(--white);border:1px solid var(--light-line);box-shadow:0 2px 10px rgba(27,23,18,.05)}
+.sec-dark .card{background:linear-gradient(180deg,#252019 0%,#1d1a16 100%);border:1px solid var(--dark-line)}
+.sec-light .card{background:linear-gradient(180deg,var(--white) 0%,#faf8f2 100%);border:1px solid var(--light-line);box-shadow:0 2px 10px rgba(27,23,18,.05)}
+/* brilho superior sutil (linha de luz no topo do card, à la Editions) */
+.card::before{content:"";position:absolute;inset:0 0 auto;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,154,31,0) 30%,rgba(255,154,31,0) 70%,transparent);
+  transition:background .45s;pointer-events:none}
+.card:hover::before{background:linear-gradient(90deg,transparent,rgba(255,154,31,.7) 30%,rgba(255,177,78,.7) 70%,transparent)}
+.card.rv:hover{transform:translateY(-5px)}
+.sec-dark .card:hover{border-color:rgba(255,154,31,.55);
+  box-shadow:0 26px 60px -22px rgba(0,0,0,.65),0 0 0 1px rgba(255,154,31,.22),0 0 44px -18px rgba(255,154,31,.35)}
+.sec-light .card:hover{border-color:rgba(224,124,0,.5);
+  box-shadow:0 26px 55px -22px rgba(27,23,18,.22),0 0 0 1px rgba(224,124,0,.2)}
 @media(min-width:760px){
   .c6{grid-column:span 6}.c4{grid-column:span 4}.c8{grid-column:span 8}.c3{grid-column:span 3}
 }
@@ -271,11 +286,12 @@ document.addEventListener('click', function (e) {
       <div class="bento">
         <div class="card c8"><div class="media"><img src="assets/screenshot-unifilar.png" alt="Modo unifilar com diagramas" loading="lazy"/></div>
           <div class="body"><span class="tag">diagramas</span><h3>Esforços, na barra</h3><p>M, V, N e torção por combinação, no modo unifilar ou renderizado — com envoltória.</p></div></div>
-        <div class="card c4 hl"><div class="body" style="padding-top:26px"><span class="tag">novo · v0.2.41</span><h3>P-Δ, convergido</h3><p>Iteração de forças fictícias por direção de vento. Valida o γz (±10%) e assume quando ele estoura o limite de 1,30.</p></div></div>
+        <div class="card c4"><div class="body" style="padding-top:26px"><span class="tag">p-δ iterativo</span><h3>P-Δ, convergido</h3><p>Iteração de forças fictícias por direção de vento. Valida o γz (±10%) e assume quando ele estoura o limite de 1,30.</p></div></div>
         <div class="card c6"><div class="media"><img src="assets/screenshot-deformed.png" alt="Deformada 3D" loading="lazy"/></div>
           <div class="body"><span class="tag">3d</span><h3>Deformada, animada</h3><p>Modos de deslocamento por combinação com escala interativa — o prédio conta onde sofre.</p></div></div>
         <div class="card c3"><div class="body" style="padding-top:26px"><span class="tag">nbr 6123</span><h3>Vento, completo</h3><p>S1 · S2 · S3, desaprumo global e excentricidade de 7,5% torcendo o diafragma.</p></div></div>
         <div class="card c3"><div class="body" style="padding-top:26px"><span class="tag">§23.3</span><h3>Piso, sem tremer</h3><p>Frequência própria contra o limite por uso — o piso que passa na flecha mas vibra, pego antes da obra.</p></div></div>
+        <div class="card c12 hl"><div class="body" style="padding:26px 24px"><span class="tag">novo · nbr 15421</span><h3>Sismo, verificado</h3><p style="max-width:72ch">Análise modal de verdade — períodos, formas e massa efetiva por direção — e forças horizontais equivalentes da NBR 15421: espectro de projeto, Cs, cortante na base, drifts δx = Cd·δxe/I contra os limites da norma e coeficiente θ, pavimento a pavimento nas duas direções.</p></div></div>
       </div>
     </div>
   </div>
@@ -663,6 +679,7 @@ document.addEventListener('click', function (e) {
   // headline pinada esmaece quando os cards passam por cima
   if (!reduced) {
     document.querySelectorAll('.sec').forEach(function (sec) {
+      if (sec.id === 'baixar') return; // capítulo plano — título não esmaece
       var pin = sec.querySelector('.ch-pin');
       var cards = sec.querySelector('.ch-cards');
       if (!pin || !cards) return;
