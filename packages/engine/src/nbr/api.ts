@@ -180,6 +180,8 @@ export type { WindDirectionLoads, WindLevelForce }
 
 export interface ComboGenInput {
   hasWind: boolean
+  /** sismo NBR 15421 ativo ⇒ combinações últimas excepcionais (NBR 8681 §4.3.3) */
+  hasSeismic?: boolean
   gammaG: number // 1,4
   gammaGFav: number // 1,0
   gammaQ: number // 1,4

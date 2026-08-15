@@ -590,7 +590,8 @@ function ModalSeismicSection({ results }: { results: AnalysisResults }) {
                   : d.periodSource === 'limitado-cup'
                     ? 'modal limitado a Cup·Ta'
                     : 'Ta aproximado'}
-                ) · Cs = {fmt(d.cs, 4)} · H = {fmt(d.H, 1)} kN · k = {fmt(d.k, 2)}{' '}
+                ) · Cs = {fmt(d.cs, 4)} · H = {fmt(d.H, 1)} kN · k = {fmt(d.k, 2)} · e ={' '}
+                {fmt(d.eTor, 2)} m{' '}
                 {d.allDriftsOk ? (
                   <span className="chip ok">drifts OK</span>
                 ) : (
@@ -645,8 +646,9 @@ function ModalSeismicSection({ results }: { results: AnalysisResults }) {
           ))}
           <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>
             δx = Cd·δxe/I (§9.5); limite de Δx por categoria (tab. 9); θ = P·Δ/(V·hs·Cd) (§9.6).
-            Verificação com K fissurada (ELU). Entrada nas combinações de dimensionamento
-            (NBR 8681, excepcionais): próxima fase.
+            Casos EQ± com torção acidental de 5% (§9.4) resolvidos no pórtico (K fissurada) e
+            combinados nas ELU 5 excepcionais (NBR 8681 §4.3.3: 1,2G + E + ψ2·Q e 1,0G + E) —
+            vigas, pilares e fundações já dimensionam PELO sismo.
           </div>
         </>
       )}

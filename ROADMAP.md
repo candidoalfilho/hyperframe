@@ -675,8 +675,25 @@
 - [x] 26 testes novos (452 no total): âncoras à mão do espectro/Ca/Cv/Cs/k,
   Jacobi e shear building 2 GDL com solução fechada, massa efetiva = 100%,
   H = Cs·W, ΣFx = H, teto Cup·Ta, monotonicidade com solo mais mole
-- [ ] Fase 2: sismo nas COMBINAÇÕES de dimensionamento (NBR 8681
-  excepcionais) + torção acidental de 5% + método espectral completo (SRSS)
+- [x] ~~Fase 2: sismo nas combinações + torção acidental~~ → v0.2.44
+
+## v0.2.44 — Sismo fase 2: EQ± no pórtico + combinações excepcionais ✅
+
+- [x] Casos EQXP/EQXN/EQYP/EQYN reais: forças do FHE aplicadas nos mestres
+  no MESMO solvePass dos demais casos (modal roda ANTES do solve; molas de
+  fundação ⇒ modal + forças recalculados no 2º passe)
+- [x] Torção acidental de 5% (§9.4): Mta = Fx·0,05·L⊥ no diafragma (sinal
+  único por caso; envoltória ±X/±Y cobre os dois giros)
+- [x] Combinações últimas EXCEPCIONAIS (NBR 8681 §4.3.3): 8 combos ELU 5 —
+  1,2G + E + ψ2·Q (desfav.) e 1,0G + E (fav.) — na envoltória e no
+  dimensionamento de vigas, pilares e fundações; planta de cargas com EQ
+- [x] Relatório §9.5/§9.6 reaproveita os deslocamentos dos casos resolvidos
+  (uma fonte só de verdade); e (excentricidade) exibido por direção
+- [x] +8 testes (460): 8 combos excepcionais com fatores exatos, equilíbrio
+  Σreações = H por direção, e = 5%·L⊥ conferido no bbox, relatório ≡ caso
+  resolvido, envoltória Mz obrigada a crescer em zona 4/solo E, planta de
+  cargas com EQ, zona 0 sem casos/combos
+- [ ] Fase 3: método espectral completo (SRSS por modo, regra 0,85·H)
 
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 

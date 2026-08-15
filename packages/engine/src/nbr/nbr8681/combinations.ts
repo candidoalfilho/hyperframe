@@ -15,6 +15,14 @@ const WIND_CASES: { caseId: CaseId; label: string }[] = [
   { caseId: 'WYN', label: 'Wy−' },
 ]
 
+/** casos sísmicos (NBR 15421 — forças equivalentes, já divididas por R/I) */
+const SEISMIC_CASES: { caseId: CaseId; label: string }[] = [
+  { caseId: 'EQXP', label: 'Ex+' },
+  { caseId: 'EQXN', label: 'Ex−' },
+  { caseId: 'EQYP', label: 'Ey+' },
+  { caseId: 'EQYN', label: 'Ey−' },
+]
+
 /** formata fator com vírgula decimal pt-BR: 1.4 → "1,40" · 0.84 → "0,84" */
 function fmt(v: number): string {
   return v.toFixed(2).replace('.', ',')
@@ -84,6 +92,33 @@ export function generateCombos(input: ComboGenInput): LoadCombo[] {
         label: `ELU 4: ${fmt(gammaGFav)}G + ${fmt(gammaQ)}${w.label}`,
         type: 'ELU',
         factors,
+        stiffness: 'elu',
+      })
+    }
+  }
+
+  if (input.hasSeismic) {
+    // --- ELU 5: combinações últimas EXCEPCIONAIS (NBR 8681 §4.3.3) ---
+    // Fd = γg·G + FQ,exc + γq·ψ0,ef·Q, com γg = 1,2 (desfav.)/1,0 (fav.),
+    // ação sísmica com γ = 1,0 (forças de projeto da NBR 15421 já incluem
+    // 1/R) e ψ0,ef = ψ2 (§5.1.4.3 — sismo).
+    for (const e of SEISMIC_CASES) {
+      const factors: Partial<Record<CaseId, number>> = { G: 1.2, Q: psiLive.psi2 }
+      factors[e.caseId] = 1.0
+      combos.push({
+        id: `ELU5-${e.caseId}`,
+        label: `ELU 5 exc: 1,20G + ${e.label} + ${fmt(psiLive.psi2)}Q`,
+        type: 'ELU',
+        factors,
+        stiffness: 'elu',
+      })
+      const fav: Partial<Record<CaseId, number>> = { G: 1.0 }
+      fav[e.caseId] = 1.0
+      combos.push({
+        id: `ELU5F-${e.caseId}`,
+        label: `ELU 5 exc: 1,00G + ${e.label}`,
+        type: 'ELU',
+        factors: fav,
         stiffness: 'elu',
       })
     }

@@ -28,7 +28,12 @@ import { runFireCheck } from './design/fireRun'
 import { runOpeningChecks } from './design/openingsRun'
 import { footingSprings, pileCapSprings } from './geotech/soil'
 import { runModal } from './analysis/modal'
-import { runSeismic } from './analysis/seismic'
+import {
+  buildSeismicLoads,
+  injectSeismicLoads,
+  runSeismic,
+  seismicActive,
+} from './analysis/seismic'
 import { columnSectionInfo } from './model/columnSection'
 import { ribbedGeometry } from './nbr/nbr6118/ribbedSlab'
 import type {
@@ -49,7 +54,7 @@ import type {
   SlabDesignResultItem,
   SoilInteractionResults,
 } from './analysis/types'
-import { ALL_CASES } from './analysis/types'
+import { ALL_CASES, SEISMIC_CASE_IDS, WIND_CASE_IDS } from './analysis/types'
 
 const now = () =>
   typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
@@ -65,8 +70,10 @@ export function analyze(project: Project): AnalysisResults {
   }
 
   const hasWind = model.wind !== null && model.wind.length > 0
+  const hasSeismic = seismicActive(project) && model.nodes.some((n) => n.kind === 'master')
   const combos = generateCombos({
     hasWind,
+    hasSeismic,
     gammaG: 1.4,
     gammaGFav: 1.0,
     gammaQ: 1.4,
@@ -77,13 +84,26 @@ export function analyze(project: Project): AnalysisResults {
   let system = numberDofs(model)
   model.stats.dofs = system.nDofs
 
-  const activeCases: CaseId[] = hasWind ? ALL_CASES : ['G', 'Q']
+  const baseCases: CaseId[] = hasWind ? ['G', 'Q', ...WIND_CASE_IDS] : ['G', 'Q']
+  const activeCases: CaseId[] = hasSeismic ? [...baseCases, ...SEISMIC_CASE_IDS] : baseCases
   const eluPass = {
     beams: project.settings.stiffnessReduction.beams,
     columns: project.settings.stiffnessReduction.columns,
     useEci: true,
   }
   const elsPass = { beams: 1, columns: 1, useEci: false }
+
+  // modal ANTES do solve (só precisa da K ELS fatorizada) — alimenta o T das
+  // forças sísmicas, que entram como casos EQ* no mesmo solvePass dos demais
+  const liveFraction = project.settings.seismic?.liveFraction ?? 0
+  let modal = runModal(project, model, system, elsPass, liveFraction)
+  // constrói mesmo na zona 0 (o plano devolve 'isento' p/ o relatório);
+  // hasSeismic é que governa casos EQ* e combinações excepcionais
+  let seismicBuilt = project.settings.seismic?.enabled
+    ? buildSeismicLoads(project, model, modal)
+    : null
+  if (seismicBuilt) injectSeismicLoads(internal, seismicBuilt.plan, seismicBuilt.dirs)
+
   let casesElu = solvePass(project, model, internal, system, eluPass, activeCases)
   let casesEls = solvePass(project, model, internal, system, elsPass, activeCases)
 
@@ -98,6 +118,12 @@ export function analyze(project: Project): AnalysisResults {
     if (assigned > 0) {
       system = numberDofs(model)
       model.stats.dofs = system.nDofs
+      // molas mudam a rigidez global ⇒ refaz modal e forças sísmicas
+      modal = runModal(project, model, system, elsPass, liveFraction)
+      seismicBuilt = project.settings.seismic?.enabled
+        ? buildSeismicLoads(project, model, modal)
+        : null
+      if (seismicBuilt) injectSeismicLoads(internal, seismicBuilt.plan, seismicBuilt.dirs)
       casesElu = solvePass(project, model, internal, system, eluPass, activeCases)
       casesEls = solvePass(project, model, internal, system, elsPass, activeCases)
       foundations = runFoundationDesign(project, model, casesEls)
@@ -118,11 +144,10 @@ export function analyze(project: Project): AnalysisResults {
   const pdelta = runPDelta(project, model, system, eluPass, casesElu, combos)
   stability.secondOrder = applySecondOrderAmplification(project, model, combos, stability, pdelta)
 
-  // ------------------------------------------------------- modal + sismo
-  // modal com rigidez ELS (Ecs integral); sismo com K ELU (fissurada, §9.5)
-  const liveFraction = project.settings.seismic?.liveFraction ?? 0
-  const modal = runModal(project, model, system, elsPass, liveFraction)
-  const seismic = runSeismic(project, model, system, eluPass, modal)
+  // ------------------------------------------------------- relatório sísmico
+  // drifts §9.5 (δx = Cd·δxe/I) e θ §9.6 a partir dos casos EQ* já resolvidos
+  // no passe ELU (rigidez fissurada)
+  const seismic = runSeismic(project, model, seismicBuilt, casesElu)
 
   // ---------------------------------------------------------- envoltória ELU
   const eluCombos = combos.filter((c) => c.type === 'ELU')

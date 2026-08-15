@@ -50,9 +50,11 @@ export interface AMember {
   zLocal: Vec3
 }
 
-/** Casos de carga fundamentais */
-export type CaseId = 'G' | 'Q' | 'WXP' | 'WXN' | 'WYP' | 'WYN'
-export const ALL_CASES: CaseId[] = ['G', 'Q', 'WXP', 'WXN', 'WYP', 'WYN']
+/** Casos de carga fundamentais (EQ* = sismo NBR 15421, forças equivalentes) */
+export type CaseId = 'G' | 'Q' | 'WXP' | 'WXN' | 'WYP' | 'WYN' | 'EQXP' | 'EQXN' | 'EQYP' | 'EQYN'
+export const WIND_CASE_IDS: CaseId[] = ['WXP', 'WXN', 'WYP', 'WYN']
+export const SEISMIC_CASE_IDS: CaseId[] = ['EQXP', 'EQXN', 'EQYP', 'EQYN']
+export const ALL_CASES: CaseId[] = ['G', 'Q', ...WIND_CASE_IDS, ...SEISMIC_CASE_IDS]
 
 export type ComboType = 'ELU' | 'ELS-QP' | 'ELS-FREQ' | 'ELS-VENTO'
 

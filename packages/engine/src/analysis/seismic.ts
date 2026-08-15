@@ -1,18 +1,23 @@
 /**
- * SISMO — método das forças horizontais equivalentes (NBR 15421 §9) com o
- * período vindo da extração modal (limitado a Cup·Ta) e verificação de
- * deslocamentos (§9.5: δx = Cd·δxe/I contra os limites por categoria) e de
- * estabilidade (§9.6: θ). As forças por pavimento são aplicadas nos mestres
- * do diafragma com a K ELU fatorizada (back-substitution por direção).
+ * SISMO — método das forças horizontais equivalentes (NBR 15421 §9).
  *
- * v1 = relatório de verificação (períodos, Cs, H, forças, drifts). A entrada
- * das ações sísmicas nas combinações de dimensionamento (NBR 8681,
- * combinações excepcionais) fica para a fase 2.
+ * Fase 2: as forças sísmicas são CASOS DE CARGA reais (EQXP/EQXN/EQYP/EQYN),
+ * aplicadas nos mestres do diafragma com o momento de TORÇÃO ACIDENTAL de 5%
+ * da dimensão em planta perpendicular à direção (§9.4: Mta = Fx·e), resolvidas
+ * junto dos demais casos e combinadas nas combinações últimas EXCEPCIONAIS da
+ * NBR 8681 (§4.3.3: γg·G + E + ψ2·Q) — vigas, pilares e fundações passam a
+ * ser dimensionados PELO sismo.
+ *
+ * `buildSeismicLoads` monta o plano (períodos modais limitados a Cup·Ta, Cs,
+ * H, distribuição vertical, excentricidades); `injectSeismicLoads` grava os
+ * casos nodais; `runSeismic` produz o relatório de verificação (§9.5 drifts
+ * δx = Cd·δxe/I e §9.6 θ) a partir dos deslocamentos já resolvidos do passe
+ * ELU (rigidez fissurada).
  */
 
 import type { Project } from '../model/types'
-import type { AnalysisModel } from './types'
-import { makeNodalSolver, type NumberedSystem, type PassStiffness } from './solve'
+import type { AnalysisModel, CaseId, CaseResult } from './types'
+import type { InternalModel } from './buildModel'
 import type { ModalResults } from './modal'
 import {
   approxPeriod,
@@ -28,32 +33,7 @@ import {
   type SeismicZone,
 } from '../nbr/nbr15421/seismic'
 
-export interface SeismicStoryRow {
-  levelIndex: number
-  levelName: string
-  /** altura acima da base, m */
-  h: number
-  /** peso sísmico do pavimento, kN */
-  w: number
-  /** força sísmica Fx, kN */
-  force: number
-  /** cortante acumulado no pavimento, kN */
-  shear: number
-  /** deslocamento elástico δxe, m */
-  deltaXe: number
-  /** deslocamento amplificado δx = Cd·δxe/I, m */
-  deltaX: number
-  /** drift amplificado do pavimento Δx, m */
-  drift: number
-  /** limite Δx ≤ limite·hsx, m */
-  driftLimit: number
-  driftOk: boolean
-  /** coeficiente de estabilidade θ (§9.6) */
-  theta: number
-  thetaOk: boolean
-}
-
-export interface SeismicDirResult {
+export interface SeismicPlanDir {
   dir: 'X' | 'Y'
   /** período usado (modal limitado por Cup·Ta, ou Ta), s */
   T: number
@@ -63,14 +43,13 @@ export interface SeismicDirResult {
   /** força horizontal total na base, kN */
   H: number
   k: number
-  rows: SeismicStoryRow[]
-  maxDriftRatio: number
-  allDriftsOk: boolean
-  allThetaOk: boolean
+  /** força por pavimento (alinhada aos mestres base → topo), kN */
+  forces: number[]
+  /** excentricidade acidental de 5% (§9.4), m */
+  eTor: number
 }
 
-export interface SeismicResults {
-  /** parâmetros efetivos */
+export interface SeismicPlan {
   ag: number
   zone: SeismicZone
   soilClass: string
@@ -85,19 +64,93 @@ export interface SeismicResults {
   /** peso sísmico total W, kN */
   W: number
   Ta: number
-  /** método: zona 1 admite o processo simplificado Fx = 0,01·Wx */
+  method: 'forcas-equivalentes' | 'simplificado' | 'isento'
+  /** ids dos nós mestres (base → topo) */
+  masterIds: number[]
+  levelIndexes: number[]
+  weights: number[]
+  /** alturas acima da base, m */
+  heights: number[]
+  notes: string[]
+}
+
+export interface SeismicStoryRow {
+  levelIndex: number
+  levelName: string
+  h: number
+  w: number
+  force: number
+  shear: number
+  deltaXe: number
+  deltaX: number
+  drift: number
+  driftLimit: number
+  driftOk: boolean
+  theta: number
+  thetaOk: boolean
+}
+
+export interface SeismicDirResult {
+  dir: 'X' | 'Y'
+  T: number
+  periodSource: 'modal' | 'aproximado' | 'limitado-cup'
+  cs: number
+  csGovernedBy: 'plato' | 'periodo' | 'minimo'
+  H: number
+  k: number
+  /** excentricidade acidental aplicada, m */
+  eTor: number
+  rows: SeismicStoryRow[]
+  maxDriftRatio: number
+  allDriftsOk: boolean
+  allThetaOk: boolean
+}
+
+export interface SeismicResults {
+  ag: number
+  zone: SeismicZone
+  soilClass: string
+  category: 1 | 2 | 3
+  I: number
+  R: number
+  Cd: number
+  omega0: number
+  systemLabel: string
+  ags0: number
+  ags1: number
+  W: number
+  Ta: number
   method: 'forcas-equivalentes' | 'simplificado' | 'isento'
   dirs: SeismicDirResult[]
   notes: string[]
 }
 
-export function runSeismic(
+/** dims em planta do modelo (bounding box dos nós estruturais), m */
+function planDims(model: AnalysisModel): { lx: number; ly: number } {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const n of model.nodes) {
+    if (n.kind !== 'structural') continue
+    if (n.x < minX) minX = n.x
+    if (n.x > maxX) maxX = n.x
+    if (n.y < minY) minY = n.y
+    if (n.y > maxY) maxY = n.y
+  }
+  return { lx: Math.max(maxX - minX, 0), ly: Math.max(maxY - minY, 0) }
+}
+
+/** Se o sismo está habilitado e NÃO isento (zona 0 sem ag do mapa é isenta §4). */
+export function seismicActive(project: Project): boolean {
+  const p = project.settings.seismic
+  if (!p?.enabled) return false
+  return p.zone !== 0 || p.agOverride !== undefined
+}
+
+/** Monta o plano de forças sísmicas (períodos, Cs, H, Fx por pavimento). */
+export function buildSeismicLoads(
   project: Project,
   model: AnalysisModel,
-  system: NumberedSystem,
-  eluPass: PassStiffness,
   modal: ModalResults | null,
-): SeismicResults | null {
+): { plan: SeismicPlan; dirs: SeismicPlanDir[] } | null {
   const p = project.settings.seismic
   if (!p?.enabled) return null
 
@@ -123,8 +176,12 @@ export function runSeismic(
   const W = weights.reduce((a, b) => a + b, 0)
   const hn = Math.max(...heights)
   const Ta = approxPeriod(hn, p.system)
+  const { lx, ly } = planDims(model)
 
-  const base: Omit<SeismicResults, 'dirs' | 'method'> = {
+  const isento = zone === 0 && p.agOverride === undefined
+  const simplified = zone === 1 && p.agOverride === undefined
+
+  const plan: SeismicPlan = {
     ag,
     zone,
     soilClass: p.soilClass,
@@ -138,53 +195,53 @@ export function runSeismic(
     ags1: spectrum.ags1,
     W,
     Ta,
+    method: isento ? 'isento' : simplified ? 'simplificado' : 'forcas-equivalentes',
+    masterIds: masters.map((m) => m.id),
+    levelIndexes: masters.map((m) => m.levelIndex),
+    weights,
+    heights,
     notes,
   }
 
-  if (zone === 0 && !p.agOverride) {
+  if (isento) {
     notes.push('Zona sísmica 0: nenhum requisito de resistência sísmica é exigido (§4).')
-    return { ...base, method: 'isento', dirs: [] }
+    return { plan, dirs: [] }
   }
-
-  const solver = makeNodalSolver(project, model, system, eluPass)
-  const driftLimitRatio = DRIFT_LIMIT[p.category]
-  const dirs: SeismicDirResult[] = []
-
-  const simplified = zone === 1 && !p.agOverride
   if (simplified) {
-    notes.push('Zona 1: processo simplificado — forças horizontais de 1% do peso de cada pavimento (§8).')
+    notes.push(
+      'Zona 1: processo simplificado — forças horizontais de 1% do peso de cada pavimento (§8).',
+    )
   }
+  notes.push(
+    'Torção acidental (§9.4): momento Mta = Fx·0,05·L⊥ aplicado no diafragma com sinal único por caso — a envoltória ±X/±Y cobre os dois giros em plantas ~simétricas.',
+  )
 
+  const dirs: SeismicPlanDir[] = []
   for (const dir of ['X', 'Y'] as const) {
-    const dof = dir === 'X' ? 0 : 1
-    // período modal fundamental na direção (modo com maior massa efetiva)
     let T = Ta
-    let periodSource: SeismicDirResult['periodSource'] = 'aproximado'
+    let periodSource: SeismicPlanDir['periodSource'] = 'aproximado'
     if (modal && modal.modes.length > 0) {
       const best = [...modal.modes].sort((a, b) =>
         dir === 'X' ? b.effMassX - a.effMassX : b.effMassY - a.effMassY,
       )[0]
-      const tModal = best.T
       const cap = CUP[zone] * Ta
-      if (tModal > cap) {
+      if (best.T > cap) {
         T = cap
         periodSource = 'limitado-cup'
       } else {
-        T = tModal
+        T = best.T
         periodSource = 'modal'
       }
     }
 
+    let cs = 0.01
+    let governedBy: SeismicPlanDir['csGovernedBy'] = 'minimo'
     let H: number
-    let cs = 0
-    let governedBy: SeismicDirResult['csGovernedBy'] = 'plato'
     let k = 1
     let forces: number[]
     if (simplified) {
       forces = weights.map((w) => 0.01 * w)
       H = forces.reduce((a, b) => a + b, 0)
-      cs = 0.01
-      governedBy = 'minimo'
     } else {
       const r = seismicResponseCoefficient(spectrum, T, sys.R, I)
       cs = r.cs
@@ -195,26 +252,86 @@ export function runSeismic(
       forces = vd.forces
     }
 
-    // resolve os deslocamentos elásticos com as forças sísmicas de projeto
-    const loads = masters.map((m, i) => ({ node: m.id, dof, value: forces[i] }))
-    const u = solver(loads)
+    dirs.push({
+      dir,
+      T,
+      periodSource,
+      cs,
+      csGovernedBy: governedBy,
+      H,
+      k,
+      forces,
+      // §9.4: 5% da dimensão em planta PERPENDICULAR à direção das forças
+      eTor: 0.05 * (dir === 'X' ? ly : lx),
+    })
+  }
+  return { plan, dirs }
+}
 
-    const rows: SeismicStoryRow[] = masters.map((m, i) => {
-      const hsx = heights[i] - (heights[i - 1] ?? 0)
-      const deltaXe = Math.abs(u[m.id][dof])
-      const deltaXePrev = i > 0 ? Math.abs(u[masters[i - 1].id][dof]) : 0
-      const deltaX = (sys.Cd * deltaXe) / I
-      const drift = (sys.Cd * Math.max(deltaXe - deltaXePrev, 0)) / I
-      const shear = forces.slice(i).reduce((a, b) => a + b, 0)
-      const pCum = weights.slice(i).reduce((a, b) => a + b, 0)
-      const st = stabilityCoefficient(pCum, drift, shear, hsx, sys.Cd)
+const DIR_CASES: Record<'X' | 'Y', [CaseId, CaseId]> = {
+  X: ['EQXP', 'EQXN'],
+  Y: ['EQYP', 'EQYN'],
+}
+
+/** Grava os casos EQ* nas cargas nodais (substitui os existentes — seguro
+ *  para o re-cálculo após as molas de fundação). */
+export function injectSeismicLoads(
+  internal: InternalModel,
+  plan: SeismicPlan,
+  dirs: SeismicPlanDir[],
+): void {
+  for (const ids of Object.values(DIR_CASES)) for (const id of ids) internal.nodalLoads[id] = []
+  for (const d of dirs) {
+    const dof = d.dir === 'X' ? 0 : 1
+    for (const [caseId, sign] of [
+      [DIR_CASES[d.dir][0], 1],
+      [DIR_CASES[d.dir][1], -1],
+    ] as const) {
+      plan.masterIds.forEach((node, i) => {
+        const F = sign * d.forces[i]
+        if (F === 0) return
+        internal.nodalLoads[caseId].push({ node, dof, value: F })
+        if (d.eTor > 0) internal.nodalLoads[caseId].push({ node, dof: 5, value: F * d.eTor })
+      })
+    }
+  }
+}
+
+/** Relatório §9.5/§9.6 a partir dos deslocamentos do passe ELU (fissurado). */
+export function runSeismic(
+  project: Project,
+  model: AnalysisModel,
+  built: { plan: SeismicPlan; dirs: SeismicPlanDir[] } | null,
+  casesElu: Partial<Record<CaseId, CaseResult>>,
+): SeismicResults | null {
+  if (!built) return null
+  const { plan, dirs } = built
+  const levels = [...project.levels].sort((a, b) => a.elevation - b.elevation)
+  const driftLimitRatio = DRIFT_LIMIT[plan.category]
+
+  const out: SeismicDirResult[] = []
+  for (const d of dirs) {
+    const dof = d.dir === 'X' ? 0 : 1
+    const cr = casesElu[DIR_CASES[d.dir][0]]
+    if (!cr) continue
+    const rows: SeismicStoryRow[] = plan.masterIds.map((nodeId, i) => {
+      const hsx = plan.heights[i] - (plan.heights[i - 1] ?? 0)
+      const deltaXe = Math.abs(cr.displacements[nodeId][dof])
+      const deltaXePrev =
+        i > 0 ? Math.abs(cr.displacements[plan.masterIds[i - 1]][dof]) : 0
+      const deltaX = (plan.Cd * deltaXe) / plan.I
+      const drift = (plan.Cd * Math.max(deltaXe - deltaXePrev, 0)) / plan.I
+      const shear = d.forces.slice(i).reduce((a, b) => a + b, 0)
+      const pCum = plan.weights.slice(i).reduce((a, b) => a + b, 0)
+      const st = stabilityCoefficient(pCum, drift, shear, hsx, plan.Cd)
       const driftLimit = driftLimitRatio * hsx
+      const li = plan.levelIndexes[i]
       return {
-        levelIndex: m.levelIndex,
-        levelName: levels[m.levelIndex]?.name ?? `Nível ${m.levelIndex}`,
-        h: heights[i],
-        w: weights[i],
-        force: forces[i],
+        levelIndex: li,
+        levelName: levels[li]?.name ?? `Nível ${li}`,
+        h: plan.heights[i],
+        w: plan.weights[i],
+        force: d.forces[i],
         shear,
         deltaXe,
         deltaX,
@@ -225,21 +342,41 @@ export function runSeismic(
         thetaOk: st.theta <= st.thetaMax + 1e-9,
       }
     })
-
-    dirs.push({
-      dir,
-      T,
-      periodSource,
-      cs,
-      csGovernedBy: governedBy,
-      H,
-      k,
+    out.push({
+      dir: d.dir,
+      T: d.T,
+      periodSource: d.periodSource,
+      cs: d.cs,
+      csGovernedBy: d.csGovernedBy,
+      H: d.H,
+      k: d.k,
+      eTor: d.eTor,
       rows,
-      maxDriftRatio: Math.max(...rows.map((r) => (r.driftLimit > 0 ? r.drift / r.driftLimit : 0))),
+      maxDriftRatio: Math.max(
+        ...rows.map((r) => (r.driftLimit > 0 ? r.drift / r.driftLimit : 0)),
+        0,
+      ),
       allDriftsOk: rows.every((r) => r.driftOk),
       allThetaOk: rows.every((r) => r.thetaOk),
     })
   }
 
-  return { ...base, method: simplified ? 'simplificado' : 'forcas-equivalentes', dirs }
+  return {
+    ag: plan.ag,
+    zone: plan.zone,
+    soilClass: plan.soilClass,
+    category: plan.category,
+    I: plan.I,
+    R: plan.R,
+    Cd: plan.Cd,
+    omega0: plan.omega0,
+    systemLabel: plan.systemLabel,
+    ags0: plan.ags0,
+    ags1: plan.ags1,
+    W: plan.W,
+    Ta: plan.Ta,
+    method: plan.method,
+    dirs: out,
+    notes: plan.notes,
+  }
 }

@@ -59,7 +59,7 @@ interface Piece {
   s1: number
 }
 
-const CASES: CaseId[] = ['G', 'Q', 'WXP', 'WXN', 'WYP', 'WYN']
+const CASES: CaseId[] = ['G', 'Q', 'WXP', 'WXN', 'WYP', 'WYN', 'EQXP', 'EQXN', 'EQYP', 'EQYN']
 
 /**
  * Gera o pórtico espacial: nós por pavimento, pilares por tramo, vigas
