@@ -364,6 +364,11 @@ export interface SeismicParams {
     | 'pendulo-invertido'
   /** fração da carga acidental no peso sísmico W (0,25 p/ depósitos; §8.2) */
   liveFraction: number
+  /**
+   * método de análise (§9 forças equivalentes | §10 espectral com SRSS e
+   * regra 0,85·H). Ausente = 'equivalente'.
+   */
+  method?: 'equivalente' | 'espectral'
 }
 
 export interface WindParams {

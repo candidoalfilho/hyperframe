@@ -51,10 +51,17 @@ export {
 } from './analysis/modal'
 export {
   runSeismic,
+  buildSeismicLoads,
   type SeismicResults,
   type SeismicDirResult,
   type SeismicStoryRow,
+  type SeismicPlan,
 } from './analysis/seismic'
+export {
+  spectralResponse,
+  baseShearCorrection,
+  type SpectralDirResult,
+} from './analysis/spectral'
 export {
   ZONE_AG,
   seismicAmplification,

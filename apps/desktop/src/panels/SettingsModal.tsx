@@ -530,6 +530,22 @@ export default function SettingsModal() {
               </div>
 
               <div className="field">
+                <label className="label">Método de análise</label>
+                <select
+                  className="select"
+                  style={{ width: '100%' }}
+                  disabled={seismicDis}
+                  value={seismic.method ?? 'equivalente'}
+                  onChange={(e) =>
+                    updSeismic({ method: e.target.value as 'equivalente' | 'espectral' })
+                  }
+                >
+                  <option value="equivalente">Forças horizontais equivalentes (§9)</option>
+                  <option value="espectral">Espectral — SRSS dos modos + regra 0,85·H (§10)</option>
+                </select>
+              </div>
+
+              <div className="field">
                 <label className="label">Fração da acidental no peso sísmico (§8.2)</label>
                 <NumberField
                   value={seismic.liveFraction}

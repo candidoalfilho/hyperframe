@@ -693,7 +693,25 @@
   Σreações = H por direção, e = 5%·L⊥ conferido no bbox, relatório ≡ caso
   resolvido, envoltória Mz obrigada a crescer em zona 4/solo E, planta de
   cargas com EQ, zona 0 sem casos/combos
-- [ ] Fase 3: método espectral completo (SRSS por modo, regra 0,85·H)
+- [x] ~~Fase 3: método espectral (SRSS, 0,85·H)~~ → v0.2.45
+
+## v0.2.45 — Sismo fase 3: método espectral §10 ✅
+
+- [x] `analysis/spectral.ts`: resposta por modo p_k = (I/R)·Sa(T_k)·g·Γ_k·M·φ_k
+  (Γ·φ invariante à normalização), cortantes de pavimento por modo, combinação
+  SRSS (§10.3) com modos até ≥90% de massa (§10.1), forças estáticas
+  equivalentes das diferenças dos cortantes SRSS, regra do cortante mínimo
+  0,85·H (§10.4)
+- [x] Integração: `method: 'equivalente' | 'espectral'` nos parâmetros; as
+  forças espectrais entram nos MESMOS casos EQ± (torção acidental 5% e
+  combinações excepcionais preservadas); zona 1 mantém o simplificado;
+  fallback p/ FHE sem modos (com nota)
+- [x] UI: seletor de método nas Configurações; linha espectral por direção
+  (modos, % massa, Ht, fator 0,85·H/Ht) na aba Estabilidade e no memorial
+- [x] +9 testes (469): âncora SRSS à mão (2 GDL, Γ e cortantes por modo,
+  hypot na base e no topo), 1 modo ≡ FHE com Sa constante, regra 0,85·H
+  exata, equilíbrio Σreações = H espectral, piso 0,85·H vs FHE no projeto
+  exemplo, combos excepcionais mantidos
 
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 

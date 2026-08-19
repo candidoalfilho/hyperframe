@@ -19,6 +19,7 @@ import type { Project } from '../model/types'
 import type { AnalysisModel, CaseId, CaseResult } from './types'
 import type { InternalModel } from './buildModel'
 import type { ModalResults } from './modal'
+import { baseShearCorrection, spectralResponse } from './spectral'
 import {
   approxPeriod,
   CUP,
@@ -47,6 +48,16 @@ export interface SeismicPlanDir {
   forces: number[]
   /** excentricidade acidental de 5% (§9.4), m */
   eTor: number
+  /** presente quando o método espectral (§10) governou as forças */
+  spectral?: {
+    modesUsed: number
+    /** massa efetiva capturada na direção (0–1) */
+    massSum: number
+    /** cortante SRSS na base ANTES da regra 0,85·H, kN */
+    Ht: number
+    /** fator 0,85·H/Ht aplicado (1 se dispensado) */
+    scale: number
+  }
 }
 
 export interface SeismicPlan {
@@ -64,7 +75,7 @@ export interface SeismicPlan {
   /** peso sísmico total W, kN */
   W: number
   Ta: number
-  method: 'forcas-equivalentes' | 'simplificado' | 'isento'
+  method: 'forcas-equivalentes' | 'espectral' | 'simplificado' | 'isento'
   /** ids dos nós mestres (base → topo) */
   masterIds: number[]
   levelIndexes: number[]
@@ -100,6 +111,7 @@ export interface SeismicDirResult {
   k: number
   /** excentricidade acidental aplicada, m */
   eTor: number
+  spectral?: SeismicPlanDir['spectral']
   rows: SeismicStoryRow[]
   maxDriftRatio: number
   allDriftsOk: boolean
@@ -120,7 +132,7 @@ export interface SeismicResults {
   ags1: number
   W: number
   Ta: number
-  method: 'forcas-equivalentes' | 'simplificado' | 'isento'
+  method: 'forcas-equivalentes' | 'espectral' | 'simplificado' | 'isento'
   dirs: SeismicDirResult[]
   notes: string[]
 }
@@ -239,6 +251,7 @@ export function buildSeismicLoads(
     let H: number
     let k = 1
     let forces: number[]
+    let spectral: SeismicPlanDir['spectral']
     if (simplified) {
       forces = weights.map((w) => 0.01 * w)
       H = forces.reduce((a, b) => a + b, 0)
@@ -250,6 +263,24 @@ export function buildSeismicLoads(
       const vd = verticalDistribution(weights, heights, H, T)
       k = vd.k
       forces = vd.forces
+
+      // §10 — método espectral: SRSS dos cortantes modais vira as forças
+      // estáticas equivalentes; regra do cortante mínimo 0,85·H (§10.4)
+      if (p.method === 'espectral' && modal && modal.modes.length > 0) {
+        const masses = weights.map((w) => w / 9.80665)
+        const sp = spectralResponse(modal.modes, masses, dir, spectrum.Sa, I / sys.R)
+        if (sp.Ht > 1e-9) {
+          const scale = baseShearCorrection(sp.Ht, H)
+          forces = sp.forces.map((f) => f * scale)
+          H = sp.Ht * scale
+          spectral = { modesUsed: sp.modesUsed, massSum: sp.massSum, Ht: sp.Ht, scale }
+          if (sp.massSum < 0.9) {
+            notes.push(
+              `Espectral ${dir}: massa efetiva capturada ${(100 * sp.massSum).toFixed(0)}% < 90% (§10.1) — considere mais modos/diafragmas.`,
+            )
+          }
+        }
+      }
     }
 
     dirs.push({
@@ -263,7 +294,12 @@ export function buildSeismicLoads(
       forces,
       // §9.4: 5% da dimensão em planta PERPENDICULAR à direção das forças
       eTor: 0.05 * (dir === 'X' ? ly : lx),
+      spectral,
     })
+  }
+  if (!isento && !simplified && dirs.some((d) => d.spectral)) plan.method = 'espectral'
+  else if (p.method === 'espectral' && !isento && !simplified) {
+    notes.push('Método espectral solicitado sem modos extraídos — usadas as forças equivalentes (§9).')
   }
   return { plan, dirs }
 }
@@ -351,6 +387,7 @@ export function runSeismic(
       H: d.H,
       k: d.k,
       eTor: d.eTor,
+      spectral: d.spectral,
       rows,
       maxDriftRatio: Math.max(
         ...rows.map((r) => (r.driftLimit > 0 ? r.drift / r.driftLimit : 0)),

@@ -592,6 +592,14 @@ function ModalSeismicSection({ results }: { results: AnalysisResults }) {
                     : 'Ta aproximado'}
                 ) · Cs = {fmt(d.cs, 4)} · H = {fmt(d.H, 1)} kN · k = {fmt(d.k, 2)} · e ={' '}
                 {fmt(d.eTor, 2)} m{' '}
+                {d.spectral && (
+                  <>
+                    · espectral: {d.spectral.modesUsed} modo(s),{' '}
+                    {fmt(100 * d.spectral.massSum, 0)}% da massa, Ht ={' '}
+                    {fmt(d.spectral.Ht, 1)} kN
+                    {d.spectral.scale > 1 && ` (×${fmt(d.spectral.scale, 3)} p/ 0,85·H — §10.4)`}{' '}
+                  </>
+                )}
                 {d.allDriftsOk ? (
                   <span className="chip ok">drifts OK</span>
                 ) : (
@@ -2257,9 +2265,11 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
         {results.seismic && results.seismic.method !== 'isento' && (
           <>
             <p style={{ fontSize: 11.5, fontWeight: 700, margin: '10px 0 4px' }}>
-              Ação sísmica — NBR 15421 §9 ({results.seismic.method === 'simplificado'
-                ? 'processo simplificado, zona 1'
-                : 'forças horizontais equivalentes'})
+              Ação sísmica — NBR 15421 ({results.seismic.method === 'simplificado'
+                ? 'processo simplificado, zona 1 (§8)'
+                : results.seismic.method === 'espectral'
+                  ? 'método espectral, SRSS + regra 0,85·H (§10)'
+                  : 'forças horizontais equivalentes (§9)'})
             </p>
             <p style={{ fontSize: 11.5, margin: '2px 0 6px' }}>
               ag = {fmt(results.seismic.ag, 3)}g · terreno {results.seismic.soilClass} · ags0 ={' '}
