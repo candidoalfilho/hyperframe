@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.45-orange) ![tests](https://img.shields.io/badge/testes-469%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.46-orange) ![tests](https://img.shields.io/badge/testes-476%20passando-brightgreen)
 
-## O que já faz (v0.2.45)
+## O que já faz (v0.2.46)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -58,7 +58,11 @@ sistema e código-fonte no site.
   seção S1 e cortante na S2, bloco rígido §22.7.1) ou **tubulões a céu
   aberto** (fuste + base alargada, NBR 6122), **editáveis por pilar** (tipo, a×b ou nº
   de estacas fixados ⇒ o programa VERIFICA em vez de dimensionar; offset de divisa vira
-  momento N·e; cota de assentamento), **sapata de divisa com VIGA ALAVANCA** (R1
+  momento N·e; **COTA DE ASSENTAMENTO ESTRUTURAL** — sapatas em cotas diferentes p/
+  terreno em aclive/declive: o apoio desce no modelo com tramo de arranque no
+  pórtico e a verificação **NBR 6122 §7.7** confere o afastamento entre bordos de
+  sapatas vizinhas — reta com α ≥ 60°/45°/30° da vertical conforme o solo, com
+  aviso e ordem executiva), **sapata de divisa com VIGA ALAVANCA** (R1
   amplificada, sapata centrada, alívio no pilar interno, viga dimensionada à flexão e
   cisalhamento com armadura superior + estribos), **desenhadas no 2D e no 3D**, **planta
   de fundações** (locação, contornos, estacas, eixo das alavancas e resumo),

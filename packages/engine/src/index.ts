@@ -63,6 +63,14 @@ export {
   type SpectralDirResult,
 } from './analysis/spectral'
 export {
+  checkAdjacentFootings,
+  soilClassFromSigma,
+  MIN_ALPHA_DEG,
+  type AdjacentFootingIssue,
+  type FootingFootprint,
+  type SoilResistanceClass,
+} from './nbr/nbr6122/adjacentFootings'
+export {
   ZONE_AG,
   seismicAmplification,
   designSpectrum,

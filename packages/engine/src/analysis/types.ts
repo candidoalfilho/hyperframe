@@ -778,6 +778,8 @@ export interface AnalysisResults {
   soilInteraction: SoilInteractionResults
   /** planta de cargas — reações características por pilar */
   foundationLoads: FoundationLoadRow[]
+  /** sapatas vizinhas em cotas diferentes (NBR 6122 §7.7 — aclive/declive) */
+  foundationAdjacency: import('../nbr/nbr6122/adjacentFootings').AdjacentFootingIssue[]
   /** log de avisos da geração do modelo + análise */
   warnings: string[]
   /** duração da análise, ms */

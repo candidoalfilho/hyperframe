@@ -255,8 +255,29 @@ export function buildAnalysisModel(project: Project): {
       continue
     }
     const baseNode = getNode(iBase, col.pos)
+    // cota de assentamento por pilar (terreno em aclive/declive): o apoio
+    // desce p/ a cota da sapata e um tramo de ARRANQUE liga ao nível 0 —
+    // rigidez e esbeltez passam a sentir o desnível (NBR 6122 §7.7)
+    const fdnDepth =
+      iBase === 0
+        ? (project.foundationOverrides?.find((o) => o.columnId === col.id)?.depth ?? 0)
+        : 0
+    let supportNode = baseNode
     if (iBase === 0) {
-      nodes[baseNode].support = true
+      if (fdnDepth > 0.01) {
+        supportNode = nodes.length
+        nodes.push({
+          id: supportNode,
+          x: col.pos.x,
+          y: col.pos.y,
+          z: levels[0].elevation - fdnDepth,
+          levelIndex: 0,
+          kind: 'structural',
+          support: true,
+        })
+      } else {
+        nodes[baseNode].support = true
+      }
     } else {
       // nasce em viga? (transferência) — o nó da base coincide com um corte da viga
       const onBeam = (piecesByLevel.get(iBase) ?? []).some(
@@ -280,6 +301,19 @@ export function buildAnalysisModel(project: Project): {
       Iz: secInfo.Iv,
       J: secInfo.J,
       perimeter: secInfo.perimeter,
+    }
+    // tramo de arranque: da sapata rebaixada até o nível 0 (mesma seção)
+    if (supportNode !== baseNode) {
+      addMember(
+        supportNode,
+        baseNode,
+        { kind: 'column', sourceId: col.id, sourceName: col.name, spanIndex: -1 },
+        { bw: secInfo.bu, h: secInfo.bv },
+        xL,
+        yL,
+        zL,
+        props,
+      )
     }
     for (let i = iBase; i < iTop; i++) {
       const ni = getNode(i, col.pos)

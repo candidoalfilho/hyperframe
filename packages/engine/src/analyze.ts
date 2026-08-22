@@ -34,7 +34,11 @@ import {
   runSeismic,
   seismicActive,
 } from './analysis/seismic'
-import { columnSectionInfo } from './model/columnSection'
+import { columnSectionInfo, columnWorldDirs } from './model/columnSection'
+import {
+  checkAdjacentFootings,
+  soilClassFromSigma,
+} from './nbr/nbr6122/adjacentFootings'
 import { ribbedGeometry } from './nbr/nbr6118/ribbedSlab'
 import type {
   AnalysisResults,
@@ -271,6 +275,41 @@ export function analyze(project: Project): AnalysisResults {
     }
   }
 
+  // ----------------- sapatas vizinhas em cotas diferentes (NBR 6122 §7.7)
+  const levelsSorted = [...project.levels].sort((a, b) => a.elevation - b.elevation)
+  const baseElev = levelsSorted[0]?.elevation ?? 0
+  const footprints = project.columns.flatMap((col) => {
+    const fr = foundations.find((f) => f.columnId === col.id)
+    if (!fr || fr.kind !== 'sapata' || !fr.footing || fr.combinedWithId) return []
+    const dirs = columnWorldDirs(col.rotationDeg)
+    const a = fr.footing.a
+    const b = fr.footing.b
+    const off = fr.offset ?? { x: 0, y: 0 }
+    return [
+      {
+        columnId: col.id,
+        name: col.name,
+        x: col.pos.x + off.x,
+        y: col.pos.y + off.y,
+        // a alinhada com a direção de h (vDir); envolvente nos eixos globais
+        dimX: Math.abs(dirs.vDir.x) * a + Math.abs(dirs.uDir.x) * b,
+        dimY: Math.abs(dirs.vDir.y) * a + Math.abs(dirs.uDir.y) * b,
+        cota: baseElev - (fr.depth ?? 0),
+      },
+    ]
+  })
+  const foundationAdjacency = checkAdjacentFootings(
+    footprints,
+    soilClassFromSigma(project.settings.soil.sigmaAdm),
+  )
+  for (const iss of foundationAdjacency) {
+    if (!iss.ok) {
+      model.warnings.push(
+        `Sapatas ${iss.aName}×${iss.bName} em cotas diferentes (Δh = ${iss.deltaH.toFixed(2)} m): afastamento entre bordos ${iss.gap.toFixed(2)} m < mínimo ${iss.required.toFixed(2)} m (NBR 6122 §7.7) — aprofundar a mais rasa, afastar ou escalonar. Executar primeiro a ${iss.deeperName}.`,
+      )
+    }
+  }
+
   // --------------------------------------------- planta de cargas (fundação)
   const foundationLoads = computeFoundationLoads(project, model, combos, cases)
 
@@ -300,6 +339,7 @@ export function analyze(project: Project): AnalysisResults {
     beamOpenings,
     soilInteraction,
     foundationLoads,
+    foundationAdjacency,
     warnings: model.warnings,
     elapsedMs,
   }

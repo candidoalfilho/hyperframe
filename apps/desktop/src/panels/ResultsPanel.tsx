@@ -1097,9 +1097,53 @@ function FundacoesTab({ results, project }: { results: AnalysisResults; project:
   const fnd = project.settings.foundation
   const usePiles = fnd.type === 'estacas'
   const useCaissons = fnd.type === 'tubulao'
+  const adjacency = results.foundationAdjacency
 
   return (
     <>
+      {adjacency.length > 0 && (
+        <>
+          <SectionTitle>Sapatas em cotas diferentes — NBR 6122 §7.7 (aclive/declive)</SectionTitle>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Par</th>
+                <th>Δh (m)</th>
+                <th>afastamento (m)</th>
+                <th>mínimo Δh·tan α (m)</th>
+                <th>executa 1º</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {adjacency.map((i) => (
+                <tr key={`${i.aId}-${i.bId}`}>
+                  <td>
+                    {i.aName} × {i.bName}
+                  </td>
+                  <td>{fmt(i.deltaH, 2)}</td>
+                  <td>{fmt(i.gap, 2)}</td>
+                  <td>{fmt(i.required, 2)}</td>
+                  <td>{i.deeperName}</td>
+                  <td>
+                    {i.ok ? (
+                      <span className="chip ok">OK</span>
+                    ) : (
+                      <span className="chip err">afastar/aprofundar</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="faint" style={{ fontSize: 11.5, margin: '4px 0 10px' }}>
+            Reta entre bordos com ângulo mínimo com a vertical: 60° (solos pouco resistentes) ·
+            45° (resistentes) · 30° (rochas) — classe estimada da σadm ({fmt(soil.sigmaAdm, 0)}{' '}
+            kPa). A fundação mais profunda executa primeiro. O apoio de cada pilar com cota de
+            assentamento desce no modelo (tramo de arranque no pórtico).
+          </div>
+        </>
+      )}
       <div
         style={{
           display: 'flex',

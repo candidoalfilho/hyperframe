@@ -713,6 +713,24 @@
   exata, equilíbrio Σreações = H espectral, piso 0,85·H vs FHE no projeto
   exemplo, combos excepcionais mantidos
 
+## v0.2.46 — Fundações em desnível (aclive/declive) + tutorial no site ✅
+
+- [x] Cota de assentamento ESTRUTURAL: o `depth` do editor de fundações
+  rebaixa o nó de apoio (z = nível 0 − depth) e cria um tramo de ARRANQUE
+  no pórtico (spanIndex −1, mesma seção) — rigidez, esbeltez do tramo e
+  reações passam a sentir o desnível; baldrames seguem no nível 0
+- [x] `nbr/nbr6122/adjacentFootings.ts`: verificação §7.7 de sapatas
+  vizinhas em cotas diferentes — reta entre bordos com α mínimo da
+  VERTICAL (60° solos pouco resistentes / 45° resistentes / 30° rochas
+  ⇒ a ≥ Δh·tan α), classe estimada da σadm, aviso com ordem executiva
+  ("a mais profunda primeiro"); tabela na aba Fundações
+- [x] +7 testes (476): a_min à mão por classe (tan 45/30/60), gap de
+  retângulos (sobreposição ⇒ 0), pares distantes ignorados, apoio
+  rebaixado com arranque de comprimento exato, equilíbrio com peso do
+  arranque, §7.7 disparando no analyze (Δh 2 m passa / 3,5 m reprova)
+- [x] Site: página /tutorial/ (manual passo a passo) + PDF gerado
+  (downloads/HyperFrame-Tutorial.pdf) com visualização no navegador
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
