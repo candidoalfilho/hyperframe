@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tutorial — HyperFrame</title>
+<meta name="description" content="Tutorial completo do HyperFrame: do primeiro lançamento à prancha executiva — modelagem, análise, dimensionamento, fundações, alvenaria estrutural, sismo e pranchas. Disponível em PDF." />
+<meta name="theme-color" content="#171412" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23171412'/%3E%3Ccircle cx='12' cy='12' r='3.4' fill='%23ffa028'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --dark:#171412;--light:#f7f5ef;--white:#fffefb;--line:#e5e1d6;
+  --ink:#1b1712;--soft:#6b645a;--accent:#ff9a1f;--accent-deep:#e07c00;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--light);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--accent-deep);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+img{max-width:100%;display:block;border-radius:10px;border:1px solid var(--line)}
+code{font-family:var(--mono);font-size:.88em;background:#eeebe1;padding:1px 6px;border-radius:5px}
+.wrap{max-width:860px;margin:0 auto;padding:0 24px}
+
+.nav{position:sticky;top:0;z-index:50;background:rgba(247,245,239,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav-in{max-width:860px;margin:0 auto;padding:0 24px;height:56px;display:flex;align-items:center;gap:18px}
+.nav b a{color:var(--ink);font-size:15px;font-weight:800}
+.nav b a em{color:var(--accent);font-style:normal}
+.nav a{font-size:13px;font-weight:600;color:var(--soft)}
+.nav .pdf{margin-left:auto;background:var(--accent);color:#241a06;font-weight:700;font-size:13px;padding:9px 16px;border-radius:999px}
+.nav .pdf:hover{text-decoration:none;transform:scale(1.04)}
+
+header.hero{padding:72px 0 30px}
+.kick{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent-deep);margin-bottom:14px}
+h1{font-weight:800;letter-spacing:-.03em;line-height:1.02;font-size:clamp(38px,6vw,64px);margin:0 0 16px}
+.lead{color:var(--soft);font-size:17.5px;max-width:60ch}
+.toc{margin:34px 0 0;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:20px 24px;columns:2;column-gap:32px}
+.toc a{display:block;padding:4px 0;font-size:14px;font-weight:600;color:var(--ink)}
+.toc a i{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--accent-deep);margin-right:8px}
+@media(max-width:640px){.toc{columns:1}}
+
+section{padding:44px 0 8px;border-top:1px solid var(--line);margin-top:44px}
+section:first-of-type{border-top:0;margin-top:0}
+h2{font-weight:800;letter-spacing:-.02em;font-size:28px;margin:0 0 6px}
+h2 i{font-style:normal;font-family:var(--mono);font-size:13px;color:var(--accent-deep);display:block;letter-spacing:.2em;margin-bottom:8px}
+h3{font-weight:700;font-size:17.5px;margin:26px 0 6px}
+p{margin:10px 0}
+ol,ul{padding-left:22px;margin:10px 0}
+li{margin:5px 0}
+figure{margin:22px 0}
+figcaption{font-size:12.5px;color:var(--soft);margin-top:8px}
+.tip{background:#fff6e8;border:1px solid #f2ddb8;border-left:3px solid var(--accent);border-radius:10px;padding:12px 16px;font-size:14px;margin:16px 0}
+.tip b{color:var(--accent-deep)}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:14px 0}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--soft)}
+footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 40px;font-size:13px;color:var(--soft)}
+footer a{margin-right:16px}
+@media print{
+  .nav,.toc,footer{display:none}
+  body{background:#fff;font-size:12.5px}
+  section{page-break-inside:avoid;border-top:0;padding:20px 0 0;margin-top:10px}
+  header.hero{padding:20px 0 0}
+  figure{page-break-inside:avoid}
+  a{color:var(--ink);text-decoration:none}
+}
+</style>
+<script>
+window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+document.addEventListener('click', function (e) {
+  var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+  if (!a) return;
+  var m = (a.getAttribute('href') || '').match(/([^\/]+\.(pdf|dmg|exe))(\?|$)/);
+  if (m) va('event', { name: 'download', data: { file: m[1] } });
+});
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<nav class="nav"><div class="nav-in">
+  <b><a href="../">Hyper<em>Frame</em></a></b>
+  <a href="../">Início</a><a href="../edicao/">Edição 2026</a><a href="../downloads/">Downloads</a>
+  <a class="pdf" href="../downloads/HyperFrame-Tutorial.pdf">Ver em PDF ↗</a>
+</div></nav>
+
+<header class="hero wrap">
+  <div class="kick">Tutorial · do zero à prancha</div>
+  <h1>Manual do HyperFrame</h1>
+  <p class="lead">O caminho completo: instalar, lançar a estrutura, analisar, dimensionar e imprimir
+  a prancha executiva — com as referências de norma de cada etapa. Este manual também existe em
+  <a href="../downloads/HyperFrame-Tutorial.pdf">PDF</a> para ler offline ou imprimir.</p>
+  <nav class="toc">
+    <a href="#instalar"><i>01</i>Instalação</a>
+    <a href="#conceitos"><i>02</i>Conceitos: níveis e plantas</a>
+    <a href="#modelar"><i>03</i>Lançando a estrutura</a>
+    <a href="#cargas"><i>04</i>Cargas, vento e sismo</a>
+    <a href="#analisar"><i>05</i>Análise</a>
+    <a href="#resultados"><i>06</i>Lendo os resultados</a>
+    <a href="#fundacoes"><i>07</i>Fundações (e terreno em desnível)</a>
+    <a href="#alvenaria"><i>08</i>Alvenaria estrutural</a>
+    <a href="#pranchas"><i>09</i>Pranchas e memorial</a>
+    <a href="#copiloto"><i>10</i>Copiloto IA</a>
+    <a href="#dicas"><i>11</i>Dicas e atalhos</a>
+    <a href="#validacao"><i>12</i>Confiabilidade e limites</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+<section id="instalar">
+  <h2><i>CAPÍTULO 01</i>Instalação</h2>
+  <p><b>macOS (Apple Silicon):</b> baixe o <code>.dmg</code> na <a href="../">página inicial</a>,
+  arraste o HyperFrame para Aplicativos. Na primeira abertura o macOS pode avisar que o app
+  "está danificado" — é o Gatekeeper com apps de fora da App Store. Resolva com um comando no
+  Terminal:</p>
+  <p><code>xattr -cr /Applications/HyperFrame.app</code></p>
+  <p>ou em Ajustes → Privacidade e Segurança → "Abrir Assim Mesmo".</p>
+  <p><b>Windows 10/11:</b> baixe o instalador <code>.exe</code> e execute. O SmartScreen pode
+  pedir confirmação ("Executar assim mesmo") porque o binário ainda não é assinado.</p>
+  <p>Cada download tem o <b>sha256 publicado</b> ao lado do botão — confira se quiser verificar a
+  integridade. O app inteiro tem ~3 MB e funciona 100% offline; não existe conta, licença nem
+  telemetria.</p>
+</section>
+
+<section id="conceitos">
+  <h2><i>CAPÍTULO 02</i>Conceitos: níveis e plantas de forma</h2>
+  <p>Um projeto HyperFrame é organizado como um edifício de verdade:</p>
+  <ul>
+    <li><b>Níveis</b> — elevações do edifício (Fundação, Térreo, Tipo, Cobertura…), cada um com o
+    seu pé-direito. O nível 0 é a fundação.</li>
+    <li><b>Plantas de forma</b> — o desenho estrutural de cada pavimento. Vários níveis podem
+    compartilhar a mesma planta (o "Tipo") ou ter plantas próprias (térreo ≠ cobertura).</li>
+    <li><b>Pilares</b> — contínuos, nascem e morrem em qualquer nível (transferência em viga é
+    suportada, com aviso).</li>
+  </ul>
+  <p>O editor abre com uma planta 2D à esquerda e o 3D sincronizado à direita: o que você
+  seleciona num, acende no outro. O gerenciador de plantas/níveis fica na barra superior.</p>
+  <figure>
+    <img src="../assets/screenshot-modeling.png" alt="Editor 2D e 3D lado a lado" loading="lazy" />
+    <figcaption>Planta de forma 2D + 3D sincronizado. O inspetor (direita) edita o elemento selecionado.</figcaption>
+  </figure>
+</section>
+
+<section id="modelar">
+  <h2><i>CAPÍTULO 03</i>Lançando a estrutura</h2>
+  <p>A barra de ferramentas à esquerda tem os elementos, na ordem natural de lançamento:</p>
+  <ol>
+    <li><b>Eixos</b> — trace a malha de eixos com bulbos (A, B, C… / 1, 2, 3…). Tudo depois
+    "snapa" neles.</li>
+    <li><b>Pilares</b> — clique na posição; ajuste seção (retangular, circular ou em L), rotação
+    e níveis de nascimento/morte no inspetor.</li>
+    <li><b>Vigas</b> — polilinha de apoio em apoio (snap + orto ajudam). Seção por trecho,
+    furos na alma e trechos <b>curvos por flecha</b> (balcões) no inspetor.</li>
+    <li><b>Lajes</b> — clique dentro de um contorno fechado de vigas: a laje é detectada
+    sozinha. Defina espessura, tipo (maciça/nervurada) e cargas de revestimento/uso.</li>
+    <li><b>Extras</b> — escadas (retas, L, U), reservatórios, consolos nos pilares, furos de
+    laje (shaft/elevador), muros de arrimo, radier e <b>paredes de alvenaria estrutural</b>.</li>
+  </ol>
+  <div class="tip"><b>Arquitetura de fundo:</b> importe o DXF do arquiteto (menu Arquivo →
+  Underlay) e lance a estrutura por cima. No fim, as pranchas saem de volta em DXF R12.</div>
+  <p>Antes de analisar, rode a <b>verificação de consistência</b> — ela aponta avisos graves
+  (laje sem apoio, pilar sem descarga…) antes que virem erro de análise.</p>
+</section>
+
+<section id="cargas">
+  <h2><i>CAPÍTULO 04</i>Cargas, vento e sismo</h2>
+  <p>Peso próprio é automático. As demais cargas ficam nos elementos (laje: permanente +
+  acidental com presets da NBR 6120; viga: alvenaria por trecho) e nas
+  <b>Configurações</b> (ícone de engrenagem):</p>
+  <ul>
+    <li><b>Vento (NBR 6123)</b> — V0 por cidade (ou manual), S1/S2/S3, com desaprumo global
+    combinado pela regra da norma e excentricidade de 7,5% torcendo o diafragma.</li>
+    <li><b>Sismo (NBR 15421)</b> — zona sísmica (ou ag do mapa), classe do terreno A–E,
+    categoria de utilização e sistema sismorresistente (R/Cd). Método das forças equivalentes
+    ou <b>espectral</b> (SRSS dos modos com a regra 0,85·H). As forças entram no pórtico como
+    casos EQ± com torção acidental de 5% e combinações excepcionais da NBR 8681 — o sismo
+    <em>dimensiona</em>, não só verifica.</li>
+    <li><b>Combinações</b> — geradas sozinhas (ELU/ELS da NBR 8681 + excepcionais quando há
+    sismo). ψ da sobrecarga configurável.</li>
+  </ul>
+</section>
+
+<section id="analisar">
+  <h2><i>CAPÍTULO 05</i>Análise</h2>
+  <p>Clique em <b>Analisar</b>. O HyperFrame gera o pórtico espacial (6 GDL/nó) com diafragma
+  rígido por pavimento, roda dois passes de rigidez (ELU fissurada §15.7.3 e ELS integral),
+  extrai os <b>modos de vibração</b> (períodos e massa efetiva) e resolve todos os casos e
+  combinações — em segundos, num Web Worker que não trava a interface.</p>
+  <figure>
+    <img src="../assets/screenshot-deformed.png" alt="Deformada 3D" loading="lazy" />
+    <figcaption>Deformada 3D por combinação com escala interativa; diagramas M/V/N em fita sobre as barras.</figcaption>
+  </figure>
+  <p>A estabilidade global sai completa: γz e α (§15.5), majoração 0,95·γz (§15.7.2) e
+  <b>P-Δ iterativo real</b> — o fator adotado é o maior dos dois, válido além de γz = 1,30.</p>
+</section>
+
+<section id="resultados">
+  <h2><i>CAPÍTULO 06</i>Lendo os resultados</h2>
+  <p>O painel de resultados tem abas por assunto — cada verificação com o § da norma:</p>
+  <table>
+    <thead><tr><th>Aba</th><th>O que mostra</th></tr></thead>
+    <tbody>
+      <tr><td>Estabilidade</td><td>γz, α, P-Δ, desaprumo, modos de vibração e sismo (drifts, θ)</td></tr>
+      <tr><td>Vigas</td><td>flexão (mesa colaborante), cisalhamento, torção, flechas, fissuração</td></tr>
+      <tr><td>Pilares</td><td>flexo-compressão oblíqua, esbeltez, pilar-parede §15.9</td></tr>
+      <tr><td>Lajes</td><td>Marcus ou grelha, punção §19.5 completa, vibração de piso §23.3</td></tr>
+      <tr><td>Fundações</td><td>sapatas/blocos/tubulões, viga alavanca, §7.7 em desnível</td></tr>
+      <tr><td>Alvenaria</td><td>fpk por pavimento, paredes/grupos, cisalhamento de contraventamento</td></tr>
+      <tr><td>Relatório</td><td>memorial de cálculo completo pra anexar na ART</td></tr>
+    </tbody>
+  </table>
+  <figure>
+    <img src="../assets/screenshot-results.png" alt="Painel de resultados" loading="lazy" />
+    <figcaption>Resultados com o número da norma ao lado de cada conta — rastreável de ponta a ponta.</figcaption>
+  </figure>
+  <div class="tip"><b>Modo unifilar:</b> no 3D, alterne pro esqueleto de barras com diagramas —
+  contribuição da comunidade (obrigado, @danubiolagoa!).</div>
+</section>
+
+<section id="fundacoes">
+  <h2><i>CAPÍTULO 07</i>Fundações — inclusive terreno em desnível</h2>
+  <p>Escolha o tipo global em Configurações (sapatas, blocos sobre estacas ou tubulões) e o
+  HyperFrame dimensiona da sondagem SPT que você digitar. Depois, <b>edite por pilar</b> no
+  editor de fundações: fixe a×b ou nº de estacas (vira verificação), desloque o CG (divisa),
+  associe dois pilares numa sapata ou crie <b>viga alavanca</b>.</p>
+  <h3>Aclive e declive (cota de assentamento)</h3>
+  <p>Cada sapata pode ter a própria <b>cota de assentamento</b>. Não é só desenho: o apoio do
+  pilar desce até a cota da sapata e um <b>tramo de arranque</b> entra no pórtico — a rigidez e
+  a esbeltez sentem o desnível. E a verificação da <b>NBR 6122 §7.7</b> confere cada par de
+  sapatas vizinhas em cotas diferentes: a reta entre bordos deve fazer com a vertical pelo menos
+  60° (solos pouco resistentes), 45° (resistentes) ou 30° (rocha) — o app mostra o afastamento
+  mínimo <code>a = Δh·tan α</code>, quem passa e quem precisa afastar/aprofundar, e lembra a
+  regra executiva: <em>a mais profunda primeiro</em>.</p>
+  <figure>
+    <img src="../assets/screenshot-3d-fundacoes.png" alt="Fundações no 3D" loading="lazy" />
+    <figcaption>Sapatas, blocos e radier desenhados no 3D — em desnível quando há cota de assentamento.</figcaption>
+  </figure>
+</section>
+
+<section id="alvenaria">
+  <h2><i>CAPÍTULO 08</i>Alvenaria estrutural (NBR 16868)</h2>
+  <p>A parede estrutural é um elemento do editor (ferramenta própria): bloco de concreto ou
+  cerâmico, 14 ou 19 cm, com fpk de prisma <b>por pavimento</b> — a especificação que vai pro
+  fornecedor. O app acumula as cargas, verifica compressão (NRd = fd·t·[1−(λ/40)³]), grupos com
+  aberturas, contraventamento ao vento com graute calculado, e a <b>transferência pra torre
+  híbrida</b> (parede morrendo sobre viga de concreto, com efeito arco).</p>
+  <figure>
+    <img src="../assets/screenshot-alvenaria-elevacao.png" alt="Elevação de alvenaria" loading="lazy" />
+    <figcaption>Elevação bloco a bloco: 1ª/2ª fiadas com amarração, vergas, contravergas, cinta e quadro de blocos.</figcaption>
+  </figure>
+</section>
+
+<section id="pranchas">
+  <h2><i>CAPÍTULO 09</i>Pranchas e memorial</h2>
+  <p>Na aba <b>Pranchas</b>: armação executiva de vigas (cortes pelo diagrama real), pilares em
+  elevação com arranques e emendas, lajes em planta, fundações detalhadas, elevações de
+  alvenaria — tudo com carimbo ABNT em A1/A0.</p>
+  <ul>
+    <li><b>PDF vetorial 1:1</b> — a cota do carimbo é a cota do papel. Teste com régua na
+    primeira impressão.</li>
+    <li><b>DXF R12</b> — abre no AutoCAD pra finalização no seu padrão.</li>
+    <li><b>Editor de armaduras</b> — mude n/φ/passo por posição; o app recalcula e avisa se o
+    As efetivo ficou abaixo do necessário.</li>
+    <li><b>Memorial</b> — 15 seções, das combinações à flecha diferida, pronto pra ART.</li>
+    <li><b>Quantitativos</b> — concreto, fôrma e aço com preços editáveis e custo por m².</li>
+  </ul>
+  <figure>
+    <img src="../assets/screenshot-prancha.png" alt="Prancha executiva" loading="lazy" />
+    <figcaption>Prancha executiva com carimbo — impressa na escala, exportada em PDF e DXF.</figcaption>
+  </figure>
+</section>
+
+<section id="copiloto">
+  <h2><i>CAPÍTULO 10</i>Copiloto IA</h2>
+  <p>O chat integrado lê o seu modelo e propõe edições — que só acontecem com a sua aprovação
+  (toda mudança vira uma proposta com antes/depois). Configure com a sua chave da API da
+  Anthropic (Claude) ou aponte pra um modelo local via <b>Ollama</b> — nesse caso nada do seu
+  projeto sai da sua máquina.</p>
+  <p>Exemplos do que pedir: "aumenta a V3 pra 19×60 e recalcula", "por que o P7 reprovou?",
+  "verifica a consistência e me resume os avisos".</p>
+</section>
+
+<section id="dicas">
+  <h2><i>CAPÍTULO 11</i>Dicas e atalhos</h2>
+  <ul>
+    <li><b>Undo/redo</b> ilimitado (⌘Z / ⌘⇧Z no Mac; Ctrl no Windows) — vale pra tudo.</li>
+    <li><b>Snap e orto</b> nas polilinhas de viga; clique nos eixos pra alinhar de primeira.</li>
+    <li><b>Seleção cruzada</b> — selecione no 2D e veja no 3D (e vice-versa); isole um
+    pavimento pra trabalhar limpo.</li>
+    <li><b>Zoom</b> por scroll/pinça e pelos botões (2D e 3D).</li>
+    <li><b>Autosave</b> — o projeto atual persiste sozinho; use Arquivo → Salvar para gerar o
+    <code>.json</code> (formato aberto e documentado — seus dados nunca ficam reféns).</li>
+    <li>O projeto de exemplo embutido é um bom ponto de partida pra explorar os painéis.</li>
+  </ul>
+</section>
+
+<section id="validacao">
+  <h2><i>CAPÍTULO 12</i>Confiabilidade e limites</h2>
+  <p>Cada módulo de norma tem testes com âncoras calculadas à mão (476 hoje) e o § citado no
+  código — o repositório é aberto pra conferência. A validação cruzada com softwares
+  consagrados está em andamento (VALIDATION.md).</p>
+  <p><b>Limites atuais que você deve conhecer:</b> concreto armado moldado in loco (sem
+  protensão nem pré-moldados por enquanto), lajes entram como carga+diafragma na análise global
+  (a grelha unificada cobre a distribuição), e os resultados <em>não substituem</em> a análise
+  crítica do engenheiro responsável. Dúvidas e bugs:
+  <a href="https://github.com/candidoalfilho/hyperframe/issues">issues no GitHub</a>.</p>
+</section>
+
+</main>
+
+<footer><div class="wrap">
+  <a href="../">Início</a><a href="../edicao/">Edição 2026</a><a href="../modulos/">Módulos</a>
+  <a href="../downloads/">Downloads</a><a href="../downloads/HyperFrame-Tutorial.pdf">Tutorial em PDF</a>
+  <a href="https://github.com/candidoalfilho/hyperframe">GitHub</a>
+</div></footer>
+</body>
+</html>
