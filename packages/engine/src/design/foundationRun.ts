@@ -203,12 +203,16 @@ export function runFoundationDesign(
     if (combinedSecondary.has(col.id)) {
       const ownerId = combinedSecondary.get(col.id)!
       const owner = project.columns.find((c) => c.id === ownerId)
+      // cota única do par: o secundário desce junto (máx das duas)
+      const ovOwner = project.foundationOverrides?.find((o) => o.columnId === ownerId)
+      const pairDepth = Math.max(ov?.depth ?? 0, ovOwner?.depth ?? 0)
       out.push({
         columnId: col.id,
         name: col.name,
         nServ,
         kind: 'sapata',
         manual: true,
+        depth: pairDepth > 0 ? pairDepth : undefined,
         footing: null,
         combinedWithId: ownerId,
         pileCap: null,

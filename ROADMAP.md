@@ -742,6 +742,18 @@
 - [x] Label do inspetor corrigido: "Prof. de assentamento" agora diz que
   o apoio desce no pórtico (era "— desenho/3D", desatualizado da v0.2.46)
 
+## v0.2.48 — Associada em desnível: o par desce junto ✅
+
+- [x] Bug do print do Cândido: associada com cota funda deixava o pilar
+  PARCEIRO parado no nível 0 e a placa flutuando lá embaixo. Agora a cota
+  é única do par (máx das duas) em TRÊS lugares coerentes: buildModel
+  (ambos os apoios descem + arranque nos dois), foundationRun (item
+  secundário carrega a cota) e 3D (arranque desenhado também p/ o
+  secundário — movido antes do skip de shape)
+- [x] Validação numérica in-app: dois arranques h = 2 m e placa com topo
+  em −2,0 m; +1 teste (478) — apoios do par em base−1,8, arranques nos
+  dois, secundário com depth herdado
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

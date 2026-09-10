@@ -547,9 +547,22 @@ export function buildFoundations(
     const col = byId.get(it.columnId)
     if (!col) continue
     const partner = it.combined ? byId.get(it.combined.partnerId) : undefined
+    const depth = it.depth ?? 0
+    // arranque (pescoço): desenhado ANTES do shape — o pilar secundário de uma
+    // associada não tem shape próprio, mas desce até a cota do par
+    if (depth > 0.01) {
+      const { dx, dy } = columnHalfExtents(col)
+      out.push({
+        key: `fnd:${it.columnId}:neck`,
+        columnId: it.columnId,
+        shape: col.section.shape === 'circle' ? 'cyl' : 'box',
+        position: [col.pos.x, z0 - depth / 2, -col.pos.y],
+        size: [dx * 2, depth, dy * 2],
+        status: it.status,
+      })
+    }
     const s = foundationShape(it, col, partner)
     if (!s) continue
-    const depth = it.depth ?? 0
     const top = z0 - depth
     if (it.combined && partner) {
       // associada: box girado na linha dos pilares (polígono é rotacionado)
@@ -660,18 +673,6 @@ export function buildFoundations(
           })
         }
       }
-    }
-    // arranque: profundidade > 0 deixa vão entre a base do pilar e o topo da fundação
-    if (depth > 0.01) {
-      const { dx, dy } = columnHalfExtents(col)
-      out.push({
-        key: `fnd:${it.columnId}:neck`,
-        columnId: it.columnId,
-        shape: col.section.shape === 'circle' ? 'cyl' : 'box',
-        position: [col.pos.x, z0 - depth / 2, -col.pos.y],
-        size: [dx * 2, depth, dy * 2],
-        status: it.status,
-      })
     }
   }
   return out

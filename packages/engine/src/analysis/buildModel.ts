@@ -246,6 +246,22 @@ export function buildAnalysisModel(project: Project): {
     return m
   }
 
+  // cota de assentamento EFETIVA por pilar: a do próprio override e, numa
+  // sapata ASSOCIADA, a cota única do par (máx das duas — o secundário desce
+  // junto; coerente com o foundationRun e com o desenho 3D)
+  const fdnDepthById = new Map<string, number>()
+  for (const o of project.foundationOverrides ?? []) {
+    if (o.depth && o.depth > 0) fdnDepthById.set(o.columnId, o.depth)
+  }
+  for (const o of project.foundationOverrides ?? []) {
+    if (!o.combineWithColumnId || o.combineWithColumnId === o.columnId) continue
+    const d = Math.max(fdnDepthById.get(o.columnId) ?? 0, fdnDepthById.get(o.combineWithColumnId) ?? 0)
+    if (d > 0) {
+      fdnDepthById.set(o.columnId, d)
+      fdnDepthById.set(o.combineWithColumnId, d)
+    }
+  }
+
   // pilares: um tramo por andar
   for (const col of project.columns) {
     const iBase = levelIndexById.get(col.baseLevelId) ?? 0
@@ -258,10 +274,7 @@ export function buildAnalysisModel(project: Project): {
     // cota de assentamento por pilar (terreno em aclive/declive): o apoio
     // desce p/ a cota da sapata e um tramo de ARRANQUE liga ao nível 0 —
     // rigidez e esbeltez passam a sentir o desnível (NBR 6122 §7.7)
-    const fdnDepth =
-      iBase === 0
-        ? (project.foundationOverrides?.find((o) => o.columnId === col.id)?.depth ?? 0)
-        : 0
+    const fdnDepth = iBase === 0 ? (fdnDepthById.get(col.id) ?? 0) : 0
     let supportNode = baseNode
     if (iBase === 0) {
       if (fdnDepth > 0.01) {

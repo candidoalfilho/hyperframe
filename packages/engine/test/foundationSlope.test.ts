@@ -134,3 +134,34 @@ describe('sapata associada com cotas de assentamento diferentes', () => {
     expect(fr.combined!.notes.some((n) => n.includes('mais funda'))).toBe(true)
   })
 })
+
+describe('associada em desnível: o par desce JUNTO no modelo', () => {
+  it('os dois apoios descem p/ a cota do par e ganham arranque', () => {
+    const p = createSampleProject()
+    const a = p.columns[0]
+    const b = p.columns
+      .filter((c) => c.id !== a.id)
+      .sort(
+        (m, n) =>
+          Math.hypot(m.pos.x - a.pos.x, m.pos.y - a.pos.y) -
+          Math.hypot(n.pos.x - a.pos.x, n.pos.y - a.pos.y),
+      )[0]
+    p.foundationOverrides = [{ columnId: a.id, depth: 1.8, combineWithColumnId: b.id }]
+    const r = analyze(p)
+    const base = [...p.levels].sort((x, y) => x.elevation - y.elevation)[0].elevation
+    for (const col of [a, b]) {
+      const sup = r.model.nodes.find(
+        (n) => n.support && Math.abs(n.x - col.pos.x) < 0.05 && Math.abs(n.y - col.pos.y) < 0.05,
+      )!
+      expect(sup.z).toBeCloseTo(base - 1.8, 9)
+      const arr = r.model.members.find(
+        (m) => m.ref.kind === 'column' && m.ref.sourceId === col.id && m.ref.spanIndex === -1,
+      )!
+      expect(arr.length).toBeCloseTo(1.8, 6)
+    }
+    // resultado do secundário carrega a cota do par (p/ o 3D desenhar o arranque)
+    const sec = r.foundations.find((f) => f.columnId === b.id)!
+    expect(sec.combinedWithId).toBe(a.id)
+    expect(sec.depth).toBeCloseTo(1.8, 9)
+  })
+})
