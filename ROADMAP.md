@@ -754,6 +754,23 @@
   em −2,0 m; +1 teste (478) — apoios do par em base−1,8, arranques nos
   dois, secundário com depth herdado
 
+## v0.2.49 — Ca do vento: Fig. 4 digitalizada de verdade ✅
+
+- [x] Feedback de usuário: coeficientes de arrasto incorretos. A grade
+  antiga (5×5, interpolação linear) capava h/l1 em 6 e Ca em 1,6 —
+  lâmina alta (l1/l2=4, h/l1=20) recebia 1,6 quando a figura dá ~1,9–2,2
+  (INSEGURO) e torre estreita (l1/l2=0,2) recebia 1,02 quando a figura
+  dá 0,7 (+45% desperdício)
+- [x] Fig. 4 da NBR 6123:1988 digitalizada da própria norma (página 20
+  rasterizada + extração das iso-curvas com erosão morfológica da grade
+  + âncoras da borda esquerda: 1,3@h/l1=0,80 … 2,1@38,8): grade 10×8
+  (l1/l2 0,2–4 × h/l1 0,5–40, Ca 0,7–2,2), interpolação BILINEAR EM LOG
+  (eixos da figura são logarítmicos), clamp no contorno
+- [x] Testes reescritos (+2, 480): nós da grade, âncoras de literatura
+  (cubo ≈1,14; l1/l2=2 h/l1=1,5 ≈1,3; torre quadrada h/l1=10 ≈1,36),
+  interpolação log conferida à mão, teto/piso, monotonicidade nas duas
+  direções
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
@@ -838,7 +855,7 @@
 
 | Item | Impacto | Plano |
 |---|---|---|
-| Ca do vento: grade aproximada da Fig. 4 | ±10% na força de vento; usuário pode sobrescrever | Digitalizar a figura da norma (v0.3) |
+| ~~Ca do vento: grade aproximada da Fig. 4~~ | — | ✅ resolvido (v0.2.49: figura digitalizada, grade 10×8 log-bilinear 0,7–2,2) |
 | Quinhões de laje: uniforme equivalente (não trapezoidal) | Momentos de viga ligeiramente suavizados | Atenuado (v0.2.6): grelha dá o quinhão exato por borda; trapezoidal no Marcus (v0.3) |
 | Lajes não entram na rigidez (só carga + diafragma) | Conservador p/ vigas | Grelha (v0.2.6) cobre distribuição/flechas; rigidez no pórtico → casca (v0.4) |
 | Apoios sempre engastados na fundação | Usual, mas não configurável | Molas/rotulado (v0.3) |

@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.48-orange) ![tests](https://img.shields.io/badge/testes-478%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.49-orange) ![tests](https://img.shields.io/badge/testes-480%20passando-brightgreen)
 
-## O que já faz (v0.2.48)
+## O que já faz (v0.2.49)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -33,7 +33,7 @@ sistema e código-fonte no site.
   (1,2G + E + ψ2·Q) na envoltória — vigas/pilares/fundações dimensionam PELO sismo —,
   drifts δx = Cd·δxe/I por categoria, θ de estabilidade §9.6 e MÉTODO ESPECTRAL §10 — SRSS dos modos com ≥90% de massa e regra do cortante mínimo 0,85·H)
 - **Cargas e combinações**: peso próprio, NBR 6120 (presets), quinhões de laje a 45°
-  **ou pelas reações da grelha** (método selecionável), vento NBR 6123 (S1/S2/S3, Ca estimado da Fig. 4, editável), **desaprumo global**
+  **ou pelas reações da grelha** (método selecionável), vento NBR 6123 (S1/S2/S3, Ca pela Fig. 4 DIGITALIZADA — grade 10×8 log-bilinear, 0,7–2,2, editável), **desaprumo global**
   (§11.3.3.4.1, combinado ao vento pela regra da norma), **excentricidade do vento de 7,5% da face** (torção no diafragma, NBR 6123 §6.6), 13 combinações ELU + 6 ELS
   (NBR 8681), **rigidez das vigas com mesa colaborante** (§14.6.2.2 — inércia T no pórtico) e **redistribuição opcional de M⁻ das vigas** (§14.6.4.3, δ 0,75–1 com verificação de x/d)
 - **Estabilidade e serviço**: γz e parâmetro α (§15.5), **2ª ordem global aproximada

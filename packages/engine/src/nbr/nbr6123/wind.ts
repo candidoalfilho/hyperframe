@@ -68,26 +68,39 @@ export function s3Factor(group: 1 | 2 | 3 | 4 | 5): number {
 // Ca — coeficiente de arrasto (NBR 6123 Fig. 4)
 // ---------------------------------------------------------------------------
 
-// aproximação da Fig. 4 (baixa turbulência) — usuário pode sobrescrever via caOverride
-const CA_L1_L2 = [0.2, 0.5, 1, 2, 4] // relação l1/l2 (largura frontal / profundidade)
-const CA_H_L1 = [0.25, 0.5, 1, 2, 6] // relação h/l1
+// Fig. 4 digitalizada da NBR 6123:1988 (vento de baixa turbulência).
+// Grade Ca(l1/l2, h/l1) extraída das iso-curvas 0,7–2,2 da figura da norma
+// (varredura das curvas por linha + âncoras da borda esquerda: a curva 1,3
+// entra em l1/l2=4 na altura h/l1≈0,80; 1,4@1,68; 1,5@3,46; 1,6@5,83;
+// 1,7@9,31; 1,8@13,9; 1,9@19,1; 2,0@27,0; 2,1@38,8), conferida com âncoras
+// de literatura (cubo ≈ 1,10–1,15; l1/l2=2 e h/l1=1,5 ≈ 1,3). Os eixos da
+// figura são LOGARÍTMICOS — interpolação bilinear em log(l1/l2) × log(h/l1),
+// com clamp no contorno (fora do gráfico a figura não define valores).
+// Usuário pode sobrescrever via caOverride.
+const CA_L1_L2 = [0.2, 0.3, 0.4, 0.6, 0.8, 1, 1.5, 2, 3, 4] // largura frontal / profundidade
+const CA_H_L1 = [0.5, 1, 2, 4, 6, 10, 20, 40] // altura / largura frontal
 const CA_GRID: number[][] = [
-  // h/l1:  0.25  0.5   1     2     6      l1/l2:
-  [0.85, 0.88, 0.92, 0.97, 1.02], // 0.2
-  [0.9, 0.95, 1.0, 1.05, 1.15], // 0.5
-  [0.95, 1.0, 1.1, 1.2, 1.35], // 1
-  [1.0, 1.1, 1.25, 1.4, 1.55], // 2
-  [1.05, 1.15, 1.3, 1.5, 1.6], // 4
+  // h/l1:  0.5   1     2     4     6     10    20    40     l1/l2:
+  [0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.73, 0.82], // 0.2
+  [0.7, 0.72, 0.76, 0.76, 0.77, 0.77, 0.94, 1.08], // 0.3
+  [0.74, 0.79, 0.86, 0.86, 0.9, 0.9, 1.13, 1.27], // 0.4
+  [0.86, 0.95, 1.03, 1.03, 1.12, 1.12, 1.37, 1.57], // 0.6
+  [0.95, 1.07, 1.16, 1.16, 1.26, 1.27, 1.54, 1.77], // 0.8
+  [1.01, 1.14, 1.25, 1.25, 1.33, 1.36, 1.7, 1.9], // 1
+  [1.12, 1.23, 1.34, 1.34, 1.43, 1.5, 1.84, 2.03], // 1.5
+  [1.16, 1.27, 1.37, 1.38, 1.49, 1.59, 1.9, 2.1], // 2
+  [1.2, 1.33, 1.43, 1.47, 1.56, 1.67, 1.91, 2.2], // 3
+  [1.26, 1.38, 1.47, 1.53, 1.6, 1.71, 1.91, 2.18], // 4
 ]
 
-/** localiza o trecho do eixo e o parâmetro t ∈ [0,1] — clamp fora dos limites */
+/** localiza o trecho do eixo (LOG) e o parâmetro t ∈ [0,1] — clamp fora */
 function bracket(axis: number[], v: number): { i: number; t: number } {
   if (v <= axis[0]) return { i: 0, t: 0 }
   const last = axis.length - 1
   if (v >= axis[last]) return { i: last - 1, t: 1 }
   let i = 0
   while (v > axis[i + 1]) i++
-  return { i, t: (v - axis[i]) / (axis[i + 1] - axis[i]) }
+  return { i, t: Math.log(v / axis[i]) / Math.log(axis[i + 1] / axis[i]) }
 }
 
 /**

@@ -45,24 +45,57 @@ describe('s3Factor (NBR 6123 tab. 3)', () => {
 // Ca — aproximação da Fig. 4
 // ---------------------------------------------------------------------------
 
-describe('dragCoefficient (aproximação da Fig. 4)', () => {
-  it('nós exatos da grade', () => {
-    expect(dragCoefficient(10, 10, 10)).toBeCloseTo(1.1, 9) // l1/l2=1, h/l1=1
-    expect(dragCoefficient(10, 50, 2.5)).toBeCloseTo(0.85, 9) // l1/l2=0,2, h/l1=0,25
+describe('dragCoefficient (Fig. 4 digitalizada da NBR 6123)', () => {
+  it('nós exatos da grade digitalizada', () => {
+    expect(dragCoefficient(10, 10, 10)).toBeCloseTo(1.14, 9) // l1/l2=1, h/l1=1 (cubo≈1,1)
+    expect(dragCoefficient(10, 50, 5)).toBeCloseTo(0.7, 9) // l1/l2=0,2, h/l1=0,5 (piso da figura)
     expect(dragCoefficient(40, 10, 240)).toBeCloseTo(1.6, 9) // l1/l2=4, h/l1=6
+    expect(dragCoefficient(20, 10, 400)).toBeCloseTo(1.9, 9) // l1/l2=2, h/l1=20 — lâmina alta
+    expect(dragCoefficient(30, 10, 1200)).toBeCloseTo(2.2, 9) // l1/l2=3, h/l1=40 — teto da figura
   })
 
-  it('interpolação bilinear entre nós', () => {
-    // l1/l2=1,5 (meio de 1→2), h/l1=1 → (1,10+1,25)/2 = 1,175
-    expect(dragCoefficient(15, 10, 15)).toBeCloseTo(1.175, 6)
-    // l1/l2=1, h/l1=1,5 (meio de 1→2) → (1,10+1,20)/2 = 1,15
-    expect(dragCoefficient(10, 10, 15)).toBeCloseTo(1.15, 6)
+  it('âncoras clássicas de literatura (leitura da figura, ±0,05)', () => {
+    // edifício 20×10, h=30, vento na face larga: l1/l2=2, h/l1=1,5 → Ca ≈ 1,3
+    const ca = dragCoefficient(20, 10, 30)
+    expect(ca).toBeGreaterThan(1.25)
+    expect(ca).toBeLessThan(1.38)
+    // torre quadrada esbelta h/l1=10: Ca ≈ 1,35
+    const torre = dragCoefficient(10, 10, 100)
+    expect(torre).toBeGreaterThan(1.3)
+    expect(torre).toBeLessThan(1.45)
   })
 
-  it('clamp fora dos limites da grade', () => {
-    expect(dragCoefficient(80, 10, 20)).toBeCloseTo(1.05, 9) // l1/l2=8→4, h/l1=0,25
-    expect(dragCoefficient(1, 10, 0.1)).toBeCloseTo(0.85, 9) // l1/l2=0,1→0,2, h/l1→0,25
-    expect(dragCoefficient(10, 10, 500)).toBeCloseTo(1.35, 9) // h/l1=50→6, l1/l2=1
+  it('interpolação LOG-bilinear (eixos da figura são logarítmicos)', () => {
+    // h/l1 = √(1·2) = 1,414… fica no MEIO do trecho log 1→2 da coluna
+    const mid = dragCoefficient(10, 10, Math.sqrt(2) * 10)
+    expect(mid).toBeCloseTo((1.14 + 1.25) / 2, 6)
+  })
+
+  it('a favor da segurança nos extremos: teto 2,2 e piso 0,7 (contorno da figura)', () => {
+    expect(dragCoefficient(40, 10, 2000)).toBeLessThanOrEqual(2.2 + 1e-9)
+    expect(dragCoefficient(2, 10, 100)).toBeGreaterThanOrEqual(0.7 - 1e-9)
+    // clamp fora dos limites
+    expect(dragCoefficient(80, 10, 20)).toBeCloseTo(1.26, 9) // l1/l2=8→4, h/l1→0,5
+    expect(dragCoefficient(10, 10, 500)).toBeCloseTo(1.9, 9) // h/l1=50→40, l1/l2=1
+  })
+
+  it('monotônico: mais alto ⇒ Ca maior; face mais larga ⇒ Ca maior', () => {
+    for (const r of [0.3, 0.6, 1, 2, 4]) {
+      let prev = 0
+      for (const h of [0.5, 1, 2, 4, 6, 10, 20]) {
+        const ca = dragCoefficient(10 * r, 10, 10 * r * h)
+        expect(ca).toBeGreaterThanOrEqual(prev - 1e-9)
+        prev = ca
+      }
+    }
+    for (const h of [1, 2, 6, 20]) {
+      let prev = 0
+      for (const r of [0.2, 0.4, 0.8, 1.5, 3]) {
+        const ca = dragCoefficient(10 * r, 10, 10 * r * h)
+        expect(ca).toBeGreaterThanOrEqual(prev - 1e-9)
+        prev = ca
+      }
+    }
   })
 })
 
