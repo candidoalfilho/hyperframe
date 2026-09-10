@@ -499,6 +499,9 @@ export interface FoundationInstance {
   size: [number, number, number]
   /** viga alavanca: box girado no plano (mesma convenção das vigas) */
   rotationY?: number
+  /** inclinação longitudinal (alavanca entre sapatas em cotas diferentes) —
+   *  pitch em rad aplicado antes do yaw (euler XYZ: RY·RZ) */
+  rotationZ?: number
   /** tronco de pirâmide: dimensões do TOPO (frustum) — size = base */
   top?: [number, number]
   status: FoundationResultItem['status']
@@ -628,7 +631,9 @@ export function buildFoundations(
         status: it.status,
       })
     }
-    // viga alavanca: box do CG da sapata ao eixo do pilar interno, topo = topo da sapata
+    // viga alavanca: box do CG da sapata ao eixo do pilar interno. Com cotas
+    // de assentamento DIFERENTES (terreno em desnível) a viga sai INCLINADA,
+    // ligando o topo da sapata de divisa ao topo da fundação do pilar interno.
     if (it.strap) {
       const p2 = byId.get(it.strap.partnerId)
       if (p2) {
@@ -636,13 +641,21 @@ export function buildFoundations(
         const dy = p2.pos.y - s.center.y
         const len = Math.hypot(dx, dy)
         if (len > 0.1) {
+          const depthB = foundations.find((f) => f.columnId === it.strap!.partnerId)?.depth ?? 0
+          const topB = z0 - depthB
+          const dz = topB - top
           out.push({
             key: `fnd:${it.columnId}:strap`,
             columnId: it.columnId,
             shape: 'box',
-            position: [(s.center.x + p2.pos.x) / 2, top - it.strap.h / 2, -(s.center.y + p2.pos.y) / 2],
+            position: [
+              (s.center.x + p2.pos.x) / 2,
+              (top + topB) / 2 - it.strap.h / 2,
+              -(s.center.y + p2.pos.y) / 2,
+            ],
             rotationY: Math.atan2(dy, dx),
-            size: [len, it.strap.h, it.strap.bw],
+            rotationZ: Math.abs(dz) > 0.005 ? Math.atan2(dz, len) : undefined,
+            size: [Math.hypot(len, dz), it.strap.h, it.strap.bw],
             status: it.strap.status,
           })
         }

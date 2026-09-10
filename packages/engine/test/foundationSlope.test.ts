@@ -111,3 +111,26 @@ describe('cota de assentamento estrutural — apoio rebaixado + arranque', () =>
     expect(flat.foundationAdjacency).toHaveLength(0)
   })
 })
+
+describe('sapata associada com cotas de assentamento diferentes', () => {
+  it('adota a cota MAIS FUNDA do par e anota a decisão', () => {
+    const p = createSampleProject()
+    const a = p.columns[0]
+    const b = p.columns
+      .filter((c) => c.id !== a.id)
+      .sort(
+        (m, n) =>
+          Math.hypot(m.pos.x - a.pos.x, m.pos.y - a.pos.y) -
+          Math.hypot(n.pos.x - a.pos.x, n.pos.y - a.pos.y),
+      )[0]
+    p.foundationOverrides = [
+      { columnId: a.id, depth: 0.4, combineWithColumnId: b.id },
+      { columnId: b.id, depth: 1.2 },
+    ]
+    const r = analyze(p)
+    const fr = r.foundations.find((f) => f.columnId === a.id)!
+    expect(fr.combined).toBeTruthy()
+    expect(fr.depth).toBeCloseTo(1.2, 9)
+    expect(fr.combined!.notes.some((n) => n.includes('mais funda'))).toBe(true)
+  })
+})

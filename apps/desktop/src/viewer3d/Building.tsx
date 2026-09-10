@@ -220,7 +220,7 @@ export default function Building() {
             <mesh
               key={f.key}
               position={f.position}
-              rotation-y={f.rotationY ?? 0}
+              rotation={[0, f.rotationY ?? 0, f.rotationZ ?? 0]}
               castShadow={false}
               receiveShadow
               userData={{ kind: 'column', id: f.columnId }}

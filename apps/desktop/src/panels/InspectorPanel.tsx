@@ -1082,7 +1082,7 @@ function FoundationSection({ col, project }: { col: Column; project: Project }) 
       )}
 
       <div className="field">
-        <label className="label">Prof. de assentamento (m) — desenho/3D</label>
+        <label className="label">Prof. de assentamento (m) — apoio desce no pórtico (§7.7)</label>
         <NumberField
           value={ov?.depth ?? 0}
           digits={2}

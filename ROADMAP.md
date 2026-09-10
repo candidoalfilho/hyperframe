@@ -731,6 +731,17 @@
 - [x] Site: página /tutorial/ (manual passo a passo) + PDF gerado
   (downloads/HyperFrame-Tutorial.pdf) com visualização no navegador
 
+## v0.2.47 — Viga alavanca inclinada entre cotas diferentes ✅
+
+- [x] 3D: a viga alavanca liga o TOPO da sapata de divisa ao TOPO da
+  fundação do pilar interno — inclinada quando as cotas diferem
+  (rotationZ = atan2(Δz, L), comprimento hypot; euler [0, yaw, pitch]);
+  validado numericamente na app (0,40489 rad p/ Δz 1,5 m / L 3,5 m)
+- [x] Sapata ASSOCIADA com cotas diferentes: adota a MAIS FUNDA do par
+  com nota explicando a decisão (+1 teste, 477)
+- [x] Label do inspetor corrigido: "Prof. de assentamento" agora diz que
+  o apoio desce no pórtico (era "— desenho/3D", desatualizado da v0.2.46)
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

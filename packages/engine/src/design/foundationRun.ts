@@ -174,12 +174,23 @@ export function runFoundationDesign(
         if (ov?.strapToColumnId) {
           cf.notes.push('Sapata associada tem prioridade sobre a viga alavanca — remova um dos dois.')
         }
+        // associada é UMA sapata, UMA cota de assentamento: se os dois pilares
+        // têm cotas diferentes, adota-se a MAIS FUNDA (NBR 6122 — nunca
+        // assentar acima da cota necessária do par)
+        const ovP = project.foundationOverrides?.find((o) => o.columnId === partnerC.id)
+        const depthComb = Math.max(ov?.depth ?? 0, ovP?.depth ?? 0)
+        if ((ov?.depth ?? 0) !== (ovP?.depth ?? 0)) {
+          cf.notes.push(
+            `Cotas de assentamento diferentes entre ${col.name} (${(ov?.depth ?? 0).toFixed(2)} m) e ${partnerC.name} (${(ovP?.depth ?? 0).toFixed(2)} m) — a sapata associada adota a mais funda (${depthComb.toFixed(2)} m).`,
+          )
+        }
         out.push({
           columnId: col.id,
           name: col.name,
           nServ,
           kind: 'sapata',
           ...extra,
+          depth: depthComb > 0 ? depthComb : extra.depth,
           footing: null,
           combined: { ...cf, partnerId: partnerC.id, partnerName: partnerC.name, L },
           pileCap: null,
