@@ -10,6 +10,7 @@
  */
 
 import type { BeamDetailSpan, RebarItem } from '../analysis/types'
+import { NEG_EDGE_EMBED } from '../design/detailing'
 import type { Drawing, DrawingPrimitive } from './types'
 import { boundsOfPrimitives } from './formwork'
 
@@ -145,14 +146,25 @@ export function buildBeamDetailDrawing(
       xc: number,
       yBar: number,
       yTxt: number,
+      side: 'left' | 'right',
     ): void => {
       const leg = f.leg ?? 0
       const run = Math.max(f.length - 2 * leg, 0.1)
-      bar(xc - run / 2, xc + run / 2, yBar, leg, leg, -1, yBar - 0.08)
+      // apoio de EXTREMIDADE: a barra entra NEG_EDGE_EMBED no apoio e corre
+      // p/ dentro do vão (ancorada com gancho) — não cavalga simétrica
+      const span = (r: number): [number, number] => {
+        if (!f.edge) return [xc - r / 2, xc + r / 2]
+        return side === 'left'
+          ? [xc - NEG_EDGE_EMBED, xc - NEG_EDGE_EMBED + r]
+          : [xc + NEG_EDGE_EMBED - r, xc + NEG_EDGE_EMBED]
+      }
+      const [bx0, bx1] = span(run)
+      bar(bx0, bx1, yBar, leg, leg, -1, yBar - 0.08)
       let label = barLabel(f.n, f.phi, f.length, f.pos)
       if (f.cut) {
         const runC = Math.max(f.cut.length - 2 * leg, 0.1)
-        bar(xc - runC / 2, xc + runC / 2, yBar - 0.07, leg, leg, -1, yBar - 0.15)
+        const [cx0, cx1] = span(runC)
+        bar(cx0, cx1, yBar - 0.07, leg, leg, -1, yBar - 0.15)
         label += ` + ${barLabel(f.cut.n, f.phi, f.cut.length, f.cut.pos)}`
       }
       prims.push({
@@ -165,10 +177,10 @@ export function buildBeamDetailDrawing(
         align: 'center',
       })
     }
-    if (s.negLeft) negDraw(s.negLeft, x0, h - 0.08, h + 0.1)
+    if (s.negLeft) negDraw(s.negLeft, x0, h - 0.08, h + 0.1, 'left')
     if (s.negRight) {
       const shared = i + 1 < segs.length && segs[i + 1].s.negLeft !== null
-      negDraw(s.negRight, x1, shared ? h - 0.16 : h - 0.08, shared ? h + 0.3 : h + 0.1)
+      negDraw(s.negRight, x1, shared ? h - 0.16 : h - 0.08, shared ? h + 0.3 : h + 0.1, 'right')
     }
 
     // ---- estribos: distribuição REAL (todos os traços, passo s) ----

@@ -771,6 +771,21 @@
   interpolação log conferida à mão, teto/piso, monotonicidade nas duas
   direções
 
+## v0.2.50 — Negativa de extremidade ancorada no apoio (feedback de usuário) ✅
+
+- [x] Bug apontado por usuário (print): a negativa do apoio de EXTREMIDADE
+  era calculada e desenhada SIMÉTRICA (2·lado, centrada no eixo) — metade
+  da barra saía da viga flutuando na horizontal, e o quadro de ferros
+  levava o comprimento dobrado nesse trecho
+- [x] detailing.ts: extremidade (1º negLeft / último negRight) agora corre
+  só p/ dentro do vão (corte no momento nulo + al + lb) + embed de 10 cm
+  no apoio (NEG_EDGE_EMBED) + gancho vertical; escalonada idem; nota
+  própria no quadro; flag edge no BeamDetailSpan
+- [x] beamDetail.ts: desenho ancorado na face (entra 10 cm no apoio e corre
+  p/ o vão) em vez de centrado no eixo — apoio interno segue cavalgando
+- [x] +2 testes (482): extremidades com edge e run ≤ vão + embed; internos
+  sem flag
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado

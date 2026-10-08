@@ -26,6 +26,11 @@ const round5 = (v: number) => Math.ceil(v / 0.05 - 1e-9) * 0.05
 /** comprimento comercial de barra, m */
 export const STOCK_BAR_LENGTH = 12
 
+/** entrada horizontal da negativa de EXTREMIDADE p/ dentro do apoio, m —
+ *  aproximação (até a face externa − cobrimento num pilar usual); a ancoragem
+ *  é completada pelo gancho vertical. Pilar estreito/largo: ajustar no editor. */
+export const NEG_EDGE_EMBED = 0.1
+
 /**
  * Emenda por traspasse — NBR 6118 §9.5.2. Barras acima do comprimento
  * comercial são divididas em peças IGUAIS com traspasse
@@ -182,10 +187,17 @@ export function runDetailing(
     )
 
     // negativos: corte pelo DIAGRAMA REAL — x do momento nulo + al + lb,nec
-    // (§18.3.2.4); com ≥ 4 barras, metade escalona no ponto de 50% do momento
+    // (§18.3.2.4); com ≥ 4 barras, metade escalona no ponto de 50% do momento.
+    // Apoio de EXTREMIDADE: a barra entra só p/ o lado do vão e ANCORA no
+    // apoio com gancho (embed NEG_EDGE_EMBED p/ dentro do apoio) — a versão
+    // simétrica 2·side vale apenas em apoio interno (cavalga os dois vãos).
     const negOf = (f: BeamSpanDesign['negLeft'], slot: 'negLeft' | 'negRight') => {
       const ov = ovOf(slot)
       if (!f || (ov?.n ?? f.barsN) <= 0) return null
+      const isEdge =
+        slot === 'negLeft'
+          ? bd.spanIndex === 0
+          : bd.spanIndex === (lastSpanIdx.get(bd.beamId) ?? bd.spanIndex)
       const nTot = ov?.n ?? f.barsN
       const phi = ov?.phi ?? f.barsPhi
       const asEf = ov ? nTot * aPhi(phi) : f.asProvided || f.as
@@ -194,10 +206,13 @@ export function runDetailing(
         f.cutZero !== undefined && f.cutZero > 0 ? f.cutZero + al + lbHook : 0.25 * L + al + lbHook,
         L,
       )
-      const runFull = round5(Math.max(2 * sideFull, 2 * lbHook))
+      const runFull = isEdge
+        ? round5(Math.max(sideFull + NEG_EDGE_EMBED, lbHook + NEG_EDGE_EMBED))
+        : round5(Math.max(2 * sideFull, 2 * lbHook))
       const lenFull = round5(runFull + 2 * leg)
-      const baseNote =
-        f.cutZero !== undefined && f.cutZero > 0
+      const baseNote = isEdge
+        ? 'negativo de extremidade: corte no momento nulo + al + lb, ancorado no apoio com gancho (§18.3.2.4/§9.4 — confira a entrada no pilar)'
+        : f.cutZero !== undefined && f.cutZero > 0
           ? 'negativo: corte no momento nulo da envoltória + al + lb (§18.3.2.4)'
           : 'negativo: 2·(0,25·ℓ + al) + ganchos — envoltória sem tração definida'
       const notes = (extra?: string) =>
@@ -208,7 +223,9 @@ export function runDetailing(
       if (nTot >= 4 && f.cutHalf !== undefined && f.cutZero !== undefined && f.cutZero > 0) {
         const nShort = Math.floor(nTot / 2)
         const sideShort = Math.min(f.cutHalf + al + lbHook, sideFull)
-        const runShort = round5(Math.max(2 * sideShort, 2 * lbHook))
+        const runShort = isEdge
+          ? round5(Math.max(sideShort + NEG_EDGE_EMBED, lbHook + NEG_EDGE_EMBED))
+          : round5(Math.max(2 * sideShort, 2 * lbHook))
         const lenShort = round5(runShort + 2 * leg)
         if (lenShort < lenFull - 0.1) {
           const nFull = nTot - nShort
@@ -229,12 +246,13 @@ export function runDetailing(
             length: lenFull,
             pos: pFull,
             leg,
+            edge: isEdge || undefined,
             cut: { n: nShort, length: lenShort, pos: pShort },
           }
         }
       }
       const p = pushItem(group, bd.beamId, phi, nTot, lenFull, el, reps, notes())
-      return { n: nTot, phi, length: lenFull, pos: p, leg }
+      return { n: nTot, phi, length: lenFull, pos: p, leg, edge: isEdge || undefined }
     }
     const negLeft = negOf(bd.negLeft, 'negLeft')
     const negRight = negOf(bd.negRight, 'negRight')

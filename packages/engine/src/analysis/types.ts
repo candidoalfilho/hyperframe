@@ -673,6 +673,9 @@ export interface BeamDetailSpan {
     length: number
     pos?: number
     leg?: number
+    /** apoio de EXTREMIDADE: barra entra no vão e ancora no apoio com gancho
+     *  (embed NEG_EDGE_EMBED p/ dentro do apoio) — não cavalga simétrica */
+    edge?: boolean
     cut?: { n: number; length: number; pos?: number }
   } | null
   negRight: {
@@ -681,6 +684,7 @@ export interface BeamDetailSpan {
     length: number
     pos?: number
     leg?: number
+    edge?: boolean
     cut?: { n: number; length: number; pos?: number }
   } | null
   stirrup: { phi: number; spacing: number; count: number; unitLength: number; pos?: number }
