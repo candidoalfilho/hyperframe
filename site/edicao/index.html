@@ -2,318 +2,333 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Edição 2026 — HyperFrame</title>
-<meta name="description" content="A Edição 2026 do HyperFrame: 40+ versões e 120+ recursos de cálculo estrutural — concreto armado, alvenaria estrutural NBR 16868, P-Δ, fundações e detalhamento executivo. 100% gratuito e open source." />
+<meta name="description" content="A Edição 2026 do HyperFrame: 50 versões num ciclo — concreto armado completo, alvenaria estrutural NBR 16868 de ponta a ponta, P-Δ iterativo, sismo NBR 15421, fundações em desnível e detalhamento executivo. Tudo aberto, tudo gratuito." />
+<meta name="theme-color" content="#fbfaf5" />
+<meta name="color-scheme" content="light" />
 <meta property="og:type" content="website" />
-<meta property="og:title" content="HyperFrame — Edição 2026" />
-<meta property="og:description" content="40 versões · 120+ recursos · alvenaria estrutural NBR 16868 · grátis e open source" />
+<meta property="og:title" content="HyperFrame — Edição 2026: o edifício inteiro, de graça" />
+<meta property="og:description" content="50 versões num ciclo: concreto + alvenaria estrutural no mesmo modelo, P-Δ iterativo, sismo completo, fundações e pranchas executivas." />
 <meta property="og:image" content="/assets/og-edicao.png" />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="/assets/og-edicao.png" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23171412'/%3E%3Ccircle cx='12' cy='12' r='3.4' fill='%23ffa028'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
 :root{
-  --bg:#131419;--bg-2:#1b1d24;--card:#20232c;--line:#2c303b;
-  --ink:#f2efe7;--soft:#b6b2a4;--faint:#7d7a6e;
-  --accent:#ffa028;--accent-2:#ffb14e;
+  --paper:#fbfaf5;--ink:#141210;--muted:#6b645a;
+  --line:rgba(20,18,16,.16);--line-soft:rgba(20,18,16,.09);
+  --accent:#d96d00;--accent-fill:#ff9a1f;--accent-fg:#241a06;
+  --soft:#fff4e6;--tint:#ffe6c7;--tint-2:#ffd6a6;
+  --display:'Bricolage Grotesque',ui-sans-serif,system-ui,sans-serif;
   --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-  --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+  --mono:'JetBrains Mono','SF Mono',ui-monospace,Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;font-size:16px;-webkit-font-smoothing:antialiased}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline;text-underline-offset:3px}
-.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
-::selection{background:#ffd9a0;color:#241a06}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;overflow-x:clip}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;letter-spacing:-.01em;-webkit-font-smoothing:antialiased;overflow-x:clip}
+h1,h2,h3,p,figure,ul,dl,dd{margin:0}
+a{color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
+img{max-width:100%;height:auto;display:block}
+::selection{background:var(--tint-2);color:var(--accent-fg)}
+:is(a,summary):focus-visible{outline:3px solid var(--accent);outline-offset:5px;border-radius:4px}
+.wrap{width:min(1320px,100% - 96px);margin-inline:auto}
+h1,h2,h3{font-family:var(--display);font-weight:500;letter-spacing:-.025em;text-wrap:balance;font-variation-settings:'opsz' 96}
+h1 em,h2 em,h3 em{font-style:normal;color:var(--accent)}
+.eyebrow,.micro,.chip{font-family:var(--mono);font-size:11px;line-height:1.5;letter-spacing:.035em;text-transform:uppercase}
+.eyebrow .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent-fill);margin-right:8px;vertical-align:1px}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:30px;padding:8px 14px}
+.muted{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:space-between;gap:44px;padding:20px 28px;border-radius:100px;font-size:17px;font-weight:600;background:var(--accent-fill);color:var(--accent-fg);border:1px solid var(--accent-fill);transition:transform .25s,box-shadow .25s}
+.btn:hover{transform:translateY(-3px);box-shadow:0 6px 0 rgba(217,109,0,.22)}
+.btn-small{gap:24px;padding:12px 20px;font-size:14px}
+.btn-outline{background:0 0;color:var(--accent);border-color:var(--accent)}
 
-/* progresso de leitura */
-#progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);width:0;z-index:99;transition:width .1s linear}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;height:104px}
+.logo{font-family:var(--display);font-size:38px;font-weight:700;letter-spacing:-.06em;line-height:1}
+.logo span{display:inline-block;vertical-align:top;margin:4px 0 0 4px;font-size:15px;color:var(--accent)}
+.hd nav{display:flex;align-items:center;gap:30px;font-size:15px}
+.hd nav a{padding-block:12px}
+.hd nav a:hover,.ft nav a:hover{color:var(--accent)}
 
-/* nav sticky com ToC */
-.nav{position:sticky;top:0;z-index:60;background:rgba(19,20,25,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.nav-in{max-width:1140px;margin:0 auto;padding:0 24px;height:58px;display:flex;align-items:center;gap:18px;overflow-x:auto;scrollbar-width:none}
-.nav-in::-webkit-scrollbar{display:none}
-.nav b{color:var(--accent);white-space:nowrap;font-size:14px}
-.nav a{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--soft);white-space:nowrap}
-.nav a:hover{color:var(--ink);text-decoration:none}
+.hero{padding-block:60px 50px;text-align:center}
+.hero h1{margin:28px auto;font-size:clamp(64px,10vw,150px);line-height:.96;letter-spacing:-.035em}
+.hero>p{max-width:640px;margin:0 auto;font-size:19px;line-height:1.6}
+.stats{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:40px}
+.stat{min-width:170px;padding:22px 26px;border:1px solid var(--line);border-radius:22px;background:var(--paper);text-align:left}
+.stat b{display:block;font-family:var(--display);font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1}
+.stat b i{font-style:normal;color:var(--accent)}
+.stat span{display:block;margin-top:8px;font:10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 
-/* hero */
-.hero{padding:110px 0 60px;text-align:left}
-.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent);margin-bottom:22px}
-h1{font-weight:800;letter-spacing:-.04em;line-height:.98;font-size:clamp(52px,9.5vw,124px);margin:0}
-h1 em{font-style:normal;color:var(--accent)}
-.hero p{color:var(--soft);font-size:19px;max-width:58ch;margin:28px 0 0}
-.stats{display:flex;gap:14px;flex-wrap:wrap;margin-top:40px}
-.stat{border:1px solid var(--line);background:var(--bg-2);border-radius:14px;padding:16px 22px;min-width:150px}
-.stat b{display:block;font-size:34px;font-weight:800;letter-spacing:-.03em;color:var(--ink)}
-.stat span{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.ticker-wrap{overflow:hidden;margin-top:28px}
+.ticker{width:106%;margin:0 -3%;padding:17px 0;background:var(--tint);border-block:1px solid var(--line);overflow:hidden;transform:rotate(-1.5deg)}
+.ticker>div{display:flex;width:max-content;animation:ticker 38s linear infinite}
+.ticker span{font-family:var(--display);font-size:27px;font-weight:600;letter-spacing:-.025em;white-space:nowrap}
+.ticker b{display:inline-block;margin-inline:36px;color:var(--accent);font-weight:400}
+@keyframes ticker{to{transform:translateX(-50%)}}
 
-/* marquee de normas */
-.marquee{border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;padding:16px 0;margin:70px 0 0}
-.marquee-in{display:flex;gap:56px;white-space:nowrap;animation:mq 28s linear infinite;font-family:var(--mono);font-size:13px;letter-spacing:.22em;color:var(--faint)}
-.marquee-in span b{color:var(--accent);font-weight:600}
-@keyframes mq{to{transform:translateX(-50%)}}
-@media (prefers-reduced-motion:reduce){.marquee-in{animation:none}}
+.chapters{padding-block:90px 40px;position:relative}
+.cap{position:sticky;top:26px;margin-bottom:34px;padding:56px 64px;border:1px solid var(--line);border-radius:28px;background:var(--paper);transform-origin:top}
+.cap:nth-child(3n+1){background:var(--soft)}
+.cap:nth-child(3n+2){background:var(--paper)}
+.cap:nth-child(3n){background:var(--tint)}
+.cap h3{margin:22px 0 14px;font-size:clamp(34px,4.4vw,58px);line-height:1.06}
+.cap>p{max-width:620px;font-size:17px;line-height:1.6;color:var(--muted)}
+.rows{list-style:none;margin:30px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:0 44px}
+.rows li{padding:18px 0;border-top:1px solid var(--line)}
+.rows .micro{color:var(--accent)}
+.rows strong{display:block;margin:8px 0 6px;font-size:16px;font-weight:600}
+.rows p{font-size:13.5px;line-height:1.6;color:var(--muted)}
+@supports (animation-timeline:view()){
+  @media (prefers-reduced-motion:no-preference){
+    .cap:not(:last-child){animation:stack linear both;animation-timeline:view();animation-range:exit}
+  }
+}
+@keyframes stack{to{rotate:-1deg;scale:.95}}
 
-/* capítulos */
-.chapter{padding:110px 0 70px;border-top:1px solid var(--line)}
-.ch-head{display:grid;grid-template-columns:110px 1fr;gap:26px;align-items:start;margin-bottom:44px}
-.ch-num{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.2em;color:var(--accent);border:1px solid var(--line);border-radius:999px;padding:8px 0;text-align:center;position:sticky;top:78px}
-.chapter h2{font-weight:750;letter-spacing:-.035em;line-height:1.04;font-size:clamp(34px,5.2vw,60px);margin:0}
-.chapter .lead{color:var(--soft);font-size:17.5px;max-width:60ch;margin:16px 0 0}
-.shot{border:1px solid var(--line);border-radius:16px;overflow:hidden;margin:36px 0;box-shadow:0 40px 90px -40px rgba(0,0,0,.7)}
-.shot img{width:100%;display:block}
-.feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:34px}
-.feat{background:var(--bg-2);border:1px solid var(--line);border-radius:14px;padding:20px;transition:transform .3s cubic-bezier(.22,.61,.36,1),border-color .3s}
-.feat:hover{transform:translateY(-4px);border-color:var(--accent)}
-.feat h3{margin:0 0 6px;font-size:16px;font-weight:650;letter-spacing:-.01em}
-.feat p{margin:0;color:var(--soft);font-size:13.5px;line-height:1.55}
-.feat .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:8px}
+.cta{background:var(--tint);border-radius:28px;margin-block:60px 0;padding:70px 60px;display:flex;justify-content:space-between;align-items:center;gap:40px;flex-wrap:wrap}
+.cta h2{font-size:clamp(40px,5vw,72px);line-height:1.05}
+.cta p{margin-top:16px;font-size:15px;color:var(--muted)}
 
-/* destaque gigante (alvenaria) */
-.big{background:linear-gradient(180deg,var(--bg-2),var(--bg));border:1px solid var(--line);border-radius:22px;padding:clamp(28px,5vw,64px);margin-top:36px}
-.big h3{font-size:clamp(26px,3.6vw,40px);font-weight:750;letter-spacing:-.03em;margin:0 0 10px}
-.big p{color:var(--soft);max-width:64ch}
+.ft{border-top:1px solid var(--line);margin-top:90px;padding-block:28px 32px}
+.ft-top{display:flex;justify-content:space-between;align-items:center;gap:30px;font-size:14px}
+.ft-logo{font-family:var(--display);font-size:34px;font-weight:650;letter-spacing:-.05em}
+.ft nav{display:flex;flex-wrap:wrap;gap:12px 25px}
 
-/* CTA final */
-.cta{padding:130px 0;text-align:center;border-top:1px solid var(--line)}
-.cta h2{font-weight:800;letter-spacing:-.04em;font-size:clamp(38px,6.5vw,76px);margin:0 0 18px}
-.btn{display:inline-block;background:var(--accent);color:#241a06;font-weight:700;font-size:15px;padding:15px 30px;border-radius:12px;transition:transform .2s,box-shadow .2s}
-.btn:hover{transform:translateY(-2px);box-shadow:0 14px 34px -12px rgba(255,160,40,.55);text-decoration:none}
-.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);margin-left:10px}
-.cta .fine{color:var(--faint);font-size:13px;margin-top:22px;font-family:var(--mono)}
-
-/* reveals */
-.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1);transition-delay:var(--d,0s)}
-.reveal.in{opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
-footer{border-top:1px solid var(--line);padding:34px 0;color:var(--faint);font-size:13px;text-align:center}
-@media (max-width:640px){.ch-head{grid-template-columns:1fr}.ch-num{position:static;width:90px}}
+@media (prefers-reduced-motion:no-preference){
+  [data-observe]{opacity:0;translate:0 30px;transition:opacity .8s,translate .8s cubic-bezier(.2,.7,.2,1)}
+  [data-revealed]{opacity:1;translate:0}
+}
+@media (prefers-reduced-motion:reduce){*,:after,:before{animation:none!important;transition:none!important}}
+@media (max-width:1100px){.wrap{width:calc(100% - 64px)}.hd nav{gap:18px}.rows{grid-template-columns:1fr 1fr}}
+@media (max-width:760px){
+  .wrap{width:calc(100% - 40px)}
+  .hd{height:85px}.logo{font-size:32px}.hd nav{display:none}
+  .stat{min-width:calc(50% - 7px);padding:16px 18px}.stat b{font-size:34px}
+  .ticker{padding-block:12px}.ticker span{font-size:20px}.ticker b{margin-inline:22px}
+  .chapters{padding-block:60px 20px}
+  .cap{position:relative;top:auto;padding:28px 24px;border-radius:22px}
+  .rows{grid-template-columns:1fr}
+  .cta{padding:40px 28px;border-radius:22px}
+  .ft-top{flex-direction:column;align-items:start}
+}
 </style>
 <script>
 window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-document.addEventListener('click', function (e) {
-  var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
-  if (!a) return;
-  var m = (a.getAttribute('href') || '').match(/([^\/]+\.(dmg|exe))(\?|$)/);
-  if (m) va('event', { name: 'download', data: { file: m[1] } });
-});
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
-<div id="progress"></div>
-<nav class="nav"><div class="nav-in">
-  <b><a href="../" style="color:var(--accent)">HyperFrame</a></b>
-  <a href="#modelagem">01 Modelagem</a><a href="#analise">02 Análise</a><a href="#vigas">03 Vigas</a>
-  <a href="#pilares">04 Pilares</a><a href="#lajes">05 Lajes</a><a href="#alvenaria">06 Alvenaria</a>
-  <a href="#fundacoes">07 Fundações</a><a href="#especiais">08 Especiais</a><a href="#pranchas">09 Pranchas</a>
-  <a href="#plataforma">10 Plataforma</a>
-</div></nav>
 
-<header class="hero wrap">
-  <div class="kicker reveal">EDIÇÃO 2026 · HYPERFRAME</div>
-  <h1 class="reveal" style="--d:.08s">O edifício<br/>inteiro.<br/><em>De graça.</em></h1>
-  <p class="reveal" style="--d:.16s">Quarenta versões em um ciclo. Concreto armado completo, alvenaria estrutural
-  NBR 16868 de ponta a ponta, P-Δ iterativo, fundações, detalhamento executivo — num app de 3 MB
-  que roda no seu Mac e no seu Windows. Tudo aberto, tudo gratuito, para sempre.</p>
-  <div class="stats">
-    <div class="stat reveal" style="--d:.2s"><b data-count="40">0</b><span>versões no ciclo</span></div>
-    <div class="stat reveal" style="--d:.26s"><b data-count="426">0</b><span>testes ancorados</span></div>
-    <div class="stat reveal" style="--d:.32s"><b data-count="8">0</b><span>normas ABNT</span></div>
-    <div class="stat reveal" style="--d:.38s"><b data-count="120">0</b><span>+ recursos</span></div>
-  </div>
+<header class="hd wrap">
+  <a class="logo" href="../">HyperFrame<span>✳</span></a>
+  <nav aria-label="Principal">
+    <a href="../">Início</a>
+    <a href="../tutorial/">Tutorial</a>
+    <a href="../modulos/">Módulos</a>
+    <a href="../en/">EN</a>
+    <a href="https://github.com/candidoalfilho/hyperframe">GitHub</a>
+  </nav>
+  <a class="btn btn-small" href="../#baixar">Baixar grátis <span aria-hidden="true">↓</span></a>
 </header>
 
-<div class="marquee"><div class="marquee-in">
-  <span><b>NBR 6118</b> concreto</span><span><b>NBR 16868</b> alvenaria estrutural</span><span><b>NBR 6122</b> fundações</span><span><b>NBR 6123</b> vento</span><span><b>NBR 8681</b> combinações</span><span><b>NBR 6120</b> cargas</span><span><b>NBR 14432</b> incêndio</span><span><b>NBR 15200</b> concreto em incêndio</span>
-  <span><b>NBR 6118</b> concreto</span><span><b>NBR 16868</b> alvenaria estrutural</span><span><b>NBR 6122</b> fundações</span><span><b>NBR 6123</b> vento</span><span><b>NBR 8681</b> combinações</span><span><b>NBR 6120</b> cargas</span><span><b>NBR 14432</b> incêndio</span><span><b>NBR 15200</b> concreto em incêndio</span>
-</div></div>
+<main>
 
-<section class="chapter wrap" id="modelagem">
-  <div class="ch-head"><div class="ch-num">CAP. 01</div><div>
-    <h2 class="reveal">Modelagem que acompanha o traço.</h2>
-    <p class="lead reveal" style="--d:.1s">Planta de forma com snap e orto, 3D sincronizado, DXF da arquitetura de fundo — e agora geometria CURVA: balcões e sacadas em arco por flecha, calculados de verdade.</p>
-  </div></div>
-  <div class="shot reveal"><img src="../assets/screenshot-modeling.png" alt="Modelagem 2D e 3D" loading="lazy" /></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">novo</span><h3>Vigas e bordas curvas</h3><p>Arco por corda + flecha vira polilinha densa — pórtico com torção, grelha e pranchas funcionam sem casos especiais.</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">editor</span><h3>Múltiplas plantas</h3><p>Térreo ≠ tipo ≠ cobertura, com pé-direito variável, undo/redo e verificação de consistência antes da análise.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">3d</span><h3>Modo unifilar</h3><p>Só os eixos do pórtico para ler diagramas — primeira contribuição externa da comunidade, mergeada com crédito.</p></div>
+<section class="hero wrap">
+  <p class="eyebrow"><span class="dot"></span>Edição 2026 · HyperFrame</p>
+  <h1>O edifício inteiro.<br/><em>De graça.</em></h1>
+  <p class="muted">Cinquenta versões em um ciclo. Concreto armado completo, alvenaria estrutural
+  NBR 16868 de ponta a ponta, P-Δ iterativo, sismo NBR 15421, fundações em desnível e
+  detalhamento executivo — num app de 3 MB que roda no seu Mac e no seu Windows. Tudo aberto,
+  tudo gratuito, para sempre.</p>
+  <div class="stats">
+    <div class="stat" data-observe><b><i data-count="50">0</i></b><span>versões no ciclo</span></div>
+    <div class="stat" data-observe><b><i data-count="482">0</i></b><span>testes ancorados</span></div>
+    <div class="stat" data-observe><b><i data-count="9">0</i></b><span>normas ABNT</span></div>
+    <div class="stat" data-observe><b><i data-count="130">0</i>+</b><span>recursos</span></div>
   </div>
 </section>
 
-<section class="chapter wrap" id="analise">
-  <div class="ch-head"><div class="ch-num">CAP. 02</div><div>
-    <h2 class="reveal">Análise de gente grande.</h2>
-    <p class="lead reveal" style="--d:.1s">Pórtico espacial com diafragma rígido e solver próprio — agora com 2ª ordem global de verdade.</p>
-  </div></div>
-  <div class="shot reveal"><img src="../assets/screenshot-unifilar.png" alt="Modo unifilar com diagrama de momentos Mz no 3D" loading="lazy" /></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">novo</span><h3>P-Δ iterativo real</h3><p>Forças fictícias por pavimento re-resolvidas até convergir. Vale além do limite γz = 1,30 — e valida o γz de quebra (±10% no exemplo).</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">novo</span><h3>Grelha de pavimento unificada</h3><p>Todas as lajes numa malha só: continuidade real entre vizinhas e vigas flexíveis com EI real.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">vento</span><h3>Excentricidade de 7,5%</h3><p>Torção do vento no diafragma (NBR 6123 §6.6) — os pilares de canto agradecem.</p></div>
-    <div class="feat reveal" style="--d:.24s"><span class="tag">rigidez</span><h3>Inércia T no pórtico</h3><p>Vigas com laje colada entram com a mesa colaborante na análise (§14.6.2.2).</p></div>
+<div class="ticker-wrap" aria-hidden="true"><div class="ticker"><div>
+  <span>NBR 6118 <b>concreto</b></span><span>NBR 16868 <b>alvenaria</b></span><span>NBR 6122 <b>fundações</b></span><span>NBR 6123 <b>vento</b></span><span>NBR 15421 <b>sismo</b></span><span>NBR 8681 <b>combinações</b></span><span>NBR 6120 <b>cargas</b></span><span>NBR 14432 <b>incêndio</b></span>
+  <span>NBR 6118 <b>concreto</b></span><span>NBR 16868 <b>alvenaria</b></span><span>NBR 6122 <b>fundações</b></span><span>NBR 6123 <b>vento</b></span><span>NBR 15421 <b>sismo</b></span><span>NBR 8681 <b>combinações</b></span><span>NBR 6120 <b>cargas</b></span><span>NBR 14432 <b>incêndio</b></span>
+</div></div></div>
+
+<section class="chapters wrap">
+
+  <article class="cap">
+    <span class="chip">cap. 01 · modelagem</span>
+    <h3>Modelagem que <em>acompanha o traço.</em></h3>
+    <p>Planta de forma com snap e orto, 3D sincronizado, DXF da arquitetura de fundo — e
+    geometria CURVA: balcões e sacadas em arco por flecha, calculados de verdade.</p>
+    <ul class="rows">
+      <li><span class="micro">novo</span><strong>Vigas e bordas curvas</strong><p>Arco por corda + flecha vira polilinha densa — pórtico com torção, grelha e pranchas funcionam sem casos especiais.</p></li>
+      <li><span class="micro">editor</span><strong>Múltiplas plantas</strong><p>Térreo ≠ tipo ≠ cobertura, com pé-direito variável, undo/redo e verificação de consistência antes da análise.</p></li>
+      <li><span class="micro">3d</span><strong>Modo unifilar</strong><p>Só os eixos do pórtico para ler diagramas — primeira contribuição externa da comunidade, mergeada com crédito.</p></li>
+    </ul>
+  </article>
+
+  <article class="cap">
+    <span class="chip">cap. 02 · análise</span>
+    <h3>Análise de <em>gente grande.</em></h3>
+    <p>Pórtico espacial com diafragma rígido e solver próprio — com 2ª ordem global de verdade e
+    análise modal.</p>
+    <ul class="rows">
+      <li><span class="micro">novo</span><strong>P-Δ iterativo real</strong><p>Forças fictícias por pavimento re-resolvidas até convergir. Vale além do limite γz = 1,30 — e valida o γz de quebra.</p></li>
+      <li><span class="micro">novo</span><strong>Modal + sismo NBR 15421</strong><p>Períodos e massa efetiva por direção; forças equivalentes ou espectral SRSS, com combinações excepcionais no dimensionamento.</p></li>
+      <li><span class="micro">vento</span><strong>NBR 6123 completo</strong><p>Ca pela Fig. 4 digitalizada da norma, excentricidade de 7,5% e desaprumo global combinado pela regra da norma.</p></li>
+    </ul>
+  </article>
+
+  <article class="cap">
+    <span class="chip">cap. 03 · vigas</span>
+    <h3>Vigas com <em>economia real.</em></h3>
+    <p>Mesa colaborante automática nos positivos, torção, viga-parede detectada sozinha e
+    redistribuição opcional com x/d verificado.</p>
+    <ul class="rows">
+      <li><span class="micro">§14.6.2.2</span><strong>Seção T automática</strong><p>bf = bw + mín(0,5·b2; 0,10·a) por lado, com continuidade real do vão — menos aço de verdade.</p></li>
+      <li><span class="micro">§22.4</span><strong>Viga-parede</strong><p>l/h &lt; 2 troca a flexão por tirante CEB com malha de alma e biela do apoio.</p></li>
+      <li><span class="micro">§14.6.4.3</span><strong>Redistribuição</strong><p>δ de 0,75 a 1 com o alívio voltando ao vão e limite de x/d por apoio.</p></li>
+    </ul>
+  </article>
+
+  <article class="cap">
+    <span class="chip">cap. 04 · pilares</span>
+    <h3>Pilares, paredes <em>e consolos.</em></h3>
+    <p>Flexo-compressão oblíqua por integração da seção — e os casos que os outros cobram caro.</p>
+    <ul class="rows">
+      <li><span class="micro">§15.9</span><strong>Pilar-parede / núcleo</strong><p>Decomposição automática em lâminas de 3·h, 2ª ordem local na espessura, borda tracionada vira tirante.</p></li>
+      <li><span class="micro">§22.5</span><strong>Consolos no pilar</strong><p>Elemento com geometria e Fd no inspetor, carga no pórtico, verificação ao vivo e desenho na elevação.</p></li>
+      <li><span class="micro">executivo</span><strong>Elevações com emendas</strong><p>Arranques e emendas por tramo, prontos pra prancha.</p></li>
+    </ul>
+  </article>
+
+  <article class="cap">
+    <span class="chip">cap. 05 · lajes</span>
+    <h3>Lajes que <em>não tremem.</em></h3>
+    <p>Maciças, nervuradas e lisas — com punção §19.5 completa e a verificação que quase ninguém
+    entrega.</p>
+    <ul class="rows">
+      <li><span class="micro">§23.3</span><strong>Vibração de piso</strong><p>f₁ = 18/√δ contra o limite por uso (academia 8 Hz, escritório 4…) — coluna própria nos resultados.</p></li>
+      <li><span class="micro">§19.5</span><strong>Punção completa</strong><p>Interno, borda e canto com K·MSd, perímetros reduzidos, aberturas e conectores até C″.</p></li>
+      <li><span class="micro">prancha</span><strong>Armação em planta</strong><p>Positivas por direção e negativas automáticas sobre apoios contínuos.</p></li>
+    </ul>
+  </article>
+
+  <article class="cap">
+    <span class="chip">cap. 06 · alvenaria — a estrela</span>
+    <h3>Alvenaria estrutural. <em>Completa.</em></h3>
+    <p>NBR 16868-1:2020 do fpk à fiada — F1 parede como elemento · F2 grupos e contraventamento
+    com graute calculado · F3 modulação M-20 com elevações fiada a fiada · F4 transferência pro
+    pilotis de concreto com efeito arco. O que custa caro em outro lugar, aqui é grátis e
+    integrado.</p>
+    <ul class="rows">
+      <li><span class="micro">híbrido</span><strong>Torre + pilotis num modelo</strong><p>A parede morre sobre a viga de concreto e o pórtico sente — sem exportar nada pra lugar nenhum.</p></li>
+      <li><span class="micro">obra</span><strong>fpk por pavimento</strong><p>A especificação de prisma que vai pro fornecedor, arredondada em meio MPa.</p></li>
+      <li><span class="micro">prancha</span><strong>Elevações com blocos</strong><p>Amarração defasada desenhada bloco a bloco, pronta pra imprimir na escala.</p></li>
+    </ul>
+  </article>
+
+  <article class="cap">
+    <span class="chip">cap. 07 · fundações</span>
+    <h3>Fundações do jeito <em>que a obra faz.</em></h3>
+    <p>Sapatas troncopiramidais, viga alavanca de divisa, blocos de 1 a 16 estacas, tubulões,
+    radier e muro de arrimo — editáveis por pilar, com verificação em vez de imposição.</p>
+    <ul class="rows">
+      <li><span class="micro">desnível</span><strong>Aclive e declive</strong><p>Cota de assentamento por sapata desce o apoio no pórtico, e a §7.7 confere o afastamento entre sapatas vizinhas.</p></li>
+      <li><span class="micro">ceb-70</span><strong>Blocos 6–16 estacas</strong><p>Malha retangular com flexão em S1 e cortante em S2 — sem clamp artificial.</p></li>
+      <li><span class="micro">solo</span><strong>Interação solo-estrutura</strong><p>SPT por camadas vira molas, recalques e distorções — Aoki–Velloso incluso.</p></li>
+    </ul>
+  </article>
+
+  <article class="cap">
+    <span class="chip">cap. 08 · especiais</span>
+    <h3>Os casos que <em>separam os softwares.</em></h3>
+    <p>Escadas em L e U com a armadura da dobra certa, reservatórios estanques, incêndio com TRRF
+    automático.</p>
+    <ul class="rows">
+      <li><span class="micro">escadas</span><strong>L e U com patamar</strong><p>Lance + patamar contínuos com Mmax exato — e a nota contra o empuxo ao vazio que salva obra.</p></li>
+      <li><span class="micro">nbr 15200</span><strong>Incêndio</strong><p>TRRF por ocupação × altura, tabular pra vigas/lajes e analítico pra pilares.</p></li>
+      <li><span class="micro">wk ≤ 0,2</span><strong>Reservatórios</strong><p>Paredes, fundo e tampa com estanqueidade verificada.</p></li>
+    </ul>
+  </article>
+
+  <article class="cap">
+    <span class="chip">cap. 09 · pranchas</span>
+    <h3>Do modelo <em>à prancheta.</em></h3>
+    <p>DXF R12 e PDF vetorial 1:1 com a folha — imprime na escala do carimbo, sem surpresa.</p>
+    <ul class="rows">
+      <li><span class="micro">vigas</span><strong>Cortes pelo diagrama real</strong><p>Decalagem aℓ, escalonamento, traspasses §9.5.2, negativa de extremidade ancorada no apoio e quadro de ferros por posição.</p></li>
+      <li><span class="micro">memorial</span><strong>Memorial em PDF</strong><p>15 seções multipágina com writer PDF próprio — pronto pra protocolo.</p></li>
+      <li><span class="micro">custo</span><strong>Quantitativos com R$</strong><p>Concreto, fôrma e aço por elemento com preços editáveis.</p></li>
+    </ul>
+  </article>
+
+  <article class="cap">
+    <span class="chip">cap. 10 · plataforma</span>
+    <h3>Aberto <em>por princípio.</em></h3>
+    <p>MIT, código no GitHub, formato de arquivo documentado — e um Copiloto de IA que edita o
+    modelo com a sua aprovação.</p>
+    <ul class="rows">
+      <li><span class="micro">ia</span><strong>Copiloto integrado</strong><p>Claude via API ou modelos locais no Ollama — offline e privado, com aprovação manual de cada mudança.</p></li>
+      <li><span class="micro">nativo</span><strong>Mac e Windows</strong><p>O único estrutural ABNT que roda nativo no macOS. Binário de ~3 MB.</p></li>
+      <li><span class="micro">comunidade</span><strong>PRs bem-vindos</strong><p>Primeira contribuição externa já mergeada com co-autoria. A sua pode ser a próxima.</p></li>
+    </ul>
+  </article>
+
+</section>
+
+<section class="wrap">
+  <div class="cta" data-observe>
+    <div>
+      <h2>Baixe a <em>Edição 2026.</em></h2>
+      <p>Sem cadastro. Sem licença. Sem módulo surpresa.</p>
+    </div>
+    <a class="btn" href="../#baixar">Download para Mac e Windows <span aria-hidden="true">→</span></a>
   </div>
 </section>
 
-<section class="chapter wrap" id="vigas">
-  <div class="ch-head"><div class="ch-num">CAP. 03</div><div>
-    <h2 class="reveal">Vigas com economia real.</h2>
-    <p class="lead reveal" style="--d:.1s">Mesa colaborante automática nos positivos (−11% de aço na âncora), torção, viga-parede detectada sozinha e redistribuição opcional com x/d verificado.</p>
-  </div></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">§14.6.2.2</span><h3>Seção T automática</h3><p>bf = bw + mín(0,5·b2; 0,10·a) por lado, com continuidade real do vão.</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">§22.4</span><h3>Viga-parede</h3><p>l/h &lt; 2 troca a flexão por tirante CEB com malha de alma e biela do apoio.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">§14.6.4.3</span><h3>Redistribuição</h3><p>δ de 0,75 a 1 com o alívio voltando ao vão e limite de x/d por apoio.</p></div>
-  </div>
-</section>
+</main>
 
-<section class="chapter wrap" id="pilares">
-  <div class="ch-head"><div class="ch-num">CAP. 04</div><div>
-    <h2 class="reveal">Pilares, paredes e consolos.</h2>
-    <p class="lead reveal" style="--d:.1s">Flexo-compressão oblíqua por integração da seção — e os casos que os outros cobram caro.</p>
-  </div></div>
-  <div class="shot reveal"><img src="../assets/screenshot-pilares.png" alt="Pilares" loading="lazy" /></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">§15.9</span><h3>Pilar-parede / núcleo</h3><p>Decomposição automática em lâminas de 3·h, 2ª ordem local na espessura, borda tracionada vira tirante.</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">§22.5</span><h3>Consolos de verdade</h3><p>Elemento no pilar: verificação ao vivo, sólido no 3D, carga no pórtico com excentricidade e desenho na elevação.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">executivo</span><h3>Elevação do pilar</h3><p>Arranques, emendas por traspasse em cada pavimento, estribos reais e quadro de ferros.</p></div>
+<footer class="ft">
+  <div class="wrap ft-top">
+    <span class="ft-logo">HyperFrame</span>
+    <nav aria-label="Rodapé">
+      <a href="../">Início</a><a href="../tutorial/">Tutorial</a><a href="../modulos/">Módulos</a>
+      <a href="../downloads/">Downloads</a><a href="../en/">English</a>
+      <a href="https://github.com/candidoalfilho/hyperframe">GitHub</a>
+    </nav>
   </div>
-</section>
-
-<section class="chapter wrap" id="lajes">
-  <div class="ch-head"><div class="ch-num">CAP. 05</div><div>
-    <h2 class="reveal">Lajes que não tremem.</h2>
-    <p class="lead reveal" style="--d:.1s">Maciças, nervuradas e lisas — com punção §19.5 completa e a verificação que quase ninguém entrega.</p>
-  </div></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">§23.3</span><h3>Vibração de piso</h3><p>f₁ = 18/√δ contra o limite por uso (academia 8 Hz, escritório 4…) — coluna própria nos resultados.</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">§19.5</span><h3>Punção completa</h3><p>Interno, borda e canto com K·MSd, perímetros reduzidos, aberturas e armadura de conectores até C″.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">prancha</span><h3>Armação em planta</h3><p>Positivas por direção e negativas automáticas sobre apoios contínuos com 0,25·ℓ.</p></div>
-  </div>
-</section>
-
-<section class="chapter wrap" id="alvenaria">
-  <div class="ch-head"><div class="ch-num">CAP. 06</div><div>
-    <h2 class="reveal" style="color:var(--accent)">Alvenaria estrutural. Completa.</h2>
-    <p class="lead reveal" style="--d:.1s">A estrela da Edição: NBR 16868-1:2020 do fpk à fiada — o que custa caro em outro lugar, aqui é grátis e integrado.</p>
-  </div></div>
-  <div class="big reveal">
-    <h3>Quatro fases, um módulo inteiro.</h3>
-    <p><b style="color:var(--ink)">F1 —</b> parede como elemento com fpk de prisma especificado por pavimento ·
-    <b style="color:var(--ink)">F2 —</b> aberturas com grupos e contraventamento ao vento com graute + armadura calculados ·
-    <b style="color:var(--ink)">F3 —</b> modulação M-20 com elevações fiada a fiada, vergas, contravergas e quadro de blocos ·
-    <b style="color:var(--ink)">F4 —</b> lajes sobre paredes, transferência ao pilotis de concreto e efeito arco.</p>
-  </div>
-  <div class="shot reveal"><img src="../assets/screenshot-alvenaria-elevacao.png" alt="Prancha de alvenaria — elevação da parede com blocos fiada a fiada" loading="lazy" /></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">híbrido</span><h3>Torre + pilotis num modelo</h3><p>A parede morre sobre a viga de concreto e o pórtico sente — sem exportar nada pra lugar nenhum.</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">obra</span><h3>fpk por pavimento</h3><p>A especificação de prisma que vai pro fornecedor, arredondada em meio MPa.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">prancha</span><h3>Elevações com blocos</h3><p>Amarração defasada desenhada bloco a bloco, pronta pra imprimir na escala.</p></div>
-  </div>
-  <div class="shot reveal"><img src="../assets/screenshot-alvenaria.png" alt="Paredes de alvenaria na planta e verificação NBR 16868 por pavimento" loading="lazy" /></div>
-</section>
-
-<section class="chapter wrap" id="fundacoes">
-  <div class="ch-head"><div class="ch-num">CAP. 07</div><div>
-    <h2 class="reveal">Fundações do jeito que a obra faz.</h2>
-    <p class="lead reveal" style="--d:.1s">Sapatas troncopiramidais, viga alavanca de divisa, blocos de 1 a 16 estacas, tubulões, radier e muro de arrimo — editáveis por pilar, com verificação em vez de imposição.</p>
-  </div></div>
-  <div class="shot reveal"><img src="../assets/screenshot-3d-fundacoes.png" alt="Sapatas troncopiramidais no 3D" loading="lazy" /></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">divisa</span><h3>Viga alavanca</h3><p>R1 amplificada, sapata centrada e alívio no pilar interno — o clássico, automatizado.</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">ceb-70</span><h3>Blocos 6–16 estacas</h3><p>Malha retangular com flexão em S1 e cortante em S2 — sem clamp artificial.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">solo</span><h3>Interação solo-estrutura</h3><p>SPT por camadas vira molas, recalques e distorções — Aoki–Velloso incluso.</p></div>
-  </div>
-</section>
-
-<section class="chapter wrap" id="especiais">
-  <div class="ch-head"><div class="ch-num">CAP. 08</div><div>
-    <h2 class="reveal">Os casos que separam os softwares.</h2>
-    <p class="lead reveal" style="--d:.1s">Escadas em L e U com a armadura da dobra certa, reservatórios estanques, incêndio com TRRF automático.</p>
-  </div></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">escadas</span><h3>L e U com patamar</h3><p>Lance + patamar contínuos com Mmax exato — e a nota contra o empuxo ao vazio que salva obra.</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">nbr 15200</span><h3>Incêndio</h3><p>TRRF por ocupação × altura, tabular pra vigas/lajes e analítico pra pilares.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">wk ≤ 0,2</span><h3>Reservatórios</h3><p>Paredes, fundo e tampa com estanqueidade verificada.</p></div>
-  </div>
-</section>
-
-<section class="chapter wrap" id="pranchas">
-  <div class="ch-head"><div class="ch-num">CAP. 09</div><div>
-    <h2 class="reveal">Do modelo à prancheta.</h2>
-    <p class="lead reveal" style="--d:.1s">DXF R12 e PDF vetorial 1:1 com a folha — imprime na escala do carimbo, sem surpresa.</p>
-  </div></div>
-  <div class="shot reveal"><img src="../assets/screenshot-prancha.png" alt="Prancha executiva" loading="lazy" /></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">vigas</span><h3>Cortes pelo diagrama real</h3><p>Decalagem aℓ, escalonamento, traspasses §9.5.2 e quadro de ferros por posição.</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">memorial</span><h3>Memorial em PDF</h3><p>15 seções multipágina com writer PDF próprio — pronto pra protocolo.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">custo</span><h3>Quantitativos com R$</h3><p>Concreto, fôrma e aço por elemento com preços editáveis.</p></div>
-  </div>
-</section>
-
-<section class="chapter wrap" id="plataforma">
-  <div class="ch-head"><div class="ch-num">CAP. 10</div><div>
-    <h2 class="reveal">Aberto por princípio.</h2>
-    <p class="lead reveal" style="--d:.1s">MIT, código no GitHub, formato de arquivo documentado — e um Copiloto de IA que edita o modelo com a sua aprovação.</p>
-  </div></div>
-  <div class="shot reveal"><img src="../assets/screenshot-results.png" alt="Resultados" loading="lazy" /></div>
-  <div class="feats">
-    <div class="feat reveal"><span class="tag">ia</span><h3>Copiloto integrado</h3><p>Claude via API ou modelos locais no Ollama — offline e privado, com aprovação manual de cada mudança.</p></div>
-    <div class="feat reveal" style="--d:.08s"><span class="tag">nativo</span><h3>Mac e Windows</h3><p>O único estrutural ABNT que roda nativo no macOS. Binário de ~3 MB.</p></div>
-    <div class="feat reveal" style="--d:.16s"><span class="tag">comunidade</span><h3>PRs bem-vindos</h3><p>Primeira contribuição externa já mergeada com co-autoria. A sua pode ser a próxima.</p></div>
-  </div>
-</section>
-
-<section class="cta wrap">
-  <h2 class="reveal">Baixe a Edição 2026.</h2>
-  <p class="reveal" style="--d:.08s;color:var(--soft)">Sem cadastro. Sem licença. Sem módulo surpresa.</p>
-  <p class="reveal" style="--d:.16s;margin-top:28px">
-    <a class="btn" href="../downloads/">Download para Mac e Windows →</a>
-    <a class="btn btn-ghost" href="https://github.com/candidoalfilho/hyperframe">Código no GitHub</a>
-  </p>
-  <p class="fine reveal" style="--d:.24s">open source (MIT) · sha256 publicado · pt-BR</p>
-</section>
-
-<footer>HyperFrame — Edição 2026 · <a href="../">voltar ao site</a> · <a href="../modulos/">módulos</a></footer>
+</footer>
 
 <script>
-(function(){
-  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // barra de progresso
-  var bar = document.getElementById('progress');
-  addEventListener('scroll', function(){
-    var h = document.documentElement;
-    bar.style.width = (100 * h.scrollTop / (h.scrollHeight - h.clientHeight)) + '%';
-  }, { passive: true });
-  if (reduced) { document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); }); return; }
-  // reveals
-  var io = new IntersectionObserver(function(es){
-    es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
-  }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
-  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
-  // contadores do hero
-  var cio = new IntersectionObserver(function(es){
-    es.forEach(function(e){
-      if (!e.isIntersecting) return;
-      cio.unobserve(e.target);
-      var el = e.target, target = +el.dataset.count, t0 = null;
-      function step(ts){
-        if (!t0) t0 = ts;
-        var p = Math.min((ts - t0) / 1100, 1);
-        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
-        if (p < 1) requestAnimationFrame(step);
+(function () {
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (e.isIntersecting) { e.target.setAttribute('data-revealed', ''); io.unobserve(e.target) }
+    })
+  }, { threshold: 0.08 })
+  document.querySelectorAll('[data-observe]').forEach(function (el) { io.observe(el) })
+
+  var cio = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (!e.isIntersecting) return
+      cio.unobserve(e.target)
+      var el = e.target, target = +el.dataset.count, t0 = null
+      if (reduced) { el.textContent = target; return }
+      function step (ts) {
+        if (!t0) t0 = ts
+        var p = Math.min((ts - t0) / 1000, 1)
+        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)))
+        if (p < 1) requestAnimationFrame(step)
       }
-      requestAnimationFrame(step);
-    });
-  }, { threshold: 0.5 });
-  document.querySelectorAll('[data-count]').forEach(function(el){ cio.observe(el); });
-})();
+      requestAnimationFrame(step)
+    })
+  }, { threshold: 0.5 })
+  document.querySelectorAll('[data-count]').forEach(function (el) { cio.observe(el) })
+})()
 </script>
 </body>
 </html>
