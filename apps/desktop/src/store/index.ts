@@ -33,9 +33,25 @@ import {
   type Vec2,
   type WallLoad,
 } from '@hyperframe/engine'
+import { pushRecent } from '../io/fileio'
 
 export type Tool = 'select' | 'column' | 'beam' | 'slab' | 'wall' | 'region' | 'mwall'
 export type ViewMode = 'plan' | '3d' | 'split'
+export type Theme = 'dark' | 'light'
+
+const THEME_KEY = 'hyperframe-theme'
+
+function readInitialTheme(): Theme {
+  try {
+    return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'
+  } catch {
+    return 'dark'
+  }
+}
+
+function applyTheme(t: Theme): void {
+  document.documentElement.dataset.theme = t
+}
 export type ResultsTab =
   | 'estabilidade'
   | 'vigas'
@@ -102,6 +118,7 @@ export interface HFState {
   activeLevelId: string
   selection: ElementRef | null
   hoverRef: ElementRef | null
+  theme: Theme
   welcomeOpen: boolean
   wizardOpen: boolean
   settingsOpen: boolean
@@ -156,6 +173,7 @@ export interface HFState {
   setDisplay: (patch: Partial<DisplayOptions>) => void
   setD3: (patch: Partial<D3Options>) => void
   setDefaults: (patch: Partial<ElementDefaults>) => void
+  setTheme: (t: Theme) => void
   setWelcomeOpen: (v: boolean) => void
   setWizardOpen: (v: boolean) => void
   setSettingsOpen: (v: boolean) => void
@@ -250,6 +268,7 @@ export const useStore = create<HFState>()(
       activeLevelId: firstEditableLevel(initialProject),
       selection: null,
       hoverRef: null,
+      theme: readInitialTheme(),
       welcomeOpen: true,
       wizardOpen: false,
       settingsOpen: false,
@@ -315,6 +334,7 @@ export const useStore = create<HFState>()(
           analysisStatus: 'idle',
           welcomeOpen: false,
         })
+        pushRecent(fileName, p.name)
         useStore.temporal.getState().clear()
       },
       setProjectName: (name) =>
@@ -418,6 +438,15 @@ export const useStore = create<HFState>()(
       setDisplay: (patch) => set((s) => ({ display: { ...s.display, ...patch } })),
       setD3: (patch) => set((s) => ({ d3: { ...s.d3, ...patch } })),
       setDefaults: (patch) => set((s) => ({ defaults: { ...s.defaults, ...patch } })),
+      setTheme: (theme) => {
+        try {
+          localStorage.setItem(THEME_KEY, theme)
+        } catch {
+          // melhor esforço
+        }
+        applyTheme(theme)
+        set({ theme })
+      },
       setWelcomeOpen: (welcomeOpen) => set({ welcomeOpen }),
       setWizardOpen: (wizardOpen) => set({ wizardOpen }),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
@@ -864,7 +893,10 @@ export const useStore = create<HFState>()(
         })),
 
       // ---- arquivo ----
-      markSaved: (fileName) => set({ fileName, dirty: false }),
+      markSaved: (fileName) => {
+        set({ fileName, dirty: false })
+        pushRecent(fileName, get().project.name)
+      },
 
       // ---- underlay DXF ----
       setUnderlay: (underlay) =>
@@ -920,6 +952,9 @@ export const useStore = create<HFState>()(
     },
   ),
 )
+
+// aplica o tema salvo antes do primeiro paint (tokens em data-theme no <html>)
+if (typeof document !== 'undefined') applyTheme(useStore.getState().theme)
 
 /** planta ativa (null p/ fundação) — helper usado pelos editores */
 export function useActivePlan(): FloorPlan | null {

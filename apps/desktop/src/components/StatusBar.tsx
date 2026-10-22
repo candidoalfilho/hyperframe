@@ -1,4 +1,26 @@
+import { useEffect, useState } from 'react'
 import { useActivePlan, useStore } from '../store'
+import { getUiZoom, PRESENT_ZOOM, setUiZoom } from '../ui/zoom'
+
+/** modo apresentação: amplia a UI (projetor/meetup) — mesmo zoom do ⌘+/⌘− */
+function PresentToggle() {
+  const [zoom, setZoom] = useState(getUiZoom)
+  useEffect(() => {
+    const on = (e: Event) => setZoom((e as CustomEvent<number>).detail)
+    window.addEventListener('hf-ui-zoom', on)
+    return () => window.removeEventListener('hf-ui-zoom', on)
+  }, [])
+  const active = zoom >= PRESENT_ZOOM - 0.05
+  return (
+    <button
+      className={`statusbar-btn ${active ? 'active' : ''}`}
+      title="Modo apresentação — amplia a interface (⌘+ / ⌘− / ⌘0 ajustam)"
+      onClick={() => setUiZoom(active ? 1 : PRESENT_ZOOM)}
+    >
+      {active ? '● apresentação' : '○ apresentação'}
+    </button>
+  )
+}
 
 export default function StatusBar() {
   const cursor = useStore((s) => s.cursorWorld)
@@ -39,6 +61,7 @@ export default function StatusBar() {
         {plan?.slabs.length ?? 0} lajes
       </span>
       <span className="faint">kN · m · cm (seções)</span>
+      <PresentToggle />
     </div>
   )
 }

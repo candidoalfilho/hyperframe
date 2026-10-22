@@ -16,12 +16,18 @@ export default function Viewer3D() {
 
   const bounds = useMemo(() => computeBounds(project), [project])
   const shadowExt = Math.ceil(bounds.originRadius + 10)
-  const bg = useMemo(
-    () =>
-      getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() ||
-      '#191b21',
-    [],
-  )
+  // cores do cenário vêm dos tokens CSS do tema ativo (dark/light)
+  const theme = useStore((s) => s.theme)
+  const scene = useMemo(() => {
+    const css = getComputedStyle(document.documentElement)
+    const v = (name: string, fb: string) => css.getPropertyValue(name).trim() || fb
+    return {
+      bg: v('--canvas-bg', '#1a1712'),
+      cell: v('--grid-line', '#272216'),
+      section: v('--grid-strong', '#39321f'),
+      label: v('--text', '#f0ece2'),
+    }
+  }, [theme])
   // guarda a posição do pointerdown p/ não desselecionar ao soltar um arrasto do orbit
   const downAt = useRef<{ x: number; y: number } | null>(null)
 
@@ -58,7 +64,7 @@ export default function Viewer3D() {
           select(null)
         }}
       >
-        <color attach="background" args={[bg]} />
+        <color attach="background" args={[scene.bg]} />
 
         <ambientLight intensity={0.55} />
         <directionalLight
@@ -94,8 +100,8 @@ export default function Viewer3D() {
           followCamera={false}
           cellSize={1}
           sectionSize={5}
-          cellColor="#262a34"
-          sectionColor="#323644"
+          cellColor={scene.cell}
+          sectionColor={scene.section}
           fadeDistance={80}
           fadeStrength={1}
           raycast={NO_RAYCAST}
@@ -115,7 +121,7 @@ export default function Viewer3D() {
         <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
           <GizmoViewport
             axisColors={['#ff5c69', '#3ecf8e', '#4da3ff']}
-            labelColor="#e8eaf0"
+            labelColor={scene.label}
           />
         </GizmoHelper>
       </Canvas>

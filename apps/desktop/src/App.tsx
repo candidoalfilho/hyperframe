@@ -14,10 +14,11 @@ import Editor2D from './editor2d/Editor2D'
 import Viewer3D from './viewer3d/Viewer3D'
 import InspectorPanel from './panels/InspectorPanel'
 import ResultsPanel from './panels/ResultsPanel'
-import WelcomeModal from './panels/WelcomeModal'
+import WelcomeScreen from './panels/WelcomeScreen'
 import SettingsModal from './panels/SettingsModal'
 import NewProjectWizard from './wizard/NewProjectWizard'
 import CopilotPanel from './copilot/CopilotPanel'
+import { applyUiZoom, getUiZoom, setUiZoom } from './ui/zoom'
 
 export default function App() {
   const viewMode = useStore((s) => s.viewMode)
@@ -31,21 +32,15 @@ export default function App() {
   // zoom da INTERFACE (Ctrl/⌘ + · − · 0) — persiste por máquina; útil em
   // telas Windows com escala alta onde a UI fica pequena
   useEffect(() => {
-    const KEY = 'hyperframe-ui-zoom'
-    const apply = (z: number): void => {
-      ;(document.body.style as unknown as { zoom: string }).zoom = z === 1 ? '' : String(z)
-    }
-    let z = Number(localStorage.getItem(KEY) ?? '1') || 1
-    apply(z)
+    applyUiZoom(getUiZoom())
     const onKey = (e: KeyboardEvent): void => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
-      if (e.key === '+' || e.key === '=') z = Math.min(2, Math.round((z + 0.1) * 10) / 10)
-      else if (e.key === '-') z = Math.max(0.6, Math.round((z - 0.1) * 10) / 10)
-      else if (e.key === '0') z = 1
+      const z = getUiZoom()
+      if (e.key === '+' || e.key === '=') setUiZoom(z + 0.1)
+      else if (e.key === '-') setUiZoom(z - 0.1)
+      else if (e.key === '0') setUiZoom(1)
       else return
       e.preventDefault()
-      localStorage.setItem(KEY, String(z))
-      apply(z)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -153,6 +148,9 @@ export default function App() {
     }
   }, [])
 
+  // tela inicial: página cheia (menu) — o editor só aparece depois de uma escolha
+  if (welcomeOpen) return <WelcomeScreen />
+
   return (
     <div className="app-shell">
       <TopBar />
@@ -176,7 +174,6 @@ export default function App() {
 
       {resultsOpen && <ResultsPanel />}
       {copilotOpen && <CopilotPanel onClose={() => setCopilotOpen(false)} />}
-      {welcomeOpen && <WelcomeModal />}
       {wizardOpen && <NewProjectWizard />}
       {settingsOpen && <SettingsModal />}
     </div>

@@ -182,3 +182,57 @@ export function clearAutosave(): void {
     // ignora
   }
 }
+
+// ---------------------------------------------------------------------------
+// projetos recentes (localStorage) — só caminhos absolutos (app desktop),
+// pois no navegador não há como reabrir um arquivo pelo nome
+// ---------------------------------------------------------------------------
+
+const RECENTS_KEY = 'hyperframe.recents.v1'
+const RECENTS_MAX = 8
+
+export interface RecentProject {
+  path: string
+  name: string
+  when: string
+}
+
+export function readRecents(): RecentProject[] {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY)
+    if (!raw) return []
+    const list = JSON.parse(raw) as RecentProject[]
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+
+export function pushRecent(path: string | null, name: string): void {
+  if (!path || !path.includes('/')) return
+  try {
+    const list = readRecents().filter((r) => r.path !== path)
+    list.unshift({ path, name, when: new Date().toISOString() })
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, RECENTS_MAX)))
+  } catch {
+    // melhor esforço
+  }
+}
+
+export function removeRecent(path: string): void {
+  try {
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(readRecents().filter((r) => r.path !== path)))
+  } catch {
+    // ignora
+  }
+}
+
+/** Abre um projeto recente pelo caminho (apenas Tauri). */
+export async function openRecentProject(
+  path: string,
+): Promise<{ project: Project; fileName: string }> {
+  if (!isTauri()) throw new Error('Abrir recentes só está disponível no app desktop.')
+  const { readTextFile } = await import('@tauri-apps/plugin-fs')
+  const text = await readTextFile(path)
+  return { project: parseProject(text), fileName: path }
+}

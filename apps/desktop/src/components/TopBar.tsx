@@ -6,6 +6,7 @@ import {
   IconClose,
   IconCube,
   IconLogo,
+  IconMoon,
   IconNew,
   IconOpen,
   IconPlan,
@@ -15,6 +16,7 @@ import {
   IconSave,
   IconSettings,
   IconSplit,
+  IconSun,
   IconUndo,
 } from './Icons'
 
@@ -117,6 +119,8 @@ export default function TopBar() {
   const copilotOpen = useStore((s) => s.copilotOpen)
   const setCopilotOpen = useStore((s) => s.setCopilotOpen)
   const loadProject = useStore((s) => s.loadProject)
+  const theme = useStore((s) => s.theme)
+  const setTheme = useStore((s) => s.setTheme)
 
   const undo = () => useStore.temporal.getState().undo()
   const redo = () => useStore.temporal.getState().redo()
@@ -141,12 +145,12 @@ export default function TopBar() {
 
       <div className="divider-v" />
 
-      <button className="btn-icon" title="Novo projeto" onClick={() => setWizardOpen(true)}>
+      <button className="btn-icon tip-down" data-tip="Novo projeto" onClick={() => setWizardOpen(true)}>
         <IconNew />
       </button>
       <button
-        className="btn-icon"
-        title="Abrir projeto (⌘O)"
+        className="btn-icon tip-down"
+        data-tip="Abrir projeto (⌘O)"
         onClick={async () => {
           try {
             const r = await openProjectFile()
@@ -159,8 +163,8 @@ export default function TopBar() {
         <IconOpen />
       </button>
       <button
-        className="btn-icon"
-        title="Salvar projeto (⌘S) · Shift+clique: Salvar como… (⇧⌘S)"
+        className="btn-icon tip-down"
+        data-tip="Salvar projeto (⌘S) · Shift+clique: Salvar como… (⇧⌘S)"
         onClick={async (e) => {
           try {
             const st = useStore.getState()
@@ -181,10 +185,10 @@ export default function TopBar() {
 
       <div className="divider-v" />
 
-      <button className="btn-icon" title="Desfazer (⌘Z)" onClick={undo}>
+      <button className="btn-icon tip-down" data-tip="Desfazer (⌘Z)" onClick={undo}>
         <IconUndo />
       </button>
-      <button className="btn-icon" title="Refazer (⇧⌘Z)" onClick={redo}>
+      <button className="btn-icon tip-down" data-tip="Refazer (⇧⌘Z)" onClick={redo}>
         <IconRedo />
       </button>
 
@@ -206,25 +210,25 @@ export default function TopBar() {
 
       <div style={{ display: 'flex', gap: 2, background: 'var(--bg-2)', borderRadius: 6, padding: 2 }}>
         <button
-          className={`btn-icon ${viewMode === 'plan' ? 'active' : ''}`}
+          className={`btn-icon tip-down ${viewMode === 'plan' ? 'active' : ''}`}
           style={{ width: 28, height: 26 }}
-          title="Planta 2D"
+          data-tip="Planta 2D"
           onClick={() => setViewMode('plan')}
         >
           <IconPlan size={15} />
         </button>
         <button
-          className={`btn-icon ${viewMode === 'split' ? 'active' : ''}`}
+          className={`btn-icon tip-down ${viewMode === 'split' ? 'active' : ''}`}
           style={{ width: 28, height: 26 }}
-          title="Planta + 3D"
+          data-tip="Planta + 3D"
           onClick={() => setViewMode('split')}
         >
           <IconSplit size={15} />
         </button>
         <button
-          className={`btn-icon ${viewMode === '3d' ? 'active' : ''}`}
+          className={`btn-icon tip-down ${viewMode === '3d' ? 'active' : ''}`}
           style={{ width: 28, height: 26 }}
-          title="3D"
+          data-tip="3D"
           onClick={() => setViewMode('3d')}
         >
           <IconCube size={15} />
@@ -233,7 +237,19 @@ export default function TopBar() {
 
       <div style={{ flex: 1 }} />
 
-      <button className="btn-icon" title="Parâmetros do projeto (normas)" onClick={() => setSettingsOpen(true)}>
+      <button
+        className="btn-icon tip-down-left"
+        data-tip={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      >
+        {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
+      </button>
+
+      <button
+        className="btn-icon tip-down-left"
+        data-tip="Parâmetros do projeto (normas)"
+        onClick={() => setSettingsOpen(true)}
+      >
         <IconSettings />
       </button>
 

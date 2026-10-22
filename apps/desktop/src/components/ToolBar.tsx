@@ -42,8 +42,8 @@ export default function ToolBar() {
         return (
           <button
             key={t.id}
-            className={`btn-icon ${tool === t.id ? 'active' : ''}`}
-            title={t.title}
+            className={`btn-icon tip-right ${tool === t.id ? 'active' : ''}`}
+            data-tip={t.title}
             onClick={() => setTool(t.id)}
           >
             <Icon size={18} />
@@ -52,8 +52,8 @@ export default function ToolBar() {
       })}
       <div style={{ flex: 1 }} />
       <button
-        className="btn-icon"
-        title="Excluir selecionado (Delete)"
+        className="btn-icon tip-right"
+        data-tip="Excluir selecionado (Delete)"
         disabled={!selection}
         onClick={deleteSelected}
       >

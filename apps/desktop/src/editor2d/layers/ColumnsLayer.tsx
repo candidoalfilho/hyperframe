@@ -17,8 +17,8 @@ export default memo(function ColumnsLayer({ columns, k, showNames, selectedId, h
       {columns.map((c) => {
         const sel = c.id === selectedId
         const hov = c.id === hoveredId && !sel
-        const fill = sel ? '#bfd4f2' : '#aab3c5'
-        const stroke = sel ? 'var(--sel)' : hov ? 'var(--blue)' : '#d7dce6'
+        const fill = sel ? 'var(--el-column-sel)' : 'var(--el-column-fill)'
+        const stroke = sel ? 'var(--sel)' : hov ? 'var(--blue)' : 'var(--el-column-stroke)'
         const sw = sel ? 2.5 : 1.5
         const { dx, dy } = columnHalfExtents(c)
         const isCircle = c.section.shape === 'circle'

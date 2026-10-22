@@ -145,8 +145,8 @@ export const IconPrint = (p: P) => (
 
 export const IconSettings = (p: P) => (
   <svg {...base(p)}>
-    <circle cx="12" cy="12" r="3" />
-    <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" />
+    <circle cx="12" cy="12" r="3.2" />
+    <path d="M19.4 13.8a7.8 7.8 0 0 0 0-3.6l2-1.5-2-3.4-2.3 1a7.8 7.8 0 0 0-3.1-1.8L13.7 2h-3.4l-.3 2.5a7.8 7.8 0 0 0-3.1 1.8l-2.3-1-2 3.4 2 1.5a7.8 7.8 0 0 0 0 3.6l-2 1.5 2 3.4 2.3-1a7.8 7.8 0 0 0 3.1 1.8l.3 2.5h3.4l.3-2.5a7.8 7.8 0 0 0 3.1-1.8l2.3 1 2-3.4-2-1.5z" />
   </svg>
 )
 
@@ -195,6 +195,26 @@ export const IconLayers = (p: P) => (
 export const IconDownload = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 3v12M7 10l5 5 5-5M4 19h16" />
+  </svg>
+)
+
+export const IconSun = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19" />
+  </svg>
+)
+
+export const IconMoon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z" />
+  </svg>
+)
+
+export const IconClock = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3.5 2" />
   </svg>
 )
 

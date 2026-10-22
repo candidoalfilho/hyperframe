@@ -786,6 +786,25 @@
 - [x] +2 testes (482): extremidades com edge e run ≤ vão + embed; internos
   sem flag
 
+## v0.2.51 — Redesign da UI: tela inicial, dark/light e design system do site ✅
+
+- [x] Tela inicial virou página de verdade (substitui o modal): marca em
+  Bricolage Grotesque, chips das normas, badge de versão, card de ações e
+  lista de PROJETOS RECENTES (localStorage, registrados ao abrir/salvar no
+  desktop, data relativa, remover da lista)
+- [x] Design system alinhado ao site (Looper): dark padrão em tinta quente,
+  light em papel #fbfaf5; tokens novos (accent-fill/fg, grid-strong,
+  el-column-*, tooltip-*); botões pílula, títulos de seção com bolinha
+  laranja, modais 14px; fontes do site embutidas offline (Bricolage +
+  JetBrains Mono, +117 KB)
+- [x] Toggle dark/light na topbar e na tela inicial (persiste por máquina);
+  canvases acompanham o tema: fundo/grid/gizmo do 3D e cores da planta 2D
+- [x] Tooltips estilizados na sidebar (ferramenta + atalho + como usar) e
+  nos ícones da topbar; engrenagem redesenhada (parecia um 2º sol)
+- [x] Modo apresentação na statusbar: amplia a UI p/ 130% num clique (mesmo
+  mecanismo do ⌘+/⌘−) — projetor/meetup
+- [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
