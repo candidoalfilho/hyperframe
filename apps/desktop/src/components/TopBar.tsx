@@ -102,6 +102,51 @@ function ConsistencyModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+/** guarda de saída: salvar, descartar ou cancelar antes de deixar o projeto */
+function LeaveModal({
+  projectName,
+  onCancel,
+  onLeave,
+}: {
+  projectName: string
+  onCancel: () => void
+  onLeave: () => void
+}) {
+  const saveAndLeave = async () => {
+    try {
+      const st = useStore.getState()
+      const path = await saveProject(st.project, st.fileName)
+      if (!path) return // cancelou o diálogo de salvar — fica no projeto
+      st.markSaved(path)
+      clearAutosave()
+      onLeave()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    }
+  }
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">Sair do projeto?</div>
+        <div className="modal-body" style={{ fontSize: 13, lineHeight: 1.55 }}>
+          Há alterações não salvas em <b>“{projectName}”</b>. O que deseja fazer?
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onCancel}>
+            Cancelar
+          </button>
+          <button className="btn" onClick={onLeave}>
+            Sair sem salvar
+          </button>
+          <button className="btn btn-primary" onClick={() => void saveAndLeave()}>
+            Salvar e sair
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TopBar() {
   const project = useStore((s) => s.project)
   const setProjectName = useStore((s) => s.setProjectName)
@@ -126,14 +171,27 @@ export default function TopBar() {
   const redo = () => useStore.temporal.getState().redo()
   const [consistOpen, setConsistOpen] = useState(false)
 
+  // saída do projeto (tela inicial / novo projeto) com guarda de não-salvo
+  const [leaveAction, setLeaveAction] = useState<(() => void) | null>(null)
+  const requestLeave = (action: () => void) => {
+    if (useStore.getState().dirty) setLeaveAction(() => action)
+    else action()
+  }
+  const goHome = () => useStore.getState().setWelcomeOpen(true)
+  const openWizard = () => setWizardOpen(true)
+
   const editableLevels = project.levels.filter((l) => l.planId !== null)
 
   return (
     <div className="topbar">
-      <div className="logo">
+      <button
+        className="logo logo-btn tip-down"
+        data-tip="Tela inicial"
+        onClick={() => requestLeave(goHome)}
+      >
         <IconLogo size={20} />
         Hyper<b>Frame</b>
-      </div>
+      </button>
 
       <input
         className="input"
@@ -145,7 +203,7 @@ export default function TopBar() {
 
       <div className="divider-v" />
 
-      <button className="btn-icon tip-down" data-tip="Novo projeto" onClick={() => setWizardOpen(true)}>
+      <button className="btn-icon tip-down" data-tip="Novo projeto" onClick={() => requestLeave(openWizard)}>
         <IconNew />
       </button>
       <button
@@ -291,6 +349,16 @@ export default function TopBar() {
       </button>
 
       {consistOpen && <ConsistencyModal onClose={() => setConsistOpen(false)} />}
+      {leaveAction && (
+        <LeaveModal
+          projectName={project.name}
+          onCancel={() => setLeaveAction(null)}
+          onLeave={() => {
+            setLeaveAction(null)
+            leaveAction()
+          }}
+        />
+      )}
     </div>
   )
 }

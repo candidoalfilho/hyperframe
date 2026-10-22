@@ -120,6 +120,8 @@ export interface HFState {
   hoverRef: ElementRef | null
   theme: Theme
   welcomeOpen: boolean
+  /** há um projeto aberto nesta sessão (permite "Continuar" na tela inicial) */
+  hasOpenProject: boolean
   wizardOpen: boolean
   settingsOpen: boolean
   copilotOpen: boolean
@@ -270,6 +272,7 @@ export const useStore = create<HFState>()(
       hoverRef: null,
       theme: readInitialTheme(),
       welcomeOpen: true,
+      hasOpenProject: false,
       wizardOpen: false,
       settingsOpen: false,
       copilotOpen: false,
@@ -319,6 +322,7 @@ export const useStore = create<HFState>()(
           results: null,
           analysisStatus: 'idle',
           welcomeOpen: false,
+          hasOpenProject: true,
           wizardOpen: false,
         })
         useStore.temporal.getState().clear()
@@ -333,6 +337,7 @@ export const useStore = create<HFState>()(
           results: null,
           analysisStatus: 'idle',
           welcomeOpen: false,
+          hasOpenProject: true,
         })
         pushRecent(fileName, p.name)
         useStore.temporal.getState().clear()

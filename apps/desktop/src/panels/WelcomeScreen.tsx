@@ -66,6 +66,9 @@ export default function WelcomeScreen() {
   const setWizardOpen = useStore((s) => s.setWizardOpen)
   const theme = useStore((s) => s.theme)
   const setTheme = useStore((s) => s.setTheme)
+  const hasOpenProject = useStore((s) => s.hasOpenProject)
+  const openProjectName = useStore((s) => s.project.name)
+  const openDirty = useStore((s) => s.dirty)
 
   const autosave = useMemo(() => readAutosave(), [])
   const [recents, setRecents] = useState(() => readRecents())
@@ -117,6 +120,15 @@ export default function WelcomeScreen() {
         </div>
 
         <div className="welcome-card">
+          {hasOpenProject && (
+            <Action
+              icon={<IconBuilding size={21} />}
+              recover
+              title="Continuar editando"
+              subtitle={`${openProjectName}${openDirty ? ' · alterações não salvas' : ''}`}
+              onClick={() => setWelcomeOpen(false)}
+            />
+          )}
           {autosave && (
             <Action
               icon={<IconResults size={21} />}
