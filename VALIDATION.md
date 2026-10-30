@@ -109,6 +109,15 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
 
+### Versão web (navegador)
+
+A versão web usa o MESMO engine e o mesmo app; muda só o armazenamento (IndexedDB do
+navegador em vez de arquivos) e as funções exclusivas do desktop (`src/platform.ts`).
+Os resultados de cálculo são, portanto, os mesmos do desktop. Testes próprios em
+`apps/desktop/test/web-*.test.ts` (vitest + fake-indexeddb): rotas, gravação e
+revisões (duas abas não se sobrescrevem), importação validada, navegador sem
+IndexedDB e UUID sem `crypto.randomUUID`.
+
 ### O que os testes NÃO cobrem ainda
 
 - Comparação independente com outro software (Ftool, Eberick, SAP2000)

@@ -47,7 +47,7 @@ autônomos, professores e estudantes.
 
 | Diferencial | Por quê importa |
 |---|---|
-| **macOS + Windows nativos** (Tauri) + demo no navegador | Único no mercado NBR. Macs dominam entre jovens engenheiros/arquitetos. |
+| **macOS + Windows nativos** (Tauri) + versão web (mesmo app, projetos salvos no navegador, sem instalar) | Único no mercado NBR. Macs dominam entre jovens engenheiros/arquitetos. |
 | Motor próprio de pórtico espacial + normas NBR | Independência total de licenças de terceiros; roda offline. |
 | UX moderna (2D/3D lado a lado, undo/redo, dark mode) | O contraste com TQS/Eberick é imediato em qualquer demo. |
 | IA nativa (roadmap: lançamento por prompt, revisão automática de modelo, memorial gerado) | Incumbentes só têm IA "colada por fora" (docs/scripts). |

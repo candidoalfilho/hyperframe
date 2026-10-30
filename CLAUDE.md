@@ -6,10 +6,12 @@ Software de engenharia estrutural (ABNT) — monorepo npm workspaces.
 
 ```bash
 npm run dev          # vite dev server (browser) em http://localhost:5183
-npm test             # vitest do engine (obrigatório passar antes de commit)
+npm test             # vitest de todos os workspaces: engine + apps/desktop (obrigatório antes de commit)
 npm run typecheck    # tsc em todos os workspaces
 npm run tauri dev    # app desktop (precisa de Rust no PATH: ~/.cargo/bin)
 npm run tauri build  # bundle .app/.dmg
+npm run build:web    # versão web estática (sem Tauri) → apps/desktop/dist-web/
+npm run serve:web    # site em / + app web em /app/ (http://localhost:4173)
 ```
 
 ## Arquitetura (decisões que não se quebram)
@@ -31,6 +33,11 @@ npm run tauri build  # bundle .app/.dmg
   com âncoras calculadas à mão. Qualquer mudança nesses arquivos exige teste novo.
 - Store Zustand em `apps/desktop/src/store/index.ts`: TODA mutação de projeto passa por
   ações do store (invalidam `results` automaticamente). Undo/redo = zundo (só `project`).
+- **Desktop × web**: o mesmo app roda no Tauri e como site estático. Diferenças passam
+  SEMPRE pelas flags de `src/platform.ts` (ex.: `platform.browserProjects`, Copiloto IA só
+  no desktop) — nunca mudar comportamento do desktop sem flag. Na web os projetos vivem
+  no IndexedDB (`src/web/`), com rota por hash `#/p/<uuid>` e importar/exportar
+  `.hyperframe.json`.
 - Análise roda em Web Worker (`workers/analysis.worker.ts`) — engine precisa continuar
   serializável (sem classes nos resultados).
 

@@ -805,6 +805,19 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## Versão web (navegador) — sem instalar
+
+- [x] `npm run build:web` gera o app como site estático (base relativa: serve em
+  /app/ ou na raiz de um domínio); `npm run serve:web` publica site + app
+- [x] Projetos no IndexedDB com URL própria (`#/p/<uuid>`), lista “Meus projetos”,
+  Exportar/Importar `.hyperframe.json` (importação validada antes de gravar)
+- [x] Salvamento automático com revisão: duas abas no mesmo projeto não se
+  sobrescrevem; edições não se perdem ao trocar de projeto ou fechar a aba
+- [x] Sem IndexedDB (janela privada/bloqueado) o app segue usável via Exportar
+- [x] Recursos só do desktop (Copiloto IA, recentes, diálogos nativos) atrás de
+  flags em `src/platform.ts` — desktop inalterado
+- [ ] Publicar em produção (GitHub Pages/Netlify) e linkar no site
+
 ## Backlog técnico consolidado (18/07/2026 — direcionamentos do Cândido)
 
 > Prioridade nova: **fundações como ELEMENTOS do modelo** (hoje são só resultado
