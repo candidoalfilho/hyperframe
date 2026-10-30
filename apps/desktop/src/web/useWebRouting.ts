@@ -3,13 +3,25 @@ import { parseProject } from '@hyperframe/engine'
 import { useStore } from '../store'
 import { platform } from '../platform'
 import { parseRoute, routeHash, webFileName, webProjectId } from './route'
-import { getWebProject, trackRevision } from './storage'
+import { clearAutosave, readAutosave } from '../io/fileio'
+import { getWebProject, trackRevision, updateWebProject, writesSettled } from './storage'
 
 /** abre um projeto do navegador pelo UUID (false = não encontrado) */
 export async function openWebProject(id: string): Promise<boolean> {
-  const rec = await getWebProject(id)
+  // autosave do projeto anterior ainda gravando (troca rápida A→B→A)
+  await writesSettled()
+  let rec = await getWebProject(id)
   if (!rec) return false
   trackRevision(rec)
+  // rascunho deixado ao fechar a aba antes do IndexedDB terminar: se é deste
+  // projeto e baseado na revisão atual, é mais novo — grava e abre ele
+  const draft = readAutosave()
+  if (draft && draft.fileName === webFileName(id) && draft.rev !== undefined) {
+    if (draft.rev === (rec.rev ?? 0) && draft.when > rec.updatedAt) {
+      rec = await updateWebProject(id, draft.data, draft.rev)
+    }
+    clearAutosave()
+  }
   useStore.getState().loadProject(parseProject(rec.data), webFileName(rec.id))
   return true
 }

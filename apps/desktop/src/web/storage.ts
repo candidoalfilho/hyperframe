@@ -157,6 +157,21 @@ export async function updateWebProject(
   data: string,
   expectedRev?: number,
 ): Promise<WebProjectRecord> {
+  const op = doUpdate(id, data, expectedRev)
+  writes.add(op)
+  void op.catch(() => {}).finally(() => writes.delete(op))
+  return op
+}
+
+// gravações em curso (abrir um projeto espera as pendentes, ver writesSettled)
+const writes = new Set<Promise<unknown>>()
+
+/** resolve quando as gravações iniciadas até agora terminarem (com ou sem erro) */
+export async function writesSettled(): Promise<void> {
+  await Promise.allSettled([...writes])
+}
+
+async function doUpdate(id: string, data: string, expectedRev?: number): Promise<WebProjectRecord> {
   const db = await openDb()
   const rec = await new Promise<WebProjectRecord>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite')

@@ -22,6 +22,7 @@ import NewProjectWizard from './wizard/NewProjectWizard'
 import CopilotPanel from './copilot/CopilotPanel'
 import { hasCopilot, platform } from './platform'
 import { webProjectId } from './web/route'
+import { baseRevision } from './web/storage'
 import { useWebRouting } from './web/useWebRouting'
 import { applyUiZoom, getUiZoom, setUiZoom } from './ui/zoom'
 
@@ -156,6 +157,7 @@ export default function App() {
       }
       const now = useStore.getState()
       if (result === 'saved') {
+        clearAutosave(fileName) // rascunho de saída já não é necessário
         // só limpa o "não salvo" se nada mudou durante a gravação
         if (now.project === project && now.fileName === fileName) now.markSaved(fileName)
         return
@@ -178,22 +180,74 @@ export default function App() {
       }
     }
 
+    if (!platform.browserProjects) {
+      // desktop: rascunho no localStorage (comportamento original)
+      const unsub = useStore.subscribe((s, prev) => {
+        if (s.project === prev.project) return
+        window.clearTimeout(timer)
+        timer = window.setTimeout(() => {
+          const st = useStore.getState()
+          if (st.dirty) writeAutosave(st.project, st.fileName)
+        }, 2000)
+      })
+      return () => {
+        unsub()
+        window.clearTimeout(timer)
+      }
+    }
+
+    // web: a mudança pendente é capturada na hora da edição e gravada já ao
+    // trocar de projeto, ao esconder/fechar a aba — nunca se perde no debounce
+    let pending: { project: Project; fileName: string | null } | null = null
+    let inflight = 0
+    const flush = (leaving = false) => {
+      window.clearTimeout(timer)
+      const p = pending
+      pending = null
+      if (!p) return
+      const id = webProjectId(p.fileName)
+      if (!id || !p.fileName) return writeAutosave(p.project, p.fileName)
+      // aba fechando: o IndexedDB pode não terminar — rascunho síncrono no
+      // localStorage (recuperado ao reabrir o projeto, ver openWebProject)
+      if (leaving) writeAutosave(p.project, p.fileName, baseRevision(id))
+      inflight++
+      void autosaveWeb(p.project, p.fileName, id).finally(() => inflight--)
+    }
+
     const unsub = useStore.subscribe((s, prev) => {
       // Salvar manual (ou reabrir) resolve o conflito: retoma o autosave
       if (s.fileName !== prev.fileName || (prev.dirty && !s.dirty)) paused.clear()
-      if (s.project === prev.project) return
+      if (pending && pending.project === s.project && !s.dirty) {
+        pending = null // salvo manualmente
+        window.clearTimeout(timer)
+      }
+      // trocou de projeto (outra URL, Meus projetos, importar…): grava o anterior já
+      if (pending && s.fileName !== pending.fileName) flush()
+      if (s.project === prev.project || !s.dirty) return
+      pending = { project: s.project, fileName: s.fileName }
       window.clearTimeout(timer)
-      timer = window.setTimeout(() => {
-        const st = useStore.getState()
-        if (!st.dirty) return
-        const id = platform.browserProjects ? webProjectId(st.fileName) : null
-        if (id && st.fileName) void autosaveWeb(st.project, st.fileName, id)
-        else writeAutosave(st.project, st.fileName)
-      }, 2000)
+      timer = window.setTimeout(() => flush(), 2000)
     })
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flush(true)
+    }
+    const onPageHide = () => flush(true)
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!pending && inflight === 0) return
+      flush(true)
+      // gravação ainda em curso: pede confirmação p/ sair
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('beforeunload', onBeforeUnload)
     return () => {
+      flush()
       unsub()
-      window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('beforeunload', onBeforeUnload)
     }
   }, [])
 

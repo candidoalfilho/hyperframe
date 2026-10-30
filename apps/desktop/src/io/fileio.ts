@@ -290,15 +290,18 @@ export interface AutosavePayload {
   fileName: string | null
   projectName: string
   data: string
+  /** web: revisão do registro em que o rascunho se baseia */
+  rev?: number
 }
 
-export function writeAutosave(project: Project, fileName: string | null): void {
+export function writeAutosave(project: Project, fileName: string | null, rev?: number): void {
   try {
     const payload: AutosavePayload = {
       when: new Date().toISOString(),
       fileName,
       projectName: project.name,
       data: serializeProject(project),
+      ...(rev === undefined ? {} : { rev }),
     }
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload))
   } catch {
@@ -317,8 +320,13 @@ export function readAutosave(): (AutosavePayload & { project: Project }) | null 
   }
 }
 
-export function clearAutosave(): void {
+/** apaga o rascunho (se `onlyFor`, só quando é desse arquivo/projeto) */
+export function clearAutosave(onlyFor?: string): void {
   try {
+    if (onlyFor !== undefined) {
+      const raw = localStorage.getItem(AUTOSAVE_KEY)
+      if (!raw || (JSON.parse(raw) as AutosavePayload).fileName !== onlyFor) return
+    }
     localStorage.removeItem(AUTOSAVE_KEY)
   } catch {
     // ignora
