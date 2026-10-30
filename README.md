@@ -123,6 +123,7 @@ PATH="/opt/homebrew/opt/llvm/bin:$PATH" npm run tauri build -- \
 # (CI: .github/workflows/release.yml builda mac/win/linux ao criar tag v*)
 
 # versão web (sem Tauri) servida em /app/, ao lado do site em /
+# (base relativa: o mesmo dist-web/ também funciona na raiz de um domínio)
 npm run build:web        # → apps/desktop/dist-web/
 npm run serve:web        # → http://localhost:4173/ (site) · http://localhost:4173/app/ (app)
 

@@ -1,8 +1,9 @@
 /**
  * Rotas da build web por HASH: `#/p/<uuid>` abre um projeto do navegador.
  *
- * Hash (e não History API) porque o app é publicado como site estático sob um
- * subcaminho (/app/) — o servidor nunca vê o fragmento, então não há
+ * Hash (e não History API) porque o app é publicado como site estático — em
+ * /app/ ou na raiz de um domínio (build com base relativa `./`) — e o servidor
+ * nunca vê o fragmento, então não há
  * necessidade de rewrite p/ index.html em nenhum host (GitHub Pages, Netlify,
  * `npx serve`…) e um recarregamento sempre cai no mesmo arquivo.
  */
