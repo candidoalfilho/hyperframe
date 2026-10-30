@@ -24,12 +24,32 @@ const DB_NAME = 'hyperframe'
 const DB_VERSION = 1
 const STORE = 'projects'
 
+/** IndexedDB ausente/bloqueado (janela privada, cookies bloqueados, iframe…) */
+export class WebStorageUnavailableError extends Error {
+  constructor() {
+    super(
+      'Este navegador não permite guardar projetos (IndexedDB indisponível — ex.: janela ' +
+        'privada ou armazenamento bloqueado). Você pode continuar editando e usar “Exportar” ' +
+        'p/ guardar o .hyperframe.json no computador.',
+    )
+    this.name = 'WebStorageUnavailableError'
+  }
+}
+
 let dbPromise: Promise<IDBDatabase> | null = null
 
 function openDb(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      let req: IDBOpenDBRequest
+      try {
+        if (typeof indexedDB === 'undefined' || !indexedDB) throw new Error()
+        req = indexedDB.open(DB_NAME, DB_VERSION)
+      } catch {
+        dbPromise = null
+        reject(new WebStorageUnavailableError())
+        return
+      }
       req.onupgradeneeded = () => {
         const db = req.result
         if (!db.objectStoreNames.contains(STORE)) {
@@ -39,11 +59,21 @@ function openDb(): Promise<IDBDatabase> {
       req.onsuccess = () => resolve(req.result)
       req.onerror = () => {
         dbPromise = null
-        reject(req.error ?? new Error('IndexedDB indisponível'))
+        reject(new WebStorageUnavailableError())
       }
     })
   }
   return dbPromise
+}
+
+/** true se dá p/ guardar projetos neste navegador */
+export async function webStorageAvailable(): Promise<boolean> {
+  try {
+    await openDb()
+    return true
+  } catch {
+    return false
+  }
 }
 
 async function run<T>(

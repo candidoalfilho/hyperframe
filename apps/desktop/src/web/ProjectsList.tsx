@@ -10,6 +10,7 @@ import {
   listWebProjects,
   renameWebProject,
   type WebProjectMeta,
+  WebStorageUnavailableError,
 } from './storage'
 import { openWebProject } from './useWebRouting'
 
@@ -18,12 +19,15 @@ const fail = (err: unknown) => alert(err instanceof Error ? err.message : String
 /** "Meus projetos" (build web): projetos guardados no IndexedDB deste navegador. */
 export default function ProjectsList({ relWhen }: { relWhen: (iso: string) => string }) {
   const [items, setItems] = useState<WebProjectMeta[] | null>(null)
+  const [unavailable, setUnavailable] = useState(false)
   const currentId = useStore((s) => webProjectId(s.fileName))
 
   const refresh = useCallback(() => {
     listWebProjects().then(setItems, (err) => {
       setItems([])
-      fail(err)
+      // sem IndexedDB: aviso fixo na lista em vez de alert (o app segue usável)
+      if (err instanceof WebStorageUnavailableError) setUnavailable(true)
+      else fail(err)
     })
   }, [])
   useEffect(refresh, [refresh])
@@ -62,7 +66,13 @@ export default function ProjectsList({ relWhen }: { relWhen: (iso: string) => st
   return (
     <div className="welcome-recents">
       <div className="welcome-recents-title">Meus projetos</div>
-      {items === null ? null : items.length === 0 ? (
+      {unavailable ? (
+        <div className="welcome-empty" role="alert" data-testid="web-storage-unavailable">
+          Este navegador não permite guardar projetos (ex.: janela privada ou armazenamento
+          bloqueado). Você pode criar, importar e editar normalmente — use “Exportar” para guardar
+          o .hyperframe.json no seu computador.
+        </div>
+      ) : items === null ? null : items.length === 0 ? (
         <div className="welcome-empty">
           Projetos salvos ficam neste navegador e aparecem aqui. Use “Exportar” para guardar uma
           cópia .hyperframe.json no seu computador.

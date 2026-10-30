@@ -1,7 +1,13 @@
 import { parseProject, serializeProject, type Project } from '@hyperframe/engine'
 import { isTauri, platform } from '../platform'
 import { webFileName, webProjectId } from '../web/route'
-import { createWebProject, getWebProject, updateWebProject } from '../web/storage'
+import {
+  createWebProject,
+  getWebProject,
+  updateWebProject,
+  WebStorageUnavailableError,
+  webStorageAvailable,
+} from '../web/storage'
 import { askName } from '../web/NamePrompt'
 import { parseImportedProject } from '../web/importProject'
 
@@ -42,6 +48,12 @@ export async function saveProjectAs(
 ): Promise<string | null> {
   const text = serializeProject(project)
   if (platform.browserProjects) {
+    if (!(await webStorageAvailable())) {
+      // sem IndexedDB: oferece exportar o arquivo (o projeto segue aberto)
+      const msg = new WebStorageUnavailableError().message
+      if (confirm(`${msg}\n\nExportar agora como .hyperframe.json?`)) await exportProjectFile(project)
+      return null
+    }
     const name = await askName('Salvar projeto', 'Nome do arquivo', project.name)
     if (!name) return null
     const rec = await createWebProject(name, text)
@@ -87,13 +99,15 @@ export async function saveProject(
  * Abre projeto: diálogo nativo (Tauri) ou input de arquivo (browser). Na web
  * o arquivo é IMPORTADO como um projeto novo do navegador (UUID novo).
  */
-export async function openProjectFile(): Promise<{ project: Project; fileName: string } | null> {
+export async function openProjectFile(): Promise<{ project: Project; fileName: string | null } | null> {
   if (platform.browserProjects) {
     const picked = await pickProjectFile()
     if (!picked) return null
     // valida ANTES de gravar: arquivo inválido não deixa registro no navegador
     const project = parseImportedProject(picked.text, picked.name)
     const name = picked.name.replace(/\.json$/i, '').replace(/\.hyperframe$/i, '') || project.name
+    // sem IndexedDB: abre só em memória (rascunho no localStorage; Exportar p/ guardar)
+    if (!(await webStorageAvailable())) return { project, fileName: null }
     const rec = await createWebProject(name, serializeProject(project))
     return { project, fileName: webFileName(rec.id) }
   }
