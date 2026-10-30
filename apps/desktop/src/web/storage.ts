@@ -18,7 +18,36 @@ export interface WebProjectMeta {
 export interface WebProjectRecord extends WebProjectMeta {
   /** conteúdo idêntico ao .hyperframe.json */
   data: string
+  /** revisão do conteúdo (+1 a cada gravação; ausente em registros antigos = 0) */
+  rev?: number
 }
+
+/** o registro foi excluído (p.ex. em outra aba) */
+export class WebProjectMissingError extends Error {
+  constructor() {
+    super('Projeto não encontrado neste navegador.')
+    this.name = 'WebProjectMissingError'
+  }
+}
+
+/** o registro foi gravado por outra aba/janela depois que esta o abriu */
+export class WebProjectConflictError extends Error {
+  constructor() {
+    super('O projeto foi alterado em outra aba ou janela.')
+    this.name = 'WebProjectConflictError'
+  }
+}
+
+// revisão em que ESTA aba abriu/gravou cada projeto (detecção de conflito)
+const baseRevs = new Map<string, number>()
+
+/** registra a revisão de um projeto aberto nesta aba */
+export function trackRevision(rec: WebProjectRecord): void {
+  baseRevs.set(rec.id, rec.rev ?? 0)
+}
+
+/** revisão-base desta aba (undefined = nunca aberto aqui) */
+export const baseRevision = (id: string): number | undefined => baseRevs.get(id)
 
 const DB_NAME = 'hyperframe'
 const DB_VERSION = 1
@@ -110,23 +139,53 @@ export async function createWebProject(name: string, data: string): Promise<WebP
     name,
     updatedAt: new Date().toISOString(),
     data,
+    rev: 0,
   }
   await run('readwrite', (s) => s.put(rec))
+  trackRevision(rec)
   return rec
 }
 
-/** grava o conteúdo de um projeto existente (mantém o nome) */
-export async function updateWebProject(id: string, data: string): Promise<WebProjectRecord> {
-  const cur = await getWebProject(id)
-  if (!cur) throw new Error('Projeto não encontrado neste navegador.')
-  const rec: WebProjectRecord = { ...cur, data, updatedAt: new Date().toISOString() }
-  await run('readwrite', (s) => s.put(rec))
+/**
+ * Grava o conteúdo de um projeto existente (mantém o nome). Com `expectedRev`,
+ * só grava se ninguém gravou desde então (ler+conferir+gravar numa única
+ * transação); senão lança WebProjectConflictError. Sem `expectedRev`,
+ * sobrescreve. Registro inexistente → WebProjectMissingError.
+ */
+export async function updateWebProject(
+  id: string,
+  data: string,
+  expectedRev?: number,
+): Promise<WebProjectRecord> {
+  const db = await openDb()
+  const rec = await new Promise<WebProjectRecord>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite')
+    const store = tx.objectStore(STORE)
+    let out: WebProjectRecord | undefined
+    let fail: Error | undefined
+    const get = store.get(id) as IDBRequest<WebProjectRecord | undefined>
+    get.onsuccess = () => {
+      const cur = get.result
+      if (!cur) fail = new WebProjectMissingError()
+      else if (expectedRev !== undefined && (cur.rev ?? 0) !== expectedRev)
+        fail = new WebProjectConflictError()
+      else {
+        out = { ...cur, data, updatedAt: new Date().toISOString(), rev: (cur.rev ?? 0) + 1 }
+        store.put(out)
+      }
+    }
+    tx.oncomplete = () => (out ? resolve(out) : reject(fail))
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error ?? new Error('transação abortada'))
+  })
+  trackRevision(rec)
   return rec
 }
 
 export async function renameWebProject(id: string, name: string): Promise<void> {
   const cur = await getWebProject(id)
-  if (!cur) throw new Error('Projeto não encontrado neste navegador.')
+  if (!cur) throw new WebProjectMissingError()
+  // renomear não mexe no conteúdo: mantém `rev`
   await run('readwrite', (s) => s.put({ ...cur, name, updatedAt: new Date().toISOString() }))
 }
 

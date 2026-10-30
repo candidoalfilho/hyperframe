@@ -2,9 +2,11 @@ import { parseProject, serializeProject, type Project } from '@hyperframe/engine
 import { isTauri, platform } from '../platform'
 import { webFileName, webProjectId } from '../web/route'
 import {
+  baseRevision,
   createWebProject,
-  getWebProject,
   updateWebProject,
+  WebProjectConflictError,
+  WebProjectMissingError,
   WebStorageUnavailableError,
   webStorageAvailable,
 } from '../web/storage'
@@ -83,9 +85,28 @@ export async function saveProject(
   filePath?: string | null,
 ): Promise<string | null> {
   const webId = platform.browserProjects ? webProjectId(filePath) : null
-  if (webId && (await getWebProject(webId))) {
-    await updateWebProject(webId, serializeProject(project))
-    return filePath ?? null
+  if (webId) {
+    const text = serializeProject(project)
+    try {
+      await updateWebProject(webId, text, baseRevision(webId) ?? 0)
+      return filePath ?? null
+    } catch (err) {
+      if (err instanceof WebProjectConflictError) {
+        if (
+          confirm(
+            `“${project.name}” foi alterado em outra aba ou janela depois que você o abriu aqui.\n\n` +
+              'OK: sobrescrever com a versão desta aba\n' +
+              'Cancelar: salvar esta versão como um projeto novo',
+          )
+        ) {
+          await updateWebProject(webId, text)
+          return filePath ?? null
+        }
+        return saveProjectAs(project, filePath)
+      }
+      // excluído (p.ex. em outra aba): o Salvar manual vira "Salvar como…"
+      if (!(err instanceof WebProjectMissingError)) throw err
+    }
   }
   if (isTauri() && filePath && filePath.includes('/')) {
     const { writeTextFile } = await import('@tauri-apps/plugin-fs')
@@ -93,6 +114,24 @@ export async function saveProject(
     return filePath
   }
   return saveProjectAs(project, filePath)
+}
+
+export type WebAutosaveResult = 'saved' | 'missing' | 'conflict'
+
+/**
+ * Autosave da build web: grava no registro do IndexedDB SEM nunca abrir
+ * diálogo. Se o registro sumiu ou outra aba gravou antes, devolve
+ * 'missing'/'conflict' p/ o App avisar uma vez — não sobrescreve nada.
+ */
+export async function autosaveWebProject(project: Project, id: string): Promise<WebAutosaveResult> {
+  try {
+    await updateWebProject(id, serializeProject(project), baseRevision(id) ?? 0)
+    return 'saved'
+  } catch (err) {
+    if (err instanceof WebProjectMissingError) return 'missing'
+    if (err instanceof WebProjectConflictError) return 'conflict'
+    throw err
+  }
 }
 
 /**

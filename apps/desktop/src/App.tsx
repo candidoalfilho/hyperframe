@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
+import type { Project } from '@hyperframe/engine'
 import { useStore } from './store'
 import {
+  autosaveWebProject,
   clearAutosave,
   openProjectFile,
   saveProject,
@@ -141,23 +143,52 @@ export default function App() {
   // (web: projeto já salvo no navegador grava direto no seu registro do IndexedDB)
   useEffect(() => {
     let timer: number | undefined
+    // web: projetos cujo autosave foi pausado por conflito com outra aba
+    const paused = new Set<string>()
+
+    const autosaveWeb = async (project: Project, fileName: string, id: string) => {
+      if (paused.has(id)) return writeAutosave(project, fileName)
+      let result
+      try {
+        result = await autosaveWebProject(project, id)
+      } catch {
+        return writeAutosave(project, fileName) // quota etc.: rascunho no localStorage
+      }
+      const now = useStore.getState()
+      if (result === 'saved') {
+        // só limpa o "não salvo" se nada mudou durante a gravação
+        if (now.project === project && now.fileName === fileName) now.markSaved(fileName)
+        return
+      }
+      writeAutosave(project, result === 'missing' ? null : fileName)
+      if (result === 'missing') {
+        // excluído em outra aba: segue aberto como projeto NÃO salvo (sem diálogo)
+        if (now.fileName === fileName) useStore.setState({ fileName: null, dirty: true })
+        alert(
+          `“${project.name}” foi excluído deste navegador (talvez em outra aba).\n` +
+            'As alterações continuam abertas aqui como projeto não salvo — use Salvar para guardá-lo de novo.',
+        )
+      } else {
+        paused.add(id)
+        alert(
+          `“${project.name}” foi alterado em outra aba ou janela.\n` +
+            'Para não sobrescrever, o salvamento automático desta aba foi pausado. ' +
+            'Use Salvar para escolher entre sobrescrever ou salvar como cópia.',
+        )
+      }
+    }
+
     const unsub = useStore.subscribe((s, prev) => {
+      // Salvar manual (ou reabrir) resolve o conflito: retoma o autosave
+      if (s.fileName !== prev.fileName || (prev.dirty && !s.dirty)) paused.clear()
       if (s.project === prev.project) return
       window.clearTimeout(timer)
       timer = window.setTimeout(() => {
         const st = useStore.getState()
         if (!st.dirty) return
-        if (platform.browserProjects && webProjectId(st.fileName)) {
-          const { project, fileName } = st
-          saveProject(project, fileName).then(
-            (saved) => {
-              // só limpa o "não salvo" se nada mudou durante a gravação
-              const now = useStore.getState()
-              if (saved && now.project === project && now.fileName === fileName) now.markSaved(saved)
-            },
-            () => writeAutosave(project, fileName),
-          )
-        } else writeAutosave(st.project, st.fileName)
+        const id = platform.browserProjects ? webProjectId(st.fileName) : null
+        if (id && st.fileName) void autosaveWeb(st.project, st.fileName, id)
+        else writeAutosave(st.project, st.fileName)
       }, 2000)
     })
     return () => {

@@ -3,12 +3,13 @@ import { parseProject } from '@hyperframe/engine'
 import { useStore } from '../store'
 import { platform } from '../platform'
 import { parseRoute, routeHash, webFileName, webProjectId } from './route'
-import { getWebProject } from './storage'
+import { getWebProject, trackRevision } from './storage'
 
 /** abre um projeto do navegador pelo UUID (false = não encontrado) */
 export async function openWebProject(id: string): Promise<boolean> {
   const rec = await getWebProject(id)
   if (!rec) return false
+  trackRevision(rec)
   useStore.getState().loadProject(parseProject(rec.data), webFileName(rec.id))
   return true
 }
