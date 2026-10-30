@@ -9,6 +9,7 @@ import {
   removeRecent,
 } from '../io/fileio'
 import { platform } from '../platform'
+import ProjectsList from '../web/ProjectsList'
 import {
   IconBuilding,
   IconLogo,
@@ -151,8 +152,10 @@ export default function WelcomeScreen() {
           />
           <Action
             icon={<IconOpen size={21} />}
-            title="Abrir arquivo…"
-            subtitle=".hyperframe.json"
+            title={platform.browserProjects ? 'Importar arquivo…' : 'Abrir arquivo…'}
+            subtitle={
+              platform.browserProjects ? '.hyperframe.json → Meus projetos' : '.hyperframe.json'
+            }
             onClick={async () => {
               try {
                 const r = await openProjectFile()
@@ -169,50 +172,54 @@ export default function WelcomeScreen() {
             onClick={() => loadProject(createSampleProject())}
           />
 
-          <div className="welcome-recents">
-            <div className="welcome-recents-title">Projetos recentes</div>
-            {recents.length === 0 ? (
-              <div className="welcome-empty">
-                {platform.recentFiles
-                  ? 'Projetos abertos ou salvos aparecem aqui.'
-                  : 'Disponível no app desktop — no navegador, use "Abrir arquivo…".'}
-              </div>
-            ) : (
-              recents.map((r) => (
-                <div
-                  key={r.path}
-                  className="welcome-recent"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => void openRecent(r.path)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void openRecent(r.path)
-                  }}
-                >
-                  <span style={{ minWidth: 0, flex: 1 }}>
-                    <span className="wr-name" style={{ display: 'block' }}>
-                      {r.name}
-                    </span>
-                    <span className="wr-path" style={{ display: 'block' }}>
-                      {r.path}
-                    </span>
-                  </span>
-                  <span className="wr-when">{relWhen(r.when)}</span>
-                  <button
-                    className="wr-x"
-                    title="Remover da lista"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeRecent(r.path)
-                      setRecents(readRecents())
+          {platform.browserProjects ? (
+            <ProjectsList relWhen={relWhen} />
+          ) : (
+            <div className="welcome-recents">
+              <div className="welcome-recents-title">Projetos recentes</div>
+              {recents.length === 0 ? (
+                <div className="welcome-empty">
+                  {platform.recentFiles
+                    ? 'Projetos abertos ou salvos aparecem aqui.'
+                    : 'Disponível no app desktop — no navegador, use "Abrir arquivo…".'}
+                </div>
+              ) : (
+                recents.map((r) => (
+                  <div
+                    key={r.path}
+                    className="welcome-recent"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => void openRecent(r.path)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void openRecent(r.path)
                     }}
                   >
-                    ×
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span className="wr-name" style={{ display: 'block' }}>
+                        {r.name}
+                      </span>
+                      <span className="wr-path" style={{ display: 'block' }}>
+                        {r.path}
+                      </span>
+                    </span>
+                    <span className="wr-when">{relWhen(r.when)}</span>
+                    <button
+                      className="wr-x"
+                      title="Remover da lista"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeRecent(r.path)
+                        setRecents(readRecents())
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
 
