@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { checkConsistency, type ConsistencyIssue } from '@hyperframe/engine'
 import { useStore } from '../store'
 import { clearAutosave, openProjectFile, saveProject, saveProjectAs } from '../io/fileio'
+import { hasCopilot } from '../platform'
 import {
   IconClose,
   IconCube,
@@ -330,13 +331,15 @@ export default function TopBar() {
         Consistência
       </button>
 
-      <button
-        className={`btn ${copilotOpen ? '' : 'btn-ghost'}`}
-        onClick={() => setCopilotOpen(!copilotOpen)}
-        title="Copiloto IA — lê, planeja e edita o modelo com sua aprovação"
-      >
-        ✨ Copiloto
-      </button>
+      {hasCopilot() && (
+        <button
+          className={`btn ${copilotOpen ? '' : 'btn-ghost'}`}
+          onClick={() => setCopilotOpen(!copilotOpen)}
+          title="Copiloto IA — lê, planeja e edita o modelo com sua aprovação"
+        >
+          ✨ Copiloto
+        </button>
+      )}
 
       <button
         className="btn btn-primary"

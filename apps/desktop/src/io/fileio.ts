@@ -1,4 +1,7 @@
 import { parseProject, serializeProject, type Project } from '@hyperframe/engine'
+import { isTauri, platform } from '../platform'
+
+export { isTauri }
 
 /**
  * Salvamento/abertura de projeto (.hyperframe.json) e exportação de arquivos.
@@ -7,9 +10,6 @@ import { parseProject, serializeProject, type Project } from '@hyperframe/engine
  * direta no caminho (plugin-fs) — "Salvar" grava no mesmo arquivo, "Salvar
  * como…" abre o diálogo. No navegador: download/upload (fallback).
  */
-
-export const isTauri = (): boolean =>
-  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 function suggestedName(project: Project): string {
   return `${project.name.replace(/[^\p{L}\p{N}\-_ ]/gu, '').trim() || 'projeto'}.hyperframe.json`
@@ -231,7 +231,7 @@ export function removeRecent(path: string): void {
 export async function openRecentProject(
   path: string,
 ): Promise<{ project: Project; fileName: string }> {
-  if (!isTauri()) throw new Error('Abrir recentes só está disponível no app desktop.')
+  if (!platform.recentFiles) throw new Error('Abrir recentes só está disponível no app desktop.')
   const { readTextFile } = await import('@tauri-apps/plugin-fs')
   const text = await readTextFile(path)
   return { project: parseProject(text), fileName: path }

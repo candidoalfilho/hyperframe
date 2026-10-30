@@ -2,13 +2,13 @@ import { useMemo, useState } from 'react'
 import { createSampleProject } from '@hyperframe/engine'
 import { useStore } from '../store'
 import {
-  isTauri,
   openProjectFile,
   openRecentProject,
   readAutosave,
   readRecents,
   removeRecent,
 } from '../io/fileio'
+import { platform } from '../platform'
 import {
   IconBuilding,
   IconLogo,
@@ -173,7 +173,7 @@ export default function WelcomeScreen() {
             <div className="welcome-recents-title">Projetos recentes</div>
             {recents.length === 0 ? (
               <div className="welcome-empty">
-                {isTauri()
+                {platform.recentFiles
                   ? 'Projetos abertos ou salvos aparecem aqui.'
                   : 'Disponível no app desktop — no navegador, use "Abrir arquivo…".'}
               </div>

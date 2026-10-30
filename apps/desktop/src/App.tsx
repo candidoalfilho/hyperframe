@@ -18,6 +18,7 @@ import WelcomeScreen from './panels/WelcomeScreen'
 import SettingsModal from './panels/SettingsModal'
 import NewProjectWizard from './wizard/NewProjectWizard'
 import CopilotPanel from './copilot/CopilotPanel'
+import { hasCopilot } from './platform'
 import { applyUiZoom, getUiZoom, setUiZoom } from './ui/zoom'
 
 export default function App() {
@@ -173,7 +174,7 @@ export default function App() {
       <StatusBar />
 
       {resultsOpen && <ResultsPanel />}
-      {copilotOpen && <CopilotPanel onClose={() => setCopilotOpen(false)} />}
+      {copilotOpen && hasCopilot() && <CopilotPanel onClose={() => setCopilotOpen(false)} />}
       {wizardOpen && <NewProjectWizard />}
       {settingsOpen && <SettingsModal />}
     </div>

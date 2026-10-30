@@ -6,6 +6,7 @@ import {
   type ChatProvider,
   type NMessage,
 } from './providers'
+import { platform } from '../platform'
 
 /**
  * Loop do Copiloto (tool-use manual): mensagem → modelo → ferramentas →
@@ -57,9 +58,11 @@ export function setLocalModel(model: string): void {
 /** cria o provedor conforme as preferências salvas (null = não configurado) */
 export function buildProvider(): ChatProvider | null {
   if (getProviderKind() === 'local') {
+    if (!platform.copilotLocal) return null
     const model = getLocalModel()
     return model ? new OllamaProvider(model) : null
   }
+  if (!platform.copilotAnthropic) return null
   const key = getApiKey()
   return key ? new AnthropicProvider(key, getModel()) : null
 }

@@ -29,6 +29,7 @@ import {
   setProviderKind,
 } from '../copilot/agent'
 import LocalModelsSettings from '../copilot/LocalModelsSettings'
+import { hasCopilot, platform } from '../platform'
 
 // ---------------------------------------------------------------------------
 // opções normativas (rótulos pt-BR)
@@ -1300,60 +1301,69 @@ export default function SettingsModal() {
 
           {/* ------------------------------------------------ copiloto IA */}
           <Section title="Copiloto IA">
-            <div className="field">
-              <label className="label">Provedor</label>
-              <select
-                className="select"
-                style={{ width: '100%' }}
-                value={copilotKind}
-                onChange={(e) => {
-                  setProviderKind(e.target.value as 'claude' | 'local')
-                  setCopilotKindState(e.target.value as 'claude' | 'local')
-                }}
-              >
-                <option value="claude">Claude (API da Anthropic) — melhor qualidade</option>
-                <option value="local">Local (Ollama) — grátis, offline e privado</option>
-              </select>
-            </div>
-
-            {copilotKind === 'claude' ? (
-              <>
-                <div className="field">
-                  <label className="label">Chave da API (console.anthropic.com)</label>
-                  <input
-                    className="input"
-                    style={{ width: '100%', fontFamily: 'var(--mono)' }}
-                    type="password"
-                    placeholder="sk-ant-…"
-                    defaultValue={getApiKey()}
-                    spellCheck={false}
-                    onChange={(e) => setApiKey(e.target.value.trim())}
-                  />
-                </div>
-                <div className="field">
-                  <label className="label">Modelo padrão</label>
-                  <select
-                    className="select"
-                    style={{ width: '100%' }}
-                    defaultValue={getModel()}
-                    onChange={(e) => setCopilotModel(e.target.value)}
-                  >
-                    {COPILOT_MODELS.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
+            {!hasCopilot() ? (
+              <Note>
+                O Copiloto IA está disponível apenas no app desktop (macOS/Windows) — no navegador
+                a chave da API ficaria exposta e o Ollama local não é acessível.
+              </Note>
             ) : (
-              <LocalModelsSettings />
+              <>
+              <div className="field">
+                <label className="label">Provedor</label>
+                <select
+                  className="select"
+                  style={{ width: '100%' }}
+                  value={copilotKind}
+                  onChange={(e) => {
+                    setProviderKind(e.target.value as 'claude' | 'local')
+                    setCopilotKindState(e.target.value as 'claude' | 'local')
+                  }}
+                >
+                  <option value="claude">Claude (API da Anthropic) — melhor qualidade</option>
+                  <option value="local">Local (Ollama) — grátis, offline e privado</option>
+                </select>
+              </div>
+
+              {copilotKind === 'claude' ? (
+                <>
+                  <div className="field">
+                    <label className="label">Chave da API (console.anthropic.com)</label>
+                    <input
+                      className="input"
+                      style={{ width: '100%', fontFamily: 'var(--mono)' }}
+                      type="password"
+                      placeholder="sk-ant-…"
+                      defaultValue={getApiKey()}
+                      spellCheck={false}
+                      onChange={(e) => setApiKey(e.target.value.trim())}
+                    />
+                  </div>
+                  <div className="field">
+                    <label className="label">Modelo padrão</label>
+                    <select
+                      className="select"
+                      style={{ width: '100%' }}
+                      defaultValue={getModel()}
+                      onChange={(e) => setCopilotModel(e.target.value)}
+                    >
+                      {COPILOT_MODELS.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <LocalModelsSettings />
+              )}
+              <Note>
+                Chave/modelos ficam APENAS neste computador — nunca entram no arquivo do projeto.
+                Toda mudança proposta pelo copiloto exige sua aprovação e entra no desfazer (⌘Z).
+                Modelos locais são mais fracos com ferramentas que o Claude.
+              </Note>
+              </>
             )}
-            <Note>
-              Chave/modelos ficam APENAS neste computador — nunca entram no arquivo do projeto.
-              Toda mudança proposta pelo copiloto exige sua aprovação e entra no desfazer (⌘Z).
-              Modelos locais são mais fracos com ferramentas que o Claude.
-            </Note>
           </Section>
 
           {/* --------------------------------- identificação (carimbo) */}
