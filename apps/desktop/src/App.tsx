@@ -18,7 +18,9 @@ import WelcomeScreen from './panels/WelcomeScreen'
 import SettingsModal from './panels/SettingsModal'
 import NewProjectWizard from './wizard/NewProjectWizard'
 import CopilotPanel from './copilot/CopilotPanel'
-import { hasCopilot } from './platform'
+import { hasCopilot, platform } from './platform'
+import { webProjectId } from './web/route'
+import { useWebRouting } from './web/useWebRouting'
 import { applyUiZoom, getUiZoom, setUiZoom } from './ui/zoom'
 
 export default function App() {
@@ -29,6 +31,9 @@ export default function App() {
   const resultsOpen = useStore((s) => s.resultsOpen)
   const copilotOpen = useStore((s) => s.copilotOpen)
   const setCopilotOpen = useStore((s) => s.setCopilotOpen)
+
+  // build web: URL #/p/<uuid> ⇄ projeto aberto
+  useWebRouting()
 
   // zoom da INTERFACE (Ctrl/⌘ + · − · 0) — persiste por máquina; útil em
   // telas Windows com escala alta onde a UI fica pequena
@@ -133,6 +138,7 @@ export default function App() {
   }, [])
 
   // autosave: grava rascunho no localStorage ~2 s após cada mudança no projeto
+  // (web: projeto já salvo no navegador grava direto no seu registro do IndexedDB)
   useEffect(() => {
     let timer: number | undefined
     const unsub = useStore.subscribe((s, prev) => {
@@ -140,7 +146,18 @@ export default function App() {
       window.clearTimeout(timer)
       timer = window.setTimeout(() => {
         const st = useStore.getState()
-        if (st.dirty) writeAutosave(st.project, st.fileName)
+        if (!st.dirty) return
+        if (platform.browserProjects && webProjectId(st.fileName)) {
+          const { project, fileName } = st
+          saveProject(project, fileName).then(
+            (saved) => {
+              // só limpa o "não salvo" se nada mudou durante a gravação
+              const now = useStore.getState()
+              if (saved && now.project === project && now.fileName === fileName) now.markSaved(saved)
+            },
+            () => writeAutosave(project, fileName),
+          )
+        } else writeAutosave(st.project, st.fileName)
       }, 2000)
     })
     return () => {
