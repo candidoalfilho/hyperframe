@@ -9,6 +9,7 @@
     "build:web": "tsc --noEmit && vite build --mode web --base=/app/ --outDir dist-web",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -30,7 +31,9 @@
     "@types/react-dom": "^19.1.0",
     "@types/three": "^0.177.0",
     "@vitejs/plugin-react": "^4.5.0",
+    "fake-indexeddb": "^6.2.6",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^3.2.7"
   }
 }
