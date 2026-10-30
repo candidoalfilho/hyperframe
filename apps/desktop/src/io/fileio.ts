@@ -3,6 +3,7 @@ import { isTauri, platform } from '../platform'
 import { webFileName, webProjectId } from '../web/route'
 import { createWebProject, getWebProject, updateWebProject } from '../web/storage'
 import { askName } from '../web/NamePrompt'
+import { parseImportedProject } from '../web/importProject'
 
 export { isTauri }
 
@@ -90,7 +91,8 @@ export async function openProjectFile(): Promise<{ project: Project; fileName: s
   if (platform.browserProjects) {
     const picked = await pickProjectFile()
     if (!picked) return null
-    const project = parseProject(picked.text)
+    // valida ANTES de gravar: arquivo inválido não deixa registro no navegador
+    const project = parseImportedProject(picked.text, picked.name)
     const name = picked.name.replace(/\.json$/i, '').replace(/\.hyperframe$/i, '') || project.name
     const rec = await createWebProject(name, serializeProject(project))
     return { project, fileName: webFileName(rec.id) }
