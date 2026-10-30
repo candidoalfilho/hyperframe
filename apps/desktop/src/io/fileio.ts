@@ -1,5 +1,8 @@
 import { parseProject, serializeProject, type Project } from '@hyperframe/engine'
 import { isTauri, platform } from '../platform'
+import { webFileName, webProjectId } from '../web/route'
+import { createWebProject, getWebProject, updateWebProject } from '../web/storage'
+import { askName } from '../web/NamePrompt'
 
 export { isTauri }
 
@@ -8,7 +11,8 @@ export { isTauri }
  *
  * No app desktop (Tauri): diálogos NATIVOS do SO (plugin-dialog) + escrita
  * direta no caminho (plugin-fs) — "Salvar" grava no mesmo arquivo, "Salvar
- * como…" abre o diálogo. No navegador: download/upload (fallback).
+ * como…" abre o diálogo. No navegador: projetos no IndexedDB (`fileName` =
+ * `idb:<uuid>`, ver web/route.ts) + exportar/importar .hyperframe.json.
  */
 
 function suggestedName(project: Project): string {
@@ -36,6 +40,12 @@ export async function saveProjectAs(
   currentPath?: string | null,
 ): Promise<string | null> {
   const text = serializeProject(project)
+  if (platform.browserProjects) {
+    const name = await askName('Salvar projeto', 'Nome do arquivo', project.name)
+    if (!name) return null
+    const rec = await createWebProject(name, text)
+    return webFileName(rec.id)
+  }
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog')
     const { writeTextFile } = await import('@tauri-apps/plugin-fs')
@@ -59,6 +69,11 @@ export async function saveProject(
   project: Project,
   filePath?: string | null,
 ): Promise<string | null> {
+  const webId = platform.browserProjects ? webProjectId(filePath) : null
+  if (webId && (await getWebProject(webId))) {
+    await updateWebProject(webId, serializeProject(project))
+    return filePath ?? null
+  }
   if (isTauri() && filePath && filePath.includes('/')) {
     const { writeTextFile } = await import('@tauri-apps/plugin-fs')
     await writeTextFile(filePath, serializeProject(project))
@@ -67,8 +82,19 @@ export async function saveProject(
   return saveProjectAs(project, filePath)
 }
 
-/** Abre projeto: diálogo nativo (Tauri) ou input de arquivo (browser). */
+/**
+ * Abre projeto: diálogo nativo (Tauri) ou input de arquivo (browser). Na web
+ * o arquivo é IMPORTADO como um projeto novo do navegador (UUID novo).
+ */
 export async function openProjectFile(): Promise<{ project: Project; fileName: string } | null> {
+  if (platform.browserProjects) {
+    const picked = await pickProjectFile()
+    if (!picked) return null
+    const project = parseProject(picked.text)
+    const name = picked.name.replace(/\.json$/i, '').replace(/\.hyperframe$/i, '') || project.name
+    const rec = await createWebProject(name, serializeProject(project))
+    return { project, fileName: webFileName(rec.id) }
+  }
   if (isTauri()) {
     const { open } = await import('@tauri-apps/plugin-dialog')
     const { readTextFile } = await import('@tauri-apps/plugin-fs')
@@ -82,6 +108,42 @@ export async function openProjectFile(): Promise<{ project: Project; fileName: s
     const text = await readTextFile(path)
     return { project: parseProject(text), fileName: path }
   }
+  const picked = await pickProjectFile()
+  return picked ? { project: parseProject(picked.text), fileName: picked.name } : null
+}
+
+// ---------------------------------------------------------------------------
+// File System Access API (Chromium) com fallback p/ input/download
+// ---------------------------------------------------------------------------
+
+interface FsHandle {
+  getFile(): Promise<File>
+  createWritable(): Promise<{ write(d: BlobPart): Promise<void>; close(): Promise<void> }>
+}
+type FsWindow = Window & {
+  showOpenFilePicker?: (o?: unknown) => Promise<FsHandle[]>
+  showSaveFilePicker?: (o?: unknown) => Promise<FsHandle>
+}
+
+const FS_TYPES = [
+  { description: 'Projeto HyperFrame', accept: { 'application/json': ['.json'] } },
+]
+
+const isAbort = (err: unknown): boolean => err instanceof DOMException && err.name === 'AbortError'
+
+/** escolhe um .hyperframe.json do disco (texto + nome) ou null (cancelado) */
+async function pickProjectFile(): Promise<{ text: string; name: string } | null> {
+  const w = window as FsWindow
+  if (w.showOpenFilePicker) {
+    try {
+      const [h] = await w.showOpenFilePicker({ types: FS_TYPES, multiple: false })
+      const file = await h.getFile()
+      return { text: await file.text(), name: file.name }
+    } catch (err) {
+      if (isAbort(err)) return null
+      // segue p/ o input clássico
+    }
+  }
   return new Promise((resolve, reject) => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -90,8 +152,7 @@ export async function openProjectFile(): Promise<{ project: Project; fileName: s
       const file = input.files?.[0]
       if (!file) return resolve(null)
       try {
-        const text = await file.text()
-        resolve({ project: parseProject(text), fileName: file.name })
+        resolve({ text: await file.text(), name: file.name })
       } catch (err) {
         reject(err)
       }
@@ -100,6 +161,32 @@ export async function openProjectFile(): Promise<{ project: Project; fileName: s
     input.oncancel = () => resolve(null)
     input.click()
   })
+}
+
+/**
+ * Exporta o projeto como .hyperframe.json p/ o disco do usuário (web):
+ * showSaveFilePicker quando disponível, senão download. Retorna o nome ou null.
+ */
+export async function exportProjectFile(project: Project, name?: string): Promise<string | null> {
+  const text = serializeProject(project)
+  const fileName = name
+    ? `${name.replace(/[^\p{L}\p{N}\-_ ]/gu, '').trim() || 'projeto'}.hyperframe.json`
+    : suggestedName(project)
+  if (isTauri()) return exportFile(text, fileName, 'Projeto HyperFrame', 'json', 'application/json')
+  const w = window as FsWindow
+  if (w.showSaveFilePicker) {
+    try {
+      const h = await w.showSaveFilePicker({ suggestedName: fileName, types: FS_TYPES })
+      const out = await h.createWritable()
+      await out.write(text)
+      await out.close()
+      return fileName
+    } catch (err) {
+      if (isAbort(err)) return null
+      // sem permissão/gesto do usuário — cai no download
+    }
+  }
+  return browserDownload(text, fileName, 'application/json')
 }
 
 /**

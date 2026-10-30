@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import { checkConsistency, type ConsistencyIssue } from '@hyperframe/engine'
 import { useStore } from '../store'
-import { clearAutosave, openProjectFile, saveProject, saveProjectAs } from '../io/fileio'
-import { hasCopilot } from '../platform'
+import {
+  clearAutosave,
+  exportProjectFile,
+  openProjectFile,
+  saveProject,
+  saveProjectAs,
+} from '../io/fileio'
+import { hasCopilot, platform } from '../platform'
 import {
   IconClose,
   IconCube,
+  IconDownload,
   IconLogo,
   IconMoon,
   IconNew,
@@ -209,7 +216,7 @@ export default function TopBar() {
       </button>
       <button
         className="btn-icon tip-down"
-        data-tip="Abrir projeto (⌘O)"
+        data-tip={platform.browserProjects ? 'Importar arquivo (⌘O)' : 'Abrir projeto (⌘O)'}
         onClick={async () => {
           try {
             const r = await openProjectFile()
@@ -241,6 +248,15 @@ export default function TopBar() {
       >
         <IconSave />
       </button>
+      {platform.browserProjects && (
+        <button
+          className="btn-icon tip-down"
+          data-tip="Exportar .hyperframe.json"
+          onClick={() => void exportProjectFile(project).catch((err) => alert(String(err)))}
+        >
+          <IconDownload />
+        </button>
+      )}
 
       <div className="divider-v" />
 
