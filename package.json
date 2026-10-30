@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "npm run dev -w @hyperframe/desktop",
     "build": "npm run build -w @hyperframe/desktop",
+    "build:web": "npm run build:web -w @hyperframe/desktop",
+    "serve:web": "node scripts/serve-web.mjs",
     "test": "npm run test -w @hyperframe/engine",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "tauri": "npm run tauri -w @hyperframe/desktop --"
