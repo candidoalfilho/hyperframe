@@ -4,8 +4,10 @@
  * Wrapper mínimo sobre a API nativa — sem dependências.
  */
 
+import { newUuid } from './uuid'
+
 export interface WebProjectMeta {
-  /** UUID v4 (crypto.randomUUID) — também é a URL: #/p/<id> */
+  /** UUID v4 (newUuid) — também é a URL: #/p/<id> */
   id: string
   /** nome do "arquivo" escolhido no primeiro salvamento */
   name: string
@@ -74,7 +76,7 @@ export async function getWebProject(id: string): Promise<WebProjectRecord | null
 /** cria um projeto novo (UUID novo) */
 export async function createWebProject(name: string, data: string): Promise<WebProjectRecord> {
   const rec: WebProjectRecord = {
-    id: crypto.randomUUID(),
+    id: newUuid(),
     name,
     updatedAt: new Date().toISOString(),
     data,
