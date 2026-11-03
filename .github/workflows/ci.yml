@@ -1,0 +1,105 @@
+# CI do HyperFrame: typecheck, testes e build só dos workspaces afetados.
+# Roda em pull requests e em push na main. Não gera o bundle nativo do Tauri
+# (isso fica no release.yml), só o bundle Vite do app.
+#
+#   plan   -> descobre os workspaces (campo "workspaces" do package.json raiz),
+#             vê o que mudou e monta a matrix (.github/scripts/ci-plan.mjs)
+#   check  -> um job por (workspace, script) da matrix
+#   ci-ok  -> agregador; é o único status check que precisa ser obrigatório
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# um run por ref; um push novo cancela o anterior
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # lista de arquivos do PR (necessário em repo privado)
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      empty: ${{ steps.plan.outputs.empty }}
+    steps:
+      # checkout raso e esparso: só o script e os package.json (raiz e workspaces);
+      # os arquivos alterados vêm da API do GitHub, não do histórico do git
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            package.json
+            /.github/scripts/
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+
+      # pull_request: /pulls/{n}/files; push: /compare/{before}...{after};
+      # workflow_dispatch, push sem "before" ou resposta truncada/erro da API: roda tudo
+      - id: plan
+        run: node .github/scripts/ci-plan.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  check:
+    name: ${{ matrix.task }} ${{ matrix.workspace }}
+    needs: plan
+    if: needs.plan.outputs.empty == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - run: npm run "$TASK" -w "$WORKSPACE"
+        env:
+          TASK: ${{ matrix.task }}
+          WORKSPACE: ${{ matrix.workspace }}
+
+  # passa quando tudo que rodou passou, ou quando nada precisava rodar
+  # (ex.: PR só de docs); falha se o plan ou algum check falhou/foi cancelado
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [plan, check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - run: |
+          echo "plan=$PLAN check=$CHECK empty=$EMPTY"
+          [[ "$PLAN" == success ]] || exit 1
+          [[ "$CHECK" == success || ( "$CHECK" == skipped && "$EMPTY" == true ) ]] || exit 1
+        env:
+          PLAN: ${{ needs.plan.result }}
+          CHECK: ${{ needs.check.result }}
+          EMPTY: ${{ needs.plan.outputs.empty }}
