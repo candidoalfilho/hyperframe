@@ -122,6 +122,11 @@ PATH="/opt/homebrew/opt/llvm/bin:$PATH" npm run tauri build -- \
 # → target/x86_64-pc-windows-msvc/release/bundle/nsis/HyperFrame_*_x64-setup.exe
 # (CI: .github/workflows/release.yml builda mac/win/linux ao criar tag v*)
 
+# versão web (sem Tauri) servida em /app/, ao lado do site em /
+# (base relativa: o mesmo dist-web/ também funciona na raiz de um domínio)
+npm run build:web        # → apps/desktop/dist-web/
+npm run serve:web        # → http://localhost:4173/ (site) · http://localhost:4173/app/ (app)
+
 # testes e verificação de tipos
 npm test
 npm run typecheck
@@ -129,6 +134,11 @@ npm run typecheck
 
 Na tela inicial, use **“Abrir projeto de exemplo”** (edifício residencial de 8 pavimentos)
 e clique **Analisar**.
+
+Na versão web, os projetos ficam no navegador (IndexedDB) com URL própria
+(`/app/#/p/<uuid>`) e aparecem em **“Meus projetos”**; use **Exportar** /
+**Importar arquivo…** para trocar `.hyperframe.json` com o computador. O Copiloto IA,
+a lista de recentes e os diálogos nativos são exclusivos do app desktop (`src/platform.ts`).
 
 ## Estrutura
 

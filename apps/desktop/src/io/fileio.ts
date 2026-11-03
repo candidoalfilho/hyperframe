@@ -1,15 +1,28 @@
 import { parseProject, serializeProject, type Project } from '@hyperframe/engine'
+import { isTauri, platform } from '../platform'
+import { webFileName, webProjectId } from '../web/route'
+import {
+  baseRevision,
+  createWebProject,
+  updateWebProject,
+  WebProjectConflictError,
+  WebProjectMissingError,
+  WebStorageUnavailableError,
+  webStorageAvailable,
+} from '../web/storage'
+import { askName } from '../web/NamePrompt'
+import { parseImportedProject } from '../web/importProject'
+
+export { isTauri }
 
 /**
  * Salvamento/abertura de projeto (.hyperframe.json) e exportação de arquivos.
  *
  * No app desktop (Tauri): diálogos NATIVOS do SO (plugin-dialog) + escrita
  * direta no caminho (plugin-fs) — "Salvar" grava no mesmo arquivo, "Salvar
- * como…" abre o diálogo. No navegador: download/upload (fallback).
+ * como…" abre o diálogo. No navegador: projetos no IndexedDB (`fileName` =
+ * `idb:<uuid>`, ver web/route.ts) + exportar/importar .hyperframe.json.
  */
-
-export const isTauri = (): boolean =>
-  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 function suggestedName(project: Project): string {
   return `${project.name.replace(/[^\p{L}\p{N}\-_ ]/gu, '').trim() || 'projeto'}.hyperframe.json`
@@ -36,6 +49,18 @@ export async function saveProjectAs(
   currentPath?: string | null,
 ): Promise<string | null> {
   const text = serializeProject(project)
+  if (platform.browserProjects) {
+    if (!(await webStorageAvailable())) {
+      // sem IndexedDB: oferece exportar o arquivo (o projeto segue aberto)
+      const msg = new WebStorageUnavailableError().message
+      if (confirm(`${msg}\n\nExportar agora como .hyperframe.json?`)) await exportProjectFile(project)
+      return null
+    }
+    const name = await askName('Salvar projeto', 'Nome do arquivo', project.name)
+    if (!name) return null
+    const rec = await createWebProject(name, text)
+    return webFileName(rec.id)
+  }
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog')
     const { writeTextFile } = await import('@tauri-apps/plugin-fs')
@@ -59,6 +84,30 @@ export async function saveProject(
   project: Project,
   filePath?: string | null,
 ): Promise<string | null> {
+  const webId = platform.browserProjects ? webProjectId(filePath) : null
+  if (webId) {
+    const text = serializeProject(project)
+    try {
+      await updateWebProject(webId, text, baseRevision(webId) ?? 0)
+      return filePath ?? null
+    } catch (err) {
+      if (err instanceof WebProjectConflictError) {
+        if (
+          confirm(
+            `“${project.name}” foi alterado em outra aba ou janela depois que você o abriu aqui.\n\n` +
+              'OK: sobrescrever com a versão desta aba\n' +
+              'Cancelar: salvar esta versão como um projeto novo',
+          )
+        ) {
+          await updateWebProject(webId, text)
+          return filePath ?? null
+        }
+        return saveProjectAs(project, filePath)
+      }
+      // excluído (p.ex. em outra aba): o Salvar manual vira "Salvar como…"
+      if (!(err instanceof WebProjectMissingError)) throw err
+    }
+  }
   if (isTauri() && filePath && filePath.includes('/')) {
     const { writeTextFile } = await import('@tauri-apps/plugin-fs')
     await writeTextFile(filePath, serializeProject(project))
@@ -67,8 +116,40 @@ export async function saveProject(
   return saveProjectAs(project, filePath)
 }
 
-/** Abre projeto: diálogo nativo (Tauri) ou input de arquivo (browser). */
-export async function openProjectFile(): Promise<{ project: Project; fileName: string } | null> {
+export type WebAutosaveResult = 'saved' | 'missing' | 'conflict'
+
+/**
+ * Autosave da build web: grava no registro do IndexedDB SEM nunca abrir
+ * diálogo. Se o registro sumiu ou outra aba gravou antes, devolve
+ * 'missing'/'conflict' p/ o App avisar uma vez — não sobrescreve nada.
+ */
+export async function autosaveWebProject(project: Project, id: string): Promise<WebAutosaveResult> {
+  try {
+    await updateWebProject(id, serializeProject(project), baseRevision(id) ?? 0)
+    return 'saved'
+  } catch (err) {
+    if (err instanceof WebProjectMissingError) return 'missing'
+    if (err instanceof WebProjectConflictError) return 'conflict'
+    throw err
+  }
+}
+
+/**
+ * Abre projeto: diálogo nativo (Tauri) ou input de arquivo (browser). Na web
+ * o arquivo é IMPORTADO como um projeto novo do navegador (UUID novo).
+ */
+export async function openProjectFile(): Promise<{ project: Project; fileName: string | null } | null> {
+  if (platform.browserProjects) {
+    const picked = await pickProjectFile()
+    if (!picked) return null
+    // valida ANTES de gravar: arquivo inválido não deixa registro no navegador
+    const project = parseImportedProject(picked.text, picked.name)
+    const name = picked.name.replace(/\.json$/i, '').replace(/\.hyperframe$/i, '') || project.name
+    // sem IndexedDB: abre só em memória (rascunho no localStorage; Exportar p/ guardar)
+    if (!(await webStorageAvailable())) return { project, fileName: null }
+    const rec = await createWebProject(name, serializeProject(project))
+    return { project, fileName: webFileName(rec.id) }
+  }
   if (isTauri()) {
     const { open } = await import('@tauri-apps/plugin-dialog')
     const { readTextFile } = await import('@tauri-apps/plugin-fs')
@@ -82,6 +163,42 @@ export async function openProjectFile(): Promise<{ project: Project; fileName: s
     const text = await readTextFile(path)
     return { project: parseProject(text), fileName: path }
   }
+  const picked = await pickProjectFile()
+  return picked ? { project: parseProject(picked.text), fileName: picked.name } : null
+}
+
+// ---------------------------------------------------------------------------
+// File System Access API (Chromium) com fallback p/ input/download
+// ---------------------------------------------------------------------------
+
+interface FsHandle {
+  getFile(): Promise<File>
+  createWritable(): Promise<{ write(d: BlobPart): Promise<void>; close(): Promise<void> }>
+}
+type FsWindow = Window & {
+  showOpenFilePicker?: (o?: unknown) => Promise<FsHandle[]>
+  showSaveFilePicker?: (o?: unknown) => Promise<FsHandle>
+}
+
+const FS_TYPES = [
+  { description: 'Projeto HyperFrame', accept: { 'application/json': ['.json'] } },
+]
+
+const isAbort = (err: unknown): boolean => err instanceof DOMException && err.name === 'AbortError'
+
+/** escolhe um .hyperframe.json do disco (texto + nome) ou null (cancelado) */
+async function pickProjectFile(): Promise<{ text: string; name: string } | null> {
+  const w = window as FsWindow
+  if (w.showOpenFilePicker) {
+    try {
+      const [h] = await w.showOpenFilePicker({ types: FS_TYPES, multiple: false })
+      const file = await h.getFile()
+      return { text: await file.text(), name: file.name }
+    } catch (err) {
+      if (isAbort(err)) return null
+      // segue p/ o input clássico
+    }
+  }
   return new Promise((resolve, reject) => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -90,8 +207,7 @@ export async function openProjectFile(): Promise<{ project: Project; fileName: s
       const file = input.files?.[0]
       if (!file) return resolve(null)
       try {
-        const text = await file.text()
-        resolve({ project: parseProject(text), fileName: file.name })
+        resolve({ text: await file.text(), name: file.name })
       } catch (err) {
         reject(err)
       }
@@ -100,6 +216,32 @@ export async function openProjectFile(): Promise<{ project: Project; fileName: s
     input.oncancel = () => resolve(null)
     input.click()
   })
+}
+
+/**
+ * Exporta o projeto como .hyperframe.json p/ o disco do usuário (web):
+ * showSaveFilePicker quando disponível, senão download. Retorna o nome ou null.
+ */
+export async function exportProjectFile(project: Project, name?: string): Promise<string | null> {
+  const text = serializeProject(project)
+  const fileName = name
+    ? `${name.replace(/[^\p{L}\p{N}\-_ ]/gu, '').trim() || 'projeto'}.hyperframe.json`
+    : suggestedName(project)
+  if (isTauri()) return exportFile(text, fileName, 'Projeto HyperFrame', 'json', 'application/json')
+  const w = window as FsWindow
+  if (w.showSaveFilePicker) {
+    try {
+      const h = await w.showSaveFilePicker({ suggestedName: fileName, types: FS_TYPES })
+      const out = await h.createWritable()
+      await out.write(text)
+      await out.close()
+      return fileName
+    } catch (err) {
+      if (isAbort(err)) return null
+      // sem permissão/gesto do usuário — cai no download
+    }
+  }
+  return browserDownload(text, fileName, 'application/json')
 }
 
 /**
@@ -148,15 +290,18 @@ export interface AutosavePayload {
   fileName: string | null
   projectName: string
   data: string
+  /** web: revisão do registro em que o rascunho se baseia */
+  rev?: number
 }
 
-export function writeAutosave(project: Project, fileName: string | null): void {
+export function writeAutosave(project: Project, fileName: string | null, rev?: number): void {
   try {
     const payload: AutosavePayload = {
       when: new Date().toISOString(),
       fileName,
       projectName: project.name,
       data: serializeProject(project),
+      ...(rev === undefined ? {} : { rev }),
     }
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload))
   } catch {
@@ -175,8 +320,13 @@ export function readAutosave(): (AutosavePayload & { project: Project }) | null 
   }
 }
 
-export function clearAutosave(): void {
+/** apaga o rascunho (se `onlyFor`, só quando é desse arquivo/projeto) */
+export function clearAutosave(onlyFor?: string): void {
   try {
+    if (onlyFor !== undefined) {
+      const raw = localStorage.getItem(AUTOSAVE_KEY)
+      if (!raw || (JSON.parse(raw) as AutosavePayload).fileName !== onlyFor) return
+    }
     localStorage.removeItem(AUTOSAVE_KEY)
   } catch {
     // ignora
@@ -231,7 +381,7 @@ export function removeRecent(path: string): void {
 export async function openRecentProject(
   path: string,
 ): Promise<{ project: Project; fileName: string }> {
-  if (!isTauri()) throw new Error('Abrir recentes só está disponível no app desktop.')
+  if (!platform.recentFiles) throw new Error('Abrir recentes só está disponível no app desktop.')
   const { readTextFile } = await import('@tauri-apps/plugin-fs')
   const text = await readTextFile(path)
   return { project: parseProject(text), fileName: path }
