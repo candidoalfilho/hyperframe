@@ -5,9 +5,9 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.51-orange) ![tests](https://img.shields.io/badge/testes-482%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.52-orange) ![tests](https://img.shields.io/badge/testes-501%20passando-brightgreen)
 
-## O que já faz (v0.2.51)
+## O que já faz (v0.2.52)
 
 - **Modelagem 2D em planta** (estilo planta de forma): eixos com bulbos, pilares
   (**retangulares, circulares e em L**, rotação 0/90/180/270°, **nascendo/morrendo em
@@ -170,6 +170,17 @@ site/               # landing page (lista de espera) — ver site/README.md
 - [ROADMAP.md](./ROADMAP.md) — fases até o lançamento comercial e dívidas técnicas
 - [BUSINESS.md](./BUSINESS.md) — mercado, preços (pesquisa jul/2026), licenciamento, go-to-market
 - [VALIDATION.md](./VALIDATION.md) — política de validação e o que falta p/ uso em projeto real
+
+## Telemetria
+
+O app desktop envia **um único evento anônimo por abertura** (versão do app e sistema
+operacional) via [Aptabase](https://aptabase.com), para sabermos quantas pessoas usam o
+HyperFrame (DAU/WAU). **Nunca** são enviados projetos, nomes de arquivo, caminhos ou
+qualquer dado pessoal — não existe ID de usuário. Dá para desativar em
+**Configurações → Privacidade** (o app avisa na primeira abertura), e o código é aberto:
+[`apps/desktop/src/telemetry.ts`](apps/desktop/src/telemetry.ts) e o registro do plugin em
+[`apps/desktop/src-tauri/src/main.rs`](apps/desktop/src-tauri/src/main.rs). A versão web e
+builds sem a chave do Aptabase não enviam nada.
 
 ## ⚠️ Aviso
 

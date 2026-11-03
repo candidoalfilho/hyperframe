@@ -805,6 +805,18 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.52 — Telemetria anônima opcional (DAU/WAU)
+
+- [x] Aptabase no desktop (`tauri-plugin-aptabase` + `@aptabase/tauri`): 1 evento
+  `app_opened` por abertura (versão + SO, sem ID de usuário, nada dos projetos)
+- [x] Opt-out em Configurações → Privacidade + aviso na primeira abertura
+  (tela inicial), com "Desativar" ali mesmo; estado em localStorage
+- [x] README seção «Telemetria»; chave embutida no binário (`main.rs`) — build
+  sem chave e versão web não enviam nada; falha de rede é silenciosa
+- [x] Também nesta versão: merge dos 2 primeiros PRs externos (@luizgribeiro) —
+  versão web (IndexedDB, `#/p/<uuid>`, `build:web`) e CI com matrix dinâmica
+  (`ci-ok` obrigatório na main)
+
 ## Versão web (navegador) — sem instalar
 
 - [x] `npm run build:web` gera o app como site estático (base relativa: serve em

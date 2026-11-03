@@ -21,6 +21,7 @@ import SettingsModal from './panels/SettingsModal'
 import NewProjectWizard from './wizard/NewProjectWizard'
 import CopilotPanel from './copilot/CopilotPanel'
 import { hasCopilot, platform } from './platform'
+import { trackAppOpened } from './telemetry'
 import { webProjectId } from './web/route'
 import { baseRevision } from './web/storage'
 import { useWebRouting } from './web/useWebRouting'
@@ -37,6 +38,11 @@ export default function App() {
 
   // build web: URL #/p/<uuid> ⇄ projeto aberto
   useWebRouting()
+
+  // telemetria anônima e opcional: 1 evento por abertura (ver telemetry.ts)
+  useEffect(() => {
+    void trackAppOpened()
+  }, [])
 
   // zoom da INTERFACE (Ctrl/⌘ + · − · 0) — persiste por máquina; útil em
   // telas Windows com escala alta onde a UI fica pequena

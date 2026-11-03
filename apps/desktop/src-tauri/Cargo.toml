@@ -1,6 +1,6 @@
 [package]
 name = "hyperframe"
-version = "0.2.51"
+version = "0.2.52"
 description = "HyperFrame — Análise e dimensionamento estrutural (ABNT)"
 authors = ["Cândido Alfredo"]
 edition = "2021"
@@ -12,6 +12,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+tauri-plugin-aptabase = "1.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

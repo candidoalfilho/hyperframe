@@ -9,6 +9,7 @@ import {
   removeRecent,
 } from '../io/fileio'
 import { platform } from '../platform'
+import { markTelemetryNoticeSeen, setTelemetryEnabled, telemetryNoticeSeen } from '../telemetry'
 import ProjectsList from '../web/ProjectsList'
 import {
   IconBuilding,
@@ -72,6 +73,9 @@ export default function WelcomeScreen() {
   const openDirty = useStore((s) => s.dirty)
 
   const autosave = useMemo(() => readAutosave(), [])
+  const [telemetryNotice, setTelemetryNotice] = useState(
+    () => platform.native && !telemetryNoticeSeen(),
+  )
   const [recents, setRecents] = useState(() => readRecents())
 
   const openRecent = async (path: string) => {
@@ -223,6 +227,31 @@ export default function WelcomeScreen() {
         </div>
       </div>
 
+      {telemetryNotice && (
+        <div className="welcome-telemetry">
+          O HyperFrame envia uma estatística <strong>anônima</strong> ao abrir (versão e sistema
+          operacional — nunca seus projetos). Dá para desligar a qualquer momento em Configurações.
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              markTelemetryNoticeSeen()
+              setTelemetryNotice(false)
+            }}
+          >
+            Ok, entendi
+          </button>
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              setTelemetryEnabled(false)
+              markTelemetryNoticeSeen()
+              setTelemetryNotice(false)
+            }}
+          >
+            Desativar
+          </button>
+        </div>
+      )}
       <div className="welcome-foot">
         Software em desenvolvimento — os resultados não substituem a verificação de um engenheiro
         responsável.

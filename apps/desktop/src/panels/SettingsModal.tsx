@@ -30,6 +30,7 @@ import {
 } from '../copilot/agent'
 import LocalModelsSettings from '../copilot/LocalModelsSettings'
 import { hasCopilot, platform } from '../platform'
+import { setTelemetryEnabled, telemetryEnabled } from '../telemetry'
 
 // ---------------------------------------------------------------------------
 // opções normativas (rótulos pt-BR)
@@ -120,6 +121,7 @@ export default function SettingsModal() {
   const setProjectMeta = useStore((s) => s.setProjectMeta)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const [copilotKind, setCopilotKindState] = useState<'claude' | 'local'>(getProviderKind())
+  const [telemetry, setTelemetry] = useState(telemetryEnabled())
 
   const st = project.settings
   const wind = st.wind
@@ -1365,6 +1367,29 @@ export default function SettingsModal() {
               </>
             )}
           </Section>
+
+          {/* ------------------------------------------------ privacidade */}
+          {platform.native && (
+            <Section title="Privacidade">
+              <label className="label" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={telemetry}
+                  onChange={(e) => {
+                    setTelemetryEnabled(e.target.checked)
+                    setTelemetry(e.target.checked)
+                  }}
+                />
+                Enviar estatística anônima de uso
+              </label>
+              <Note>
+                Um único evento ao abrir o app (versão e sistema operacional), via Aptabase —
+                nunca inclui seus projetos, nomes de arquivo ou qualquer dado pessoal. Ajuda a
+                saber quantas pessoas usam o HyperFrame. Como todo o resto, o código é aberto:
+                src/telemetry.ts.
+              </Note>
+            </Section>
+          )}
 
           {/* --------------------------------- identificação (carimbo) */}
           <Section title="Identificação da obra (carimbo das pranchas)">
