@@ -805,6 +805,16 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.53 — Hotfix: seleção deslocada com zoom da UI
+
+- [x] Com zoom da UI ≠ 100% (⌘+/⌘−/modo apresentação, v0.2.51), o clique no
+  editor 2D selecionava deslocado do cursor: `clientX − rect.left` vem em px
+  visuais (rect multiplicado pelo CSS zoom), mas o SVG trabalha em px CSS
+- [x] Helper `eventPoint`/`cssPxScale` em `ui/zoom.ts` converte pela razão
+  `clientWidth / rect.width`; aplicado no hit-test, roda e botões de zoom do
+  editor 2D e no pan/zoom do visualizador de pranchas (`DrawingSvg`)
+- [x] 4 testes novos (505 no total); 3D não era afetado (r3f normaliza pelo rect)
+
 ## v0.2.52 — Telemetria anônima opcional (DAU/WAU)
 
 - [x] Aptabase no desktop (`tauri-plugin-aptabase` + `@aptabase/tauri`): 1 evento

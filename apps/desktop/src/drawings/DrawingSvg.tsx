@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { DDim, Drawing, DrawingLayer } from '@hyperframe/engine'
+import { cssPxScale, eventPoint } from '../ui/zoom'
 
 /**
  * Visualizador de desenho técnico (primitivas do engine → SVG).
@@ -150,9 +151,8 @@ export default function DrawingSvg({ drawing }: { drawing: Drawing }) {
     if (!el) return
     const onWheel = (e: WheelEvent): void => {
       e.preventDefault()
-      const rect = el.getBoundingClientRect()
-      const sx = e.clientX - rect.left
-      const sy = e.clientY - rect.top
+      // eventPoint compensa o zoom da UI — sem isso o zoom não centra no cursor
+      const { x: sx, y: sy } = eventPoint(el, e)
       setVp((v) => {
         const k = clampK(v.k * Math.pow(1.0015, -e.deltaY))
         if (k === v.k) return v
@@ -351,8 +351,10 @@ export default function DrawingSvg({ drawing }: { drawing: Drawing }) {
         onPointerMove={(e) => {
           const pan = panRef.current
           if (!pan || pan.id !== e.pointerId) return
-          const dx = e.clientX - pan.x
-          const dy = e.clientY - pan.y
+          // deltas em px visuais → px CSS (senão o pan corre mais que o cursor com zoom da UI)
+          const k = cssPxScale(e.currentTarget)
+          const dx = (e.clientX - pan.x) * k
+          const dy = (e.clientY - pan.y) * k
           pan.x = e.clientX
           pan.y = e.clientY
           setVp((v) => ({ ...v, ox: v.ox + dx, oy: v.oy + dy }))

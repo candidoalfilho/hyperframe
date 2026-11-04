@@ -22,6 +22,7 @@ import {
   zoomAt,
   type WorldBounds,
 } from './useViewport'
+import { eventPoint } from '../ui/zoom'
 import { buildSnapData, computeSnap, roundPoint05 } from './snap'
 import { hitTest, nearestBeam, type HitContext } from './hittest'
 import GridLayer from './layers/GridLayer'
@@ -150,8 +151,7 @@ export default function Editor2D() {
   const zoomBy = (factor: number) => {
     const el = svgRef.current
     if (!el) return
-    const r = el.getBoundingClientRect()
-    setVp((v) => zoomAt(v, { x: r.width / 2, y: r.height / 2 }, factor))
+    setVp((v) => zoomAt(v, { x: el.clientWidth / 2, y: el.clientHeight / 2 }, factor))
   }
 
   // ---- zoom com roda (nativo, passive:false, centrado no cursor) ----
@@ -160,8 +160,7 @@ export default function Editor2D() {
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      const r = el.getBoundingClientRect()
-      const pt = { x: e.clientX - r.left, y: e.clientY - r.top }
+      const pt = eventPoint(el, e)
       const dy = e.deltaMode === 1 ? e.deltaY * 32 : e.deltaY
       const factor = Math.pow(1.1, -dy / 100)
       setVp((v) => zoomAt(v, pt, factor))
@@ -247,10 +246,9 @@ export default function Editor2D() {
   }, [tool, planId])
 
   // ---- helpers de evento ----
-  const toScreenPt = (e: { clientX: number; clientY: number }): Vec2 => {
-    const r = svgRef.current!.getBoundingClientRect()
-    return { x: e.clientX - r.left, y: e.clientY - r.top }
-  }
+  // em px CSS do SVG — eventPoint compensa o zoom da UI (⌘+/modo apresentação)
+  const toScreenPt = (e: { clientX: number; clientY: number }): Vec2 =>
+    eventPoint(svgRef.current!, e)
 
   const setHoverIfChanged = (ref: ElementRef | null) => {
     const st = useStore.getState()
