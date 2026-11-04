@@ -109,6 +109,7 @@ export default function Editor2D() {
 
   // ---- estado local de interação ----
   const [spaceDown, setSpaceDown] = useState(false)
+  const [handMode, setHandMode] = useState(false)
   const [panning, setPanning] = useState(false)
   const panRef = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
 
@@ -290,8 +291,8 @@ export default function Editor2D() {
   // ---- ponteiro ----
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
     const s = toScreenPt(e)
-    // pan: botão do meio OU espaço + botão esquerdo
-    if (e.button === 1 || (e.button === 0 && spaceDown)) {
+    // pan: botão do meio OU espaço/modo mão + botão esquerdo
+    if (e.button === 1 || (e.button === 0 && (spaceDown || handMode))) {
       e.preventDefault()
       panRef.current = { px: s.x, py: s.y, ox: vp.ox, oy: vp.oy }
       setPanning(true)
@@ -394,7 +395,7 @@ export default function Editor2D() {
 
   const cursorCss = panning
     ? 'grabbing'
-    : spaceDown
+    : spaceDown || handMode
       ? 'grab'
       : tool === 'select'
         ? 'default'
@@ -530,11 +531,18 @@ export default function Editor2D() {
 
       {(
         [
-          ['+', 'Aproximar (ou role a roda do mouse)', 8, () => zoomBy(1.4)],
-          ['−', 'Afastar', 44, () => zoomBy(1 / 1.4)],
-          ['⛶', 'Enquadrar tudo', 80, fitView],
+          ['+', 'Aproximar (ou role a roda do mouse)', 8, () => zoomBy(1.4), false],
+          ['−', 'Afastar', 44, () => zoomBy(1 / 1.4), false],
+          ['⛶', 'Enquadrar tudo', 80, fitView, false],
+          [
+            '✋',
+            'Mover a vista — arraste com o botão esquerdo (ou segure espaço / use o botão do meio)',
+            116,
+            () => setHandMode((h) => !h),
+            handMode,
+          ],
         ] as const
-      ).map(([label, title, top, fn]) => (
+      ).map(([label, title, top, fn, active]) => (
         <button
           key={label}
           type="button"
@@ -549,8 +557,9 @@ export default function Editor2D() {
             top,
             right: 8,
             zIndex: 4,
-            background: 'var(--bg-2)',
-            border: '1px solid var(--border)',
+            background: active ? 'var(--accent)' : 'var(--bg-2)',
+            border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+            color: active ? 'var(--accent-fg)' : undefined,
             fontSize: 15,
           }}
         >

@@ -814,6 +814,8 @@
   `clientWidth / rect.width`; aplicado no hit-test, roda e botões de zoom do
   editor 2D e no pan/zoom do visualizador de pranchas (`DrawingSvg`)
 - [x] 4 testes novos (505 no total); 3D não era afetado (r3f normaliza pelo rect)
+- [x] Botão ✋ (mover a vista) nos controles do editor 2D — pan com o botão
+  esquerdo, descobrível; espaço+arrastar e botão do meio continuam valendo
 
 ## v0.2.52 — Telemetria anônima opcional (DAU/WAU)
 
