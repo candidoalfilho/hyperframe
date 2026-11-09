@@ -805,6 +805,31 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.54 — Issue #4 (Eng-Carlos) + Copiloto composer v2
+
+> Primeira release guiada por feedback de engenheiro usuário (issue #4 no GitHub):
+> pavimentos em projeto existente, edição com mais liberdade (mover + ORTO) e
+> barras das negativas no memorial.
+
+- [x] **Adicionar níveis em projeto existente** (Gerenciar plantas): acima do
+  topo (com opção de estender os pilares até o novo nível), intermediário
+  (desloca os superiores pelo pé-direito novo) ou abaixo da base (subsolo);
+  remover nível livre (sem pilar/consolo ancorado) com os superiores descendo
+- [x] **Mover elementos arrastando** no editor 2D (ferramenta selecionar):
+  pilar (vértices coincidentes de vigas/lajes/regiões acompanham — modelo
+  continua conectado), viga (lajes coladas acompanham) e escada/reservatório;
+  preview tracejado durante o gesto, commit único (1 passo de undo), Esc cancela
+- [x] **Modo ORTO** (botão ⟂ / F8, como o ORTHOMODE do AutoCAD): trava desenho
+  e arrasto nas direções X/Y; Shift inverte o modo durante o gesto
+- [x] **Barras das negativas** nos relatórios: coluna "Barras− e/d" na tabela
+  de vigas do memorial PDF e do relatório resumido (bitola × quantidade por
+  apoio; comprimentos de corte já saíam na tabela de aço §14)
+- [x] Copiloto **composer v2** no estilo do app do Claude: streaming com linha
+  de raciocínio ao vivo, markdown com chips clicáveis de elementos, @menções,
+  pré-visualização fantasma das propostas no editor 2D, retry/copiar, painel
+  redimensionável, modelos Claude 5.5
+- [x] 18 testes novos (523 no total)
+
 ## v0.2.53 — Hotfix: seleção deslocada com zoom da UI
 
 - [x] Com zoom da UI ≠ 100% (⌘+/⌘−/modo apresentação, v0.2.51), o clique no
