@@ -35,6 +35,7 @@ import ColumnsLayer from './layers/ColumnsLayer'
 import WallLoadsLayer from './layers/WallLoadsLayer'
 import FoundationsLayer from './layers/FoundationsLayer'
 import PreviewLayer, { type CursorSnap } from './layers/PreviewLayer'
+import GhostLayer from './layers/GhostLayer'
 
 const ORTHO_MAX_RAD = (15 * Math.PI) / 180
 /** tolerância de snap em px de tela */
@@ -101,6 +102,7 @@ export default function Editor2D() {
   const selection = useStore((s) => s.selection)
   const hoverRef = useStore((s) => s.hoverRef)
   const defaults = useStore((s) => s.defaults)
+  const aiGhost = useStore((s) => s.aiGhost)
 
   // ---- viewport ----
   const containerRef = useRef<HTMLDivElement>(null)
@@ -526,6 +528,7 @@ export default function Editor2D() {
             columnSection={defaults.columnSection}
             columnRotation={defaults.columnRotation}
           />
+          {aiGhost && <GhostLayer ghost={aiGhost} k={vp.k} />}
         </g>
       </svg>
 

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { COPILOT_TOOLS, executeTool, isMutatingTool } from './tools'
+import { COPILOT_TOOLS, executeTool, ghostForToolCall, isMutatingTool } from './tools'
 import {
   AnthropicProvider,
   OllamaProvider,
@@ -7,6 +7,7 @@ import {
   type NMessage,
 } from './providers'
 import { platform } from '../platform'
+import { useStore } from '../store'
 
 /**
  * Loop do Copiloto (tool-use manual): mensagem → modelo → ferramentas →
@@ -17,10 +18,17 @@ import { platform } from '../platform'
  */
 
 export const COPILOT_MODELS = [
-  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8 (recomendado)' },
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5 (rápido)' },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (econômico)' },
+  { id: 'claude-opus-5-5', label: 'Opus 5.5 (recomendado)' },
+  { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5 (rápido)' },
+  { id: 'claude-haiku-5-5', label: 'Haiku 5.5 (econômico)' },
 ] as const
+
+/** ids salvos de versões antigas → geração atual (mais barata e melhor) */
+const MODEL_MIGRATION: Record<string, string> = {
+  'claude-opus-4-8': 'claude-opus-5-5',
+  'claude-sonnet-5': 'claude-sonnet-5-5',
+  'claude-haiku-4-5': 'claude-haiku-5-5',
+}
 
 export type ProviderKind = 'claude' | 'local'
 
@@ -37,7 +45,8 @@ export function setApiKey(key: string): void {
   else localStorage.removeItem(LS_KEY)
 }
 export function getModel(): string {
-  return localStorage.getItem(LS_MODEL) ?? 'claude-opus-4-8'
+  const saved = localStorage.getItem(LS_MODEL) ?? 'claude-opus-5-5'
+  return MODEL_MIGRATION[saved] ?? saved
 }
 export function setModel(model: string): void {
   localStorage.setItem(LS_MODEL, model)
@@ -94,6 +103,8 @@ export interface ChatEntry {
   text: string
   toolName?: string
   pending?: boolean
+  /** resposta chegando em streaming (cursor piscante na UI) */
+  streaming?: boolean
 }
 
 export interface PendingApproval {
@@ -107,6 +118,8 @@ export interface CopilotCallbacks {
   onEntries: (entries: ChatEntry[]) => void
   onApproval: (pending: PendingApproval | null) => void
   onBusy: (busy: boolean) => void
+  /** resumo do raciocínio em andamento (null = não está pensando) */
+  onThinking?: (text: string | null) => void
 }
 
 let seq = 0
@@ -118,11 +131,28 @@ export class CopilotAgent {
   private entries: ChatEntry[] = []
   private cb: CopilotCallbacks
   private aborted = false
+  private abortCtl: AbortController | null = null
+  private lastUserText: string | null = null
+  private lastContextNote: string | undefined
   planMode = false
 
   constructor(provider: ChatProvider, cb: CopilotCallbacks) {
     this.provider = provider
     this.cb = cb
+  }
+
+  /** troca o provedor mantendo a conversa (painel reaberto / modelo trocado) */
+  setProvider(provider: ChatProvider): void {
+    this.provider = provider
+  }
+  /** religa os callbacks a um painel recém-montado e re-emite o histórico */
+  attach(cb: CopilotCallbacks): void {
+    this.cb = cb
+    cb.onEntries(this.entries)
+  }
+
+  get providerLabel(): string {
+    return this.provider.label
   }
 
   private push(entry: ChatEntry): void {
@@ -135,9 +165,14 @@ export class CopilotAgent {
     )
     this.cb.onEntries(this.entries)
   }
+  private patchById(id: string, patch: Partial<ChatEntry>): void {
+    this.entries = this.entries.map((e) => (e.id === id ? { ...e, ...patch } : e))
+    this.cb.onEntries(this.entries)
+  }
 
   stop(): void {
     this.aborted = true
+    this.abortCtl?.abort()
   }
 
   clear(): void {
@@ -163,11 +198,19 @@ export class CopilotAgent {
   async send(
     userText: string,
     describeToolCall: (n: string, i: Record<string, unknown>) => string,
+    /** contexto da UI (menções @, seleção atual) — vai pro modelo, não pro chat */
+    contextNote?: string,
   ): Promise<void> {
     this.aborted = false
+    this.abortCtl = new AbortController()
     this.cb.onBusy(true)
+    this.lastUserText = userText
+    this.lastContextNote = contextNote
     this.push({ id: eid(), role: 'user', text: userText })
-    this.messages.push({ role: 'user', text: userText })
+    this.messages.push({
+      role: 'user',
+      text: contextNote ? `${userText}\n\n[Contexto da UI — não visível no chat]\n${contextNote}` : userText,
+    })
 
     const tools = this.planMode
       ? COPILOT_TOOLS.filter((t) => !isMutatingTool(t.name))
@@ -177,9 +220,41 @@ export class CopilotAgent {
     try {
       for (let iter = 0; iter < 20; iter++) {
         if (this.aborted) break
-        const response = await this.provider.chat(system, this.messages, tools)
+
+        // entrada de streaming: cria no 1º delta e vai acrescentando
+        let streamId: string | null = null
+        let streamBuf = ''
+        const onText = (delta: string): void => {
+          if (this.aborted) return
+          this.cb.onThinking?.(null)
+          streamBuf += delta
+          if (!streamId) {
+            streamId = eid()
+            this.push({ id: streamId, role: 'assistant', text: streamBuf, streaming: true })
+          } else {
+            this.patchById(streamId, { text: streamBuf })
+          }
+        }
+        // resumo do raciocínio (linha "pensando…" do composer)
+        let thinkBuf = ''
+        const onThinking = (delta: string): void => {
+          if (this.aborted) return
+          thinkBuf += delta
+          this.cb.onThinking?.(thinkBuf)
+        }
+
+        const response = await this.provider.chat(
+          system,
+          this.messages,
+          tools,
+          onText,
+          this.abortCtl.signal,
+          onThinking,
+        )
+        this.cb.onThinking?.(null)
 
         if (response.refusal) {
+          if (streamId) this.patchById(streamId, { streaming: false })
           this.push({
             id: eid(),
             role: 'error',
@@ -188,7 +263,11 @@ export class CopilotAgent {
           break
         }
 
-        if (response.text) this.push({ id: eid(), role: 'assistant', text: response.text })
+        if (streamId) {
+          this.patchById(streamId, { text: response.text, streaming: false })
+        } else if (response.text) {
+          this.push({ id: eid(), role: 'assistant', text: response.text })
+        }
         this.messages.push({
           role: 'assistant',
           text: response.text,
@@ -209,7 +288,15 @@ export class CopilotAgent {
           this.push({ id: eid(), role: 'tool', toolName: tc.name, text: desc, pending: true })
 
           let approved = true
-          if (mutating) approved = await this.askApproval(tc.id, tc.name, desc)
+          if (mutating) {
+            // fantasma no editor 2D enquanto a aprovação está pendente
+            useStore.getState().setAiGhost(ghostForToolCall(tc.name, tc.input))
+            try {
+              approved = await this.askApproval(tc.id, tc.name, desc)
+            } finally {
+              useStore.getState().setAiGhost(null)
+            }
+          }
           if (!approved) {
             this.replaceLast({ pending: false, text: `${desc} — recusado` })
             results.push({
@@ -237,6 +324,15 @@ export class CopilotAgent {
       }
     } catch (err) {
       let msg: string
+      if (err instanceof Anthropic.APIUserAbortError || this.aborted) {
+        // parada pedida pelo usuário — não é erro
+        this.entries = this.entries.map((e) => (e.streaming ? { ...e, streaming: false } : e))
+        this.cb.onEntries(this.entries)
+        this.cb.onBusy(false)
+        this.cb.onApproval(null)
+        useStore.getState().setAiGhost(null)
+        return
+      }
       if (err instanceof Anthropic.AuthenticationError) {
         msg = 'Chave da API inválida — confira em Configurações → Copiloto IA.'
       } else if (err instanceof Anthropic.RateLimitError) {
@@ -254,6 +350,60 @@ export class CopilotAgent {
     } finally {
       this.cb.onBusy(false)
       this.cb.onApproval(null)
+      this.cb.onThinking?.(null)
+      useStore.getState().setAiGhost(null)
     }
   }
+
+  /** regenera a última resposta: volta até a última mensagem do usuário e reenvia */
+  retry(describeToolCall: (n: string, i: Record<string, unknown>) => string): void {
+    if (!this.lastUserText) return
+    // corta o histórico da API até ANTES do último turno do usuário
+    let lastUser = -1
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].role === 'user') {
+        lastUser = i
+        break
+      }
+    }
+    if (lastUser < 0) return
+    this.messages = this.messages.slice(0, lastUser)
+    // corta as entradas do chat a partir da última mensagem do usuário
+    let lastEntry = -1
+    for (let i = this.entries.length - 1; i >= 0; i--) {
+      if (this.entries[i].role === 'user') {
+        lastEntry = i
+        break
+      }
+    }
+    if (lastEntry >= 0) {
+      this.entries = this.entries.slice(0, lastEntry)
+      this.cb.onEntries(this.entries)
+    }
+    void this.send(this.lastUserText, describeToolCall, this.lastContextNote)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// sessão única: a conversa sobrevive a fechar/reabrir o painel e à troca de
+// modelo (o provedor é trocado por baixo, o histórico fica)
+// ---------------------------------------------------------------------------
+
+let session: CopilotAgent | null = null
+
+export function getCopilotSession(cb: CopilotCallbacks): CopilotAgent | null {
+  const provider = buildProvider()
+  if (!provider) return null
+  if (!session) {
+    session = new CopilotAgent(provider, cb)
+    cb.onEntries([])
+  } else {
+    session.setProvider(provider)
+    session.attach(cb)
+  }
+  return session
+}
+
+export function resetCopilotSession(): void {
+  session = null
 }

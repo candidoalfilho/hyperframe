@@ -30,7 +30,18 @@ export interface NResponse {
 export interface ChatProvider {
   /** rótulo p/ UI e mensagens de erro */
   label: string
-  chat(system: string, messages: NMessage[], tools: Anthropic.Tool[]): Promise<NResponse>
+  /**
+   * onText: deltas de streaming; signal: abortar a request;
+   * onThinking: deltas do RESUMO do raciocínio (linha "pensando" da UI)
+   */
+  chat(
+    system: string,
+    messages: NMessage[],
+    tools: Anthropic.Tool[],
+    onText?: (delta: string) => void,
+    signal?: AbortSignal,
+    onThinking?: (delta: string) => void,
+  ): Promise<NResponse>
 }
 
 // ---------------------------------------------------------------------------
@@ -81,17 +92,30 @@ export class AnthropicProvider implements ChatProvider {
     return out
   }
 
-  async chat(system: string, messages: NMessage[], tools: Anthropic.Tool[]): Promise<NResponse> {
-    const isHaiku = this.model.includes('haiku')
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: isHaiku ? 8192 : 16000,
-      system,
-      // Opus 4.8/Sonnet 5: thinking adaptativo; Haiku 4.5 não suporta
-      ...(isHaiku ? {} : { thinking: { type: 'adaptive' as const } }),
-      tools,
-      messages: this.toParams(messages),
-    })
+  async chat(
+    system: string,
+    messages: NMessage[],
+    tools: Anthropic.Tool[],
+    onText?: (delta: string) => void,
+    signal?: AbortSignal,
+    onThinking?: (delta: string) => void,
+  ): Promise<NResponse> {
+    // Opus 5.5 / Sonnet 5.5 / Haiku 5.5: thinking adaptativo (padrão da família 5);
+    // display summarized p/ a linha "pensando…" da UI mostrar o resumo do raciocínio
+    const stream = this.client.messages.stream(
+      {
+        model: this.model,
+        max_tokens: 16000,
+        system,
+        thinking: { type: 'adaptive' as const, display: 'summarized' as const },
+        tools,
+        messages: this.toParams(messages),
+      },
+      { signal },
+    )
+    if (onText) stream.on('text', onText)
+    if (onThinking) stream.on('thinking', onThinking)
+    const response = await stream.finalMessage()
     if (response.stop_reason === 'refusal') {
       return { text: '', toolCalls: [], refusal: true, raw: response.content }
     }

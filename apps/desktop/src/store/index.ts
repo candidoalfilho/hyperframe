@@ -106,6 +106,22 @@ export interface ElementDefaults {
   regionKind: 'escada' | 'reservatorio' | 'generica' | 'furo'
 }
 
+/**
+ * Pré-visualização fantasma de uma proposta do Copiloto aguardando aprovação:
+ * desenhada no editor 2D (tracejado) p/ o usuário VER a mudança antes de aceitar.
+ * mode 'add' = elemento novo proposto; 'target' = elemento existente que será
+ * alterado/removido.
+ */
+export interface AiGhost {
+  kind: 'column' | 'beam' | 'slab'
+  /** column: [pos]; beam: path; slab: polígono — coords de mundo (m) */
+  pts: Vec2[]
+  /** largura da viga (m) p/ espessura do traço */
+  bw?: number
+  mode: 'add' | 'target'
+  label: string
+}
+
 export interface HFState {
   // ---- projeto ----
   project: Project
@@ -133,6 +149,8 @@ export interface HFState {
   defaults: ElementDefaults
   /** posição do cursor em coords de mundo (m) — p/ statusbar */
   cursorWorld: Vec2 | null
+  /** proposta do Copiloto em pré-visualização (aprovação pendente) */
+  aiGhost: AiGhost | null
 
   // ---- análise ----
   results: AnalysisResults | null
@@ -171,6 +189,7 @@ export interface HFState {
   setActiveLevel: (id: string) => void
   select: (ref: ElementRef | null) => void
   setHover: (ref: ElementRef | null) => void
+  setAiGhost: (g: AiGhost | null) => void
   setCursorWorld: (p: Vec2 | null) => void
   setDisplay: (patch: Partial<DisplayOptions>) => void
   setD3: (patch: Partial<D3Options>) => void
@@ -270,6 +289,7 @@ export const useStore = create<HFState>()(
       activeLevelId: firstEditableLevel(initialProject),
       selection: null,
       hoverRef: null,
+      aiGhost: null,
       theme: readInitialTheme(),
       welcomeOpen: true,
       hasOpenProject: false,
@@ -439,6 +459,7 @@ export const useStore = create<HFState>()(
       setActiveLevel: (activeLevelId) => set({ activeLevelId }),
       select: (selection) => set({ selection }),
       setHover: (hoverRef) => set({ hoverRef }),
+      setAiGhost: (aiGhost) => set({ aiGhost }),
       setCursorWorld: (cursorWorld) => set({ cursorWorld }),
       setDisplay: (patch) => set((s) => ({ display: { ...s.display, ...patch } })),
       setD3: (patch) => set((s) => ({ d3: { ...s.d3, ...patch } })),

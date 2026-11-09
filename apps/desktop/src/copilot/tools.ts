@@ -507,6 +507,184 @@ export async function executeTool(name: string, input: Record<string, unknown>):
   }
 }
 
+// ---------------------------------------------------------------------------
+// pré-visualização fantasma (Composer) — o usuário VÊ a proposta antes de aprovar
+// ---------------------------------------------------------------------------
+
+import type { AiGhost } from '../store'
+
+function findAnywhere(kind: 'column' | 'beam' | 'slab', nm: string): Column | Beam | Slab | null {
+  const p = useStore.getState().project
+  if (kind === 'column') return findByName(p.columns, nm)
+  if (kind === 'beam') return findByName(p.plans.flatMap((pl) => pl.beams), nm)
+  return findByName(p.plans.flatMap((pl) => pl.slabs), nm)
+}
+
+/** fantasma desenhado no editor 2D enquanto a aprovação está pendente (null = sem preview) */
+export function ghostForToolCall(name: string, input: Record<string, unknown>): AiGhost | null {
+  switch (name) {
+    case 'adicionar_pilar': {
+      if (typeof input.x !== 'number' || typeof input.y !== 'number') return null
+      return {
+        kind: 'column',
+        pts: [{ x: input.x, y: input.y }],
+        mode: 'add',
+        label: 'novo pilar',
+      }
+    }
+    case 'adicionar_viga': {
+      const pts = input.points as Vec2[] | undefined
+      if (!pts || pts.length < 2) return null
+      return { kind: 'beam', pts, bw: (input.bw as number) ?? 0.2, mode: 'add', label: 'nova viga' }
+    }
+    case 'adicionar_laje': {
+      const poly = input.polygon as Vec2[] | undefined
+      if (!poly || poly.length < 3) return null
+      return { kind: 'slab', pts: poly, mode: 'add', label: 'nova laje' }
+    }
+    case 'atualizar_elemento':
+    case 'remover_elemento': {
+      const kind = input.kind as string
+      if (kind !== 'column' && kind !== 'beam' && kind !== 'slab') return null
+      const el = findAnywhere(kind, String(input.name ?? ''))
+      if (!el) return null
+      const verb = name === 'remover_elemento' ? 'remover' : 'alterar'
+      if (kind === 'column') {
+        const c = el as Column
+        return { kind, pts: [c.pos], mode: 'target', label: `${verb} ${c.name}` }
+      }
+      if (kind === 'beam') {
+        const b = el as Beam
+        return { kind, pts: b.path, bw: b.section.bw, mode: 'target', label: `${verb} ${b.name}` }
+      }
+      const sl = el as Slab
+      return { kind, pts: sl.polygon, mode: 'target', label: `${verb} ${sl.name}` }
+    }
+    default:
+      return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// menções @elemento e contexto de seleção (Composer)
+// ---------------------------------------------------------------------------
+
+export interface Mentionable {
+  name: string
+  kind: 'column' | 'beam' | 'slab' | 'plan'
+  detail: string
+}
+
+/** elementos e plantas mencionáveis com @ no composer */
+export function listMentionables(): Mentionable[] {
+  const p = useStore.getState().project
+  const out: Mentionable[] = []
+  for (const c of p.columns) {
+    out.push({
+      name: c.name,
+      kind: 'column',
+      detail: `pilar ${columnSectionLabel(c.section)} em (${fmt2(c.pos.x)};${fmt2(c.pos.y)})`,
+    })
+  }
+  for (const pl of p.plans) {
+    for (const b of pl.beams) {
+      out.push({
+        name: b.name,
+        kind: 'beam',
+        detail: `viga ${Math.round(b.section.bw * 100)}×${Math.round(b.section.h * 100)} · ${pl.name}`,
+      })
+    }
+    for (const sl of pl.slabs) {
+      out.push({
+        name: sl.name,
+        kind: 'slab',
+        detail: `laje h=${Math.round(sl.thickness * 100)} cm · ${pl.name}`,
+      })
+    }
+    out.push({ name: pl.name, kind: 'plan', detail: 'planta' })
+  }
+  return out
+}
+
+/** geometria/propriedades dos elementos citados — injetado como contexto da mensagem */
+export function describeElementsByName(names: string[]): string {
+  const p = useStore.getState().project
+  const lines: string[] = []
+  for (const nm of names) {
+    const col = findByName(p.columns, nm)
+    if (col) {
+      lines.push(
+        `${col.name}: pilar ${columnSectionLabel(col.section)} rot ${col.rotationDeg}° em (${fmt2(col.pos.x)};${fmt2(col.pos.y)})`,
+      )
+      continue
+    }
+    for (const pl of p.plans) {
+      const b = pl.beams.find((x) => x.name.toLowerCase() === nm.toLowerCase())
+      if (b) {
+        lines.push(
+          `${b.name} (planta "${pl.name}"): viga ${Math.round(b.section.bw * 100)}×${Math.round(b.section.h * 100)} ${b.path.map((pt) => `(${fmt2(pt.x)};${fmt2(pt.y)})`).join('→')}`,
+        )
+        break
+      }
+      const sl = pl.slabs.find((x) => x.name.toLowerCase() === nm.toLowerCase())
+      if (sl) {
+        lines.push(
+          `${sl.name} (planta "${pl.name}"): laje h=${Math.round(sl.thickness * 100)} cm, g2=${sl.finishLoad} q=${sl.liveLoad} kN/m², ${sl.polygon.length} vértices${sl.ribbed ? ', nervurada' : ''}`,
+        )
+        break
+      }
+      if (pl.name.toLowerCase() === nm.toLowerCase()) {
+        lines.push(`Planta "${pl.name}": ${pl.beams.length} vigas, ${pl.slabs.length} lajes`)
+        break
+      }
+    }
+  }
+  return lines.join('\n')
+}
+
+/** rótulo curto do elemento selecionado (chip de contexto do composer) */
+export function describeSelection(): string | null {
+  const s = useStore.getState()
+  const ref = s.selection
+  if (!ref) return null
+  const p = s.project
+  if (ref.kind === 'column') return findByName(p.columns, ref.id)?.name ?? null
+  for (const pl of p.plans) {
+    if (ref.kind === 'beam') {
+      const b = pl.beams.find((x) => x.id === ref.id)
+      if (b) return b.name
+    } else if (ref.kind === 'slab') {
+      const sl = pl.slabs.find((x) => x.id === ref.id)
+      if (sl) return sl.name
+    }
+  }
+  return null
+}
+
+/** resolve o nome de um elemento (P3/V2/L1) p/ seleção — clique no chat */
+export function selectElementByName(nm: string): boolean {
+  const s = useStore.getState()
+  const p = s.project
+  const col = p.columns.find((c) => c.name.toLowerCase() === nm.toLowerCase())
+  if (col) {
+    s.select({ kind: 'column', id: col.id })
+    return true
+  }
+  for (const pl of p.plans) {
+    const b = pl.beams.find((x) => x.name.toLowerCase() === nm.toLowerCase())
+    const sl = b ? null : pl.slabs.find((x) => x.name.toLowerCase() === nm.toLowerCase())
+    const el = b ?? sl
+    if (el) {
+      // muda p/ o nível da planta do elemento, se preciso
+      const lvl = p.levels.find((l) => l.planId === pl.id)
+      if (lvl && s.activeLevelId !== lvl.id) s.setActiveLevel(lvl.id)
+      s.select({ kind: b ? 'beam' : 'slab', id: el.id })
+      return true
+    }
+  }
+  return false
+}
+
 /** descrição curta p/ o cartão de aprovação */
 export function describeToolCall(name: string, input: Record<string, unknown>): string {
   switch (name) {
