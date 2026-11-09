@@ -14,7 +14,7 @@ import {
   type Grid,
   type Vec2,
 } from '@hyperframe/engine'
-import { useActivePlan, useStore } from '../store'
+import { useActivePlan, useStore, type AiGhost } from '../store'
 import {
   fitBounds,
   screenToWorld,
@@ -77,16 +77,45 @@ function contentBounds(grid: Grid, columns: Column[], plan: FloorPlan | null): W
   return { minX, minY, maxX, maxY }
 }
 
-/** trava ortogonal: zera dx ou dy quando a direção está a menos de 15° de um eixo */
-function applyOrtho(last: Vec2, p: Vec2): Vec2 {
+/**
+ * trava ortogonal: zera dx ou dy quando a direção está a menos de 15° de um
+ * eixo; com strict (modo ORTO ligado, como o ORTHOMODE/F8 do AutoCAD) trava
+ * SEMPRE no eixo dominante
+ */
+function applyOrtho(last: Vec2, p: Vec2, strict = false): Vec2 {
   const dx = p.x - last.x
   const dy = p.y - last.y
   const adx = Math.abs(dx)
   const ady = Math.abs(dy)
   if (adx < 1e-9 && ady < 1e-9) return p
-  const dev = Math.atan2(Math.min(adx, ady), Math.max(adx, ady))
-  if (dev > ORTHO_MAX_RAD) return p
+  if (!strict) {
+    const dev = Math.atan2(Math.min(adx, ady), Math.max(adx, ady))
+    if (dev > ORTHO_MAX_RAD) return p
+  }
   return adx > ady ? { x: p.x, y: last.y } : { x: last.x, y: p.y }
+}
+
+/** arredonda ao passo de 0,05 m */
+const r05 = (v: number) => Math.round(v / 0.05) * 0.05
+
+/** estado de um arrasto de elemento (ferramenta selecionar) */
+interface DragState {
+  kind: 'column' | 'beam' | 'loadRegion' | 'mwall'
+  id: string
+  name: string
+  /** ponto de mundo onde o arrasto começou */
+  start: Vec2
+  /** ponto de tela do pointerdown (p/ limiar de 5 px) */
+  startScreen: Vec2
+  moved: boolean
+  /** pilar: posição original; demais: polilinha/polígono original */
+  colStart?: Vec2
+  path?: Vec2[]
+  bw?: number
+  /** snap sem o próprio elemento (só p/ pilar) */
+  snap?: ReturnType<typeof buildSnapData>
+  /** proposta corrente: pilar = posição nova; demais = delta */
+  proposal?: Vec2
 }
 
 export default function Editor2D() {
@@ -112,8 +141,13 @@ export default function Editor2D() {
   // ---- estado local de interação ----
   const [spaceDown, setSpaceDown] = useState(false)
   const [handMode, setHandMode] = useState(false)
+  const [orthoMode, setOrthoMode] = useState(false)
   const [panning, setPanning] = useState(false)
   const panRef = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
+
+  // arrasto de elemento (ferramenta selecionar) — commit único no pointerup
+  const dragRef = useRef<DragState | null>(null)
+  const [dragGhost, setDragGhost] = useState<AiGhost | null>(null)
 
   const [chain, setChain] = useState<Vec2[]>([])
   const chainRef = useRef<Vec2[]>(chain)
@@ -191,6 +225,23 @@ export default function Editor2D() {
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
     }
+  }, [])
+
+  // ---- F8 = modo ORTO (como no AutoCAD) · Escape cancela arrasto ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F8') {
+        e.preventDefault()
+        setOrthoMode((o) => !o)
+      } else if (e.key === 'Escape' && dragRef.current) {
+        e.preventDefault()
+        e.stopPropagation()
+        dragRef.current = null
+        setDragGhost(null)
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
   // ---- toast ----
@@ -273,7 +324,7 @@ export default function Editor2D() {
       if (snap) return snap
       let pt = roundPoint05(raw)
       const c = chainRef.current
-      if (c.length > 0 && !alt) pt = applyOrtho(c[c.length - 1], pt)
+      if (c.length > 0 && !alt) pt = applyOrtho(c[c.length - 1], pt, orthoMode)
       return { point: pt, kind: null }
     }
     return { point: raw, kind: null }
@@ -305,9 +356,64 @@ export default function Editor2D() {
     const raw = screenToWorld(vp, s)
     const st = useStore.getState()
     switch (tool) {
-      case 'select':
-        st.select(hitTest(raw, hitCtx()))
+      case 'select': {
+        const hit = hitTest(raw, hitCtx())
+        st.select(hit)
+        // prepara possível arrasto (vira movimento após 5 px) — lajes seguem
+        // as vigas e cargas de parede seguem a viga, então não são arrastáveis
+        if (hit) {
+          if (hit.kind === 'column') {
+            const c = columns.find((x) => x.id === hit.id)
+            if (c) {
+              dragRef.current = {
+                kind: 'column',
+                id: c.id,
+                name: c.name,
+                start: raw,
+                startScreen: s,
+                moved: false,
+                colStart: { ...c.pos },
+                snap: buildSnapData(
+                  grid,
+                  columns.filter((x) => x.id !== c.id),
+                  plan?.beams ?? [],
+                ),
+              }
+              e.currentTarget.setPointerCapture(e.pointerId)
+            }
+          } else if (hit.kind === 'beam') {
+            const b = plan?.beams.find((x) => x.id === hit.id)
+            if (b) {
+              dragRef.current = {
+                kind: 'beam',
+                id: b.id,
+                name: b.name,
+                start: raw,
+                startScreen: s,
+                moved: false,
+                path: b.path.map((p) => ({ ...p })),
+                bw: b.section.bw,
+              }
+              e.currentTarget.setPointerCapture(e.pointerId)
+            }
+          } else if (hit.kind === 'loadRegion') {
+            const r = plan?.loadRegions.find((x) => x.id === hit.id)
+            if (r) {
+              dragRef.current = {
+                kind: 'loadRegion',
+                id: r.id,
+                name: r.name,
+                start: raw,
+                startScreen: s,
+                moved: false,
+                path: r.polygon.map((p) => ({ ...p })),
+              }
+              e.currentTarget.setPointerCapture(e.pointerId)
+            }
+          }
+        }
         break
+      }
       case 'column':
         st.addColumn(effectiveCursor(raw, e.altKey).point)
         break
@@ -347,6 +453,43 @@ export default function Editor2D() {
     }
     const raw = screenToWorld(vp, s)
     const st = useStore.getState()
+    // ---- arrasto de elemento em andamento ----
+    const drag = dragRef.current
+    if (drag) {
+      if (!drag.moved && Math.hypot(s.x - drag.startScreen.x, s.y - drag.startScreen.y) < 5) {
+        return
+      }
+      drag.moved = true
+      const lock = orthoMode !== e.shiftKey // Shift inverte o modo ORTO só durante o gesto
+      if (drag.kind === 'column' && drag.colStart && drag.snap) {
+        const tolW = SNAP_PX / vp.k
+        let pt = computeSnap(raw, drag.snap, tolW)?.point ?? roundPoint05(raw)
+        if (lock) pt = applyOrtho(drag.colStart, pt, true)
+        drag.proposal = pt
+        setDragGhost({
+          kind: 'column',
+          pts: [pt],
+          mode: 'add',
+          label: `mover ${drag.name}`,
+        })
+      } else if (drag.path) {
+        let delta = { x: r05(raw.x - drag.start.x), y: r05(raw.y - drag.start.y) }
+        if (lock) {
+          delta =
+            Math.abs(delta.x) >= Math.abs(delta.y) ? { x: delta.x, y: 0 } : { x: 0, y: delta.y }
+        }
+        drag.proposal = delta
+        setDragGhost({
+          kind: drag.kind === 'loadRegion' ? 'slab' : 'beam',
+          pts: drag.path.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })),
+          bw: drag.bw,
+          mode: 'add',
+          label: `mover ${drag.name}`,
+        })
+      }
+      st.setCursorWorld(raw)
+      return
+    }
     if (tool === 'select') {
       setHoverIfChanged(hitTest(raw, hitCtx()))
       st.setCursorWorld(raw)
@@ -369,6 +512,26 @@ export default function Editor2D() {
       setPanning(false)
       if (e.currentTarget.hasPointerCapture(e.pointerId)) {
         e.currentTarget.releasePointerCapture(e.pointerId)
+      }
+    }
+    const drag = dragRef.current
+    if (drag) {
+      dragRef.current = null
+      setDragGhost(null)
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      }
+      if (drag.moved && drag.proposal) {
+        const st = useStore.getState()
+        if (drag.kind === 'column') {
+          if (st.moveColumn(drag.id, drag.proposal) === 'duplicate') {
+            showToast('Já existe pilar neste ponto')
+          }
+        } else if (drag.kind === 'beam') {
+          st.moveBeam(drag.id, drag.proposal)
+        } else if (drag.kind === 'loadRegion') {
+          st.moveLoadRegion(drag.id, drag.proposal)
+        }
       }
     }
   }
@@ -397,13 +560,15 @@ export default function Editor2D() {
 
   const cursorCss = panning
     ? 'grabbing'
-    : spaceDown || handMode
-      ? 'grab'
-      : tool === 'select'
-        ? 'default'
-        : tool === 'wall'
-          ? 'pointer'
-          : 'crosshair'
+    : dragGhost
+      ? 'move'
+      : spaceDown || handMode
+        ? 'grab'
+        : tool === 'select'
+          ? 'default'
+          : tool === 'wall'
+            ? 'pointer'
+            : 'crosshair'
 
   return (
     <div ref={containerRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
@@ -529,6 +694,7 @@ export default function Editor2D() {
             columnRotation={defaults.columnRotation}
           />
           {aiGhost && <GhostLayer ghost={aiGhost} k={vp.k} />}
+          {dragGhost && <GhostLayer ghost={dragGhost} k={vp.k} />}
         </g>
       </svg>
 
@@ -543,6 +709,13 @@ export default function Editor2D() {
             116,
             () => setHandMode((h) => !h),
             handMode,
+          ],
+          [
+            '⟂',
+            'Modo ORTO (F8) — restringe desenho e arrasto às direções X/Y; Shift inverte durante o gesto',
+            152,
+            () => setOrthoMode((o) => !o),
+            orthoMode,
           ],
         ] as const
       ).map(([label, title, top, fn, active]) => (

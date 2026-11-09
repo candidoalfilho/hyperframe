@@ -116,4 +116,13 @@ describe('buildMemorialPdf (memorial completo)', () => {
     expect(pdf).toContain('p\\341gina 1 de')
     expect(pdf).toContain('n\\343o substituem o engenheiro')
   })
+
+  it('tabela de vigas traz as barras das negativas (bitola × quantidade) por apoio', () => {
+    expect(pdf).toContain('Barras- e/d') // cabeçalho (− transliterado p/ hífen)
+    const comNeg = results.beamDesign.find((b) => b.negLeft)
+    expect(comNeg).toBeDefined()
+    // spec tipo "3Ø10" (φ transliterado p/ Ø) presente no PDF
+    expect(comNeg!.negLeft!.bars.length).toBeGreaterThan(0)
+    expect(pdf).toContain(comNeg!.negLeft!.bars.replace('φ', '\\330'))
+  })
 })

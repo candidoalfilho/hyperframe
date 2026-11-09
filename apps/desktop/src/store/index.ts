@@ -206,6 +206,15 @@ export interface HFState {
   // ---- ações: modelagem (todas marcam dirty e invalidam resultados) ----
   addColumn: (pos: Vec2) => void
   updateColumn: (id: string, patch: Partial<Omit<Column, 'id'>>) => void
+  /**
+   * move o pilar e arrasta junto os vértices COINCIDENTES (vigas, lajes,
+   * regiões e paredes, em todas as plantas) — mantém o modelo conectado
+   */
+  moveColumn: (id: string, pos: Vec2) => 'ok' | 'duplicate'
+  /** translada a viga inteira; vértices de laje coincidentes acompanham */
+  moveBeam: (id: string, delta: Vec2) => void
+  moveLoadRegion: (id: string, delta: Vec2) => void
+  moveMasonryWall: (id: string, delta: Vec2) => void
   addBeamPath: (path: Vec2[]) => void
   /** parede de alvenaria estrutural (NBR 16868) na planta ativa */
   addMasonryWallPath: (path: Vec2[]) => void
@@ -238,6 +247,18 @@ export interface HFState {
   /** altera o pé-direito do nível (desloca este nível e todos acima) */
   setStoryHeight: (levelId: string, height: number) => void
   renameLevel: (levelId: string, name: string) => void
+  /**
+   * insere um nível novo em projeto existente: acima do nível indicado
+   * (desloca os superiores pelo pé-direito) ou, com aboveLevelId null,
+   * abaixo do nível mais baixo (ex.: subsolo). extendColumns estende até o
+   * novo topo os pilares que terminavam no antigo topo.
+   */
+  addLevel: (opts: { aboveLevelId: string | null; height: number; extendColumns?: boolean }) => void
+  /**
+   * remove um nível sem pilares/consolos ancorados nele (os superiores descem
+   * pelo pé-direito removido); exige ≥ 2 níveis restantes
+   */
+  deleteLevel: (levelId: string) => void
 
   // ---- arquivo ----
   /** registra salvamento bem-sucedido (caminho/nome) e limpa dirty */
@@ -517,6 +538,103 @@ export const useStore = create<HFState>()(
           results: null,
           analysisStatus: 'idle',
         })),
+      moveColumn: (id, pos) => {
+        const s = get()
+        const col = s.project.columns.find((c) => c.id === id)
+        if (!col) return 'ok'
+        const dx = pos.x - col.pos.x
+        const dy = pos.y - col.pos.y
+        if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return 'ok'
+        if (
+          s.project.columns.some(
+            (c) => c.id !== id && Math.hypot(c.pos.x - pos.x, c.pos.y - pos.y) < 0.05,
+          )
+        )
+          return 'duplicate'
+        // vértices coincidentes com a posição ANTIGA acompanham o pilar
+        const near = (p: Vec2) => Math.hypot(p.x - col.pos.x, p.y - col.pos.y) < 0.02
+        const mv = (p: Vec2) => (near(p) ? { x: p.x + dx, y: p.y + dy } : p)
+        set({
+          project: {
+            ...s.project,
+            columns: s.project.columns.map((c) => (c.id === id ? { ...c, pos } : c)),
+            plans: s.project.plans.map((pl) => ({
+              ...pl,
+              beams: pl.beams.map((b) => ({ ...b, path: b.path.map(mv) })),
+              slabs: pl.slabs.map((sl) => ({ ...sl, polygon: sl.polygon.map(mv) })),
+              loadRegions: pl.loadRegions.map((r) => ({ ...r, polygon: r.polygon.map(mv) })),
+              ...(pl.masonryWalls
+                ? { masonryWalls: pl.masonryWalls.map((w) => ({ ...w, path: w.path.map(mv) })) }
+                : {}),
+            })),
+          },
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+        })
+        return 'ok'
+      },
+      moveBeam: (id, delta) =>
+        set((s) => {
+          if (Math.abs(delta.x) < 1e-9 && Math.abs(delta.y) < 1e-9) return {}
+          const plan = s.project.plans.find((pl) => pl.beams.some((b) => b.id === id))
+          const beam = plan?.beams.find((b) => b.id === id)
+          if (!plan || !beam) return {}
+          const orig = beam.path
+          const near = (p: Vec2) =>
+            orig.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 0.02)
+          const mv = (p: Vec2) => (near(p) ? { x: p.x + delta.x, y: p.y + delta.y } : p)
+          return {
+            project: withPlan(s.project, plan.id, (pl) => ({
+              ...pl,
+              beams: pl.beams.map((b) =>
+                b.id === id
+                  ? { ...b, path: b.path.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })) }
+                  : b,
+              ),
+              slabs: pl.slabs.map((sl) => ({ ...sl, polygon: sl.polygon.map(mv) })),
+            })),
+            dirty: true,
+            results: null,
+            analysisStatus: 'idle',
+          }
+        }),
+      moveLoadRegion: (id, delta) =>
+        set((s) => {
+          const plan = s.project.plans.find((pl) => pl.loadRegions.some((r) => r.id === id))
+          if (!plan) return {}
+          return {
+            project: withPlan(s.project, plan.id, (pl) => ({
+              ...pl,
+              loadRegions: pl.loadRegions.map((r) =>
+                r.id === id
+                  ? { ...r, polygon: r.polygon.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })) }
+                  : r,
+              ),
+            })),
+            dirty: true,
+            results: null,
+            analysisStatus: 'idle',
+          }
+        }),
+      moveMasonryWall: (id, delta) =>
+        set((s) => {
+          const plan = s.project.plans.find((pl) => pl.masonryWalls?.some((w) => w.id === id))
+          if (!plan) return {}
+          return {
+            project: withPlan(s.project, plan.id, (pl) => ({
+              ...pl,
+              masonryWalls: pl.masonryWalls!.map((w) =>
+                w.id === id
+                  ? { ...w, path: w.path.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })) }
+                  : w,
+              ),
+            })),
+            dirty: true,
+            results: null,
+            analysisStatus: 'idle',
+          }
+        }),
       addBeamPath: (path) => {
         if (path.length < 2) return
         const s = get()
@@ -917,6 +1035,67 @@ export const useStore = create<HFState>()(
           },
           dirty: true,
         })),
+      addLevel: ({ aboveLevelId, height, extendColumns }) => {
+        if (!(height >= 1) || height > 10) return
+        set((s) => {
+          const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
+          const below = aboveLevelId ? sorted.find((l) => l.id === aboveLevelId) : null
+          if (aboveLevelId && !below) return {}
+          const topId = sorted[sorted.length - 1].id
+          const elevation = below ? below.elevation + height : sorted[0].elevation - height
+          const newLevel = { id: uid('lv'), name: 'Novo nível', elevation, planId: null }
+          // inserção intermediária desloca os níveis acima pelo pé-direito novo
+          const shifted = s.project.levels.map((l) =>
+            below && l.elevation > below.elevation + 1e-9
+              ? { ...l, elevation: l.elevation + height }
+              : l,
+          )
+          // o array de níveis é mantido ordenado por cota (invariante do modelo)
+          const levels = [...shifted, newLevel].sort((a, b) => a.elevation - b.elevation)
+          let columns = s.project.columns
+          if (extendColumns && below && below.id === topId) {
+            columns = columns.map((c) =>
+              c.topLevelId === topId ? { ...c, topLevelId: newLevel.id } : c,
+            )
+          }
+          return {
+            project: { ...s.project, levels, columns },
+            activeLevelId: newLevel.id,
+            dirty: true,
+            results: null,
+            analysisStatus: 'idle',
+          }
+        })
+      },
+      deleteLevel: (levelId) =>
+        set((s) => {
+          const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
+          if (sorted.length <= 2) return {}
+          const idx = sorted.findIndex((l) => l.id === levelId)
+          if (idx < 0) return {}
+          const referenced = s.project.columns.some(
+            (c) =>
+              c.baseLevelId === levelId ||
+              c.topLevelId === levelId ||
+              c.corbels?.some((cb) => cb.levelId === levelId),
+          )
+          if (referenced) return {}
+          const drop = idx > 0 ? sorted[idx].elevation - sorted[idx - 1].elevation : 0
+          const removedElev = sorted[idx].elevation
+          const levels = sorted
+            .filter((l) => l.id !== levelId)
+            .map((l) =>
+              l.elevation > removedElev + 1e-9 ? { ...l, elevation: l.elevation - drop } : l,
+            )
+          return {
+            project: { ...s.project, levels },
+            activeLevelId:
+              s.activeLevelId === levelId ? levels[levels.length - 1].id : s.activeLevelId,
+            dirty: true,
+            results: null,
+            analysisStatus: 'idle',
+          }
+        }),
 
       // ---- arquivo ----
       markSaved: (fileName) => {

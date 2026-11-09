@@ -2379,7 +2379,9 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
               <th style={rTh}>L (m)</th>
               <th style={rTh}>Seção (cm)</th>
               <th style={rTh}>As+ (cm²)</th>
+              <th style={rTh}>Barras+</th>
               <th style={rTh}>As− e/d (cm²)</th>
+              <th style={rTh}>Barras− e/d</th>
               <th style={rTh}>Estribos</th>
               <th style={rTh}>Status</th>
             </tr>
@@ -2395,9 +2397,13 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
                     {fmtCmDim(d.section.bw)}×{fmtCmDim(d.section.h)}
                   </td>
                   <td style={rTd}>{fmt(cm2(d.positive.as), 2)}</td>
+                  <td style={rTd}>{d.positive.bars}</td>
                   <td style={rTd}>
                     {d.negLeft ? fmt(cm2(d.negLeft.as), 2) : '—'} /{' '}
                     {d.negRight ? fmt(cm2(d.negRight.as), 2) : '—'}
+                  </td>
+                  <td style={rTd}>
+                    {d.negLeft?.bars ?? '—'} / {d.negRight?.bars ?? '—'}
                   </td>
                   <td style={rTd}>{d.shear.spec}</td>
                   <td

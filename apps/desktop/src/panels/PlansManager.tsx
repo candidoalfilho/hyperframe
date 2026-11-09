@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useStore } from '../store'
 import { fmt } from './format'
 import { NumberField } from './NumberField'
@@ -6,8 +6,8 @@ import { IconClose } from '../components/Icons'
 
 /**
  * Gerenciador de plantas de forma: atribuição planta ↔ nível, pé-direito
- * variável por pavimento, renomear, duplicar e excluir plantas.
- * Modal condicionado a `plansManagerOpen`.
+ * variável por pavimento, adicionar/remover níveis em projeto existente,
+ * renomear, duplicar e excluir plantas. Modal condicionado a `plansManagerOpen`.
  */
 export default function PlansManager() {
   const open = useStore((s) => s.plansManagerOpen)
@@ -19,11 +19,33 @@ export default function PlansManager() {
   const deletePlan = useStore((s) => s.deletePlan)
   const setStoryHeight = useStore((s) => s.setStoryHeight)
   const renameLevel = useStore((s) => s.renameLevel)
+  const addLevel = useStore((s) => s.addLevel)
+  const deleteLevel = useStore((s) => s.deleteLevel)
+
+  // formulário "novo nível": posição ('' = acima do topo; '_below' = abaixo da base)
+  const [addPos, setAddPos] = useState<string>('')
+  const [addHeight, setAddHeight] = useState(3)
+  const [extendCols, setExtendCols] = useState(true)
 
   const sortedLevels = useMemo(
     () => [...project.levels].sort((a, b) => a.elevation - b.elevation),
     [project.levels],
   )
+
+  /** níveis ancorando base/topo de pilar ou consolo — não podem ser removidos */
+  const anchoredLevels = useMemo(() => {
+    const set = new Set<string>()
+    for (const c of project.columns) {
+      set.add(c.baseLevelId)
+      set.add(c.topLevelId)
+      for (const cb of c.corbels ?? []) set.add(cb.levelId)
+    }
+    return set
+  }, [project.columns])
+
+  const topLevel = sortedLevels[sortedLevels.length - 1]
+  const addAboveId = addPos === '' ? (topLevel?.id ?? null) : addPos === '_below' ? null : addPos
+  const addingNewTop = addAboveId !== null && addAboveId === topLevel?.id
 
   const usage = useMemo(() => {
     const map = new Map<string, number>()
@@ -57,6 +79,7 @@ export default function PlansManager() {
                 </th>
                 <th>Cota (m)</th>
                 <th>Planta</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -104,13 +127,114 @@ export default function PlansManager() {
                         ))}
                       </select>
                     </td>
+                    <td style={{ width: 28 }}>
+                      {(() => {
+                        const anchored = anchoredLevels.has(l.id)
+                        const last = sortedLevels.length <= 2
+                        const blocked = anchored || last
+                        return (
+                          <button
+                            className="btn-icon"
+                            disabled={blocked}
+                            title={
+                              anchored
+                                ? 'Em uso — há pilar (base/topo) ou consolo ancorado neste nível'
+                                : last
+                                  ? 'O projeto precisa de pelo menos 2 níveis'
+                                  : 'Remover nível (os superiores descem o pé-direito removido)'
+                            }
+                            style={{
+                              color: blocked ? undefined : 'var(--err)',
+                              opacity: blocked ? 0.35 : 1,
+                              fontSize: 13,
+                            }}
+                            onClick={() => deleteLevel(l.id)}
+                          >
+                            ✕
+                          </button>
+                        )
+                      })()}
+                    </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
+
+          {/* --------------------------------------------- novo nível */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              marginTop: 8,
+              padding: '8px 10px',
+              background: 'var(--bg-2)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>＋ Novo nível</span>
+            <select
+              className="select"
+              value={addPos}
+              onChange={(e) => setAddPos(e.target.value)}
+              style={{ flex: '1 1 150px', minWidth: 130 }}
+            >
+              <option value="">acima do topo ({topLevel?.name ?? '—'})</option>
+              {sortedLevels
+                .slice(0, -1)
+                .reverse()
+                .map((l) => (
+                  <option key={l.id} value={l.id}>
+                    acima de {l.name}
+                  </option>
+                ))}
+              <option value="_below">abaixo de {sortedLevels[0]?.name ?? '—'} (subsolo)</option>
+            </select>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              pé-direito
+              <NumberField
+                value={addHeight}
+                digits={2}
+                min={1}
+                max={10}
+                style={{ width: 64 }}
+                onCommit={setAddHeight}
+              />
+              m
+            </label>
+            {addingNewTop && (
+              <label
+                style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+                title="Pilares que terminam no topo atual passam a subir até o novo nível"
+              >
+                <input
+                  type="checkbox"
+                  checked={extendCols}
+                  onChange={(e) => setExtendCols(e.target.checked)}
+                />
+                estender pilares
+              </label>
+            )}
+            <button
+              className="btn"
+              onClick={() =>
+                addLevel({
+                  aboveLevelId: addAboveId,
+                  height: addHeight,
+                  extendColumns: addingNewTop && extendCols,
+                })
+              }
+            >
+              Adicionar
+            </button>
+          </div>
           <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>
-            ⚠ Alterar pé-direito ou atribuição de plantas invalida os resultados da análise.
+            ⚠ Alterar níveis, pé-direito ou atribuição de plantas invalida os resultados da
+            análise. O nível novo nasce sem planta — atribua uma existente ou crie abaixo.
           </div>
 
           {/* --------------------------------------------- plantas */}

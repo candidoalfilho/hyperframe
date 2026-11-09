@@ -432,17 +432,18 @@ export function buildMemorialPdf(
   L.table(
     [
       { t: 'Viga/vão', w: 14 },
-      { t: 'Planta', w: 16 },
-      { t: 'Seção', w: 12, align: 'c' },
-      { t: 'Md+ ', w: 12, align: 'r' },
-      { t: 'As+ (cm²)', w: 13, align: 'r' },
-      { t: 'Barras+', w: 16 },
-      { t: 'Md− e/d', w: 19, align: 'r' },
-      { t: 'As− e/d', w: 17, align: 'r' },
-      { t: 'Vd (kN)', w: 12, align: 'r' },
-      { t: 'Estribo', w: 14 },
-      { t: 'Td', w: 9, align: 'r' },
-      { t: 'Status', w: 11, align: 'c' },
+      { t: 'Planta', w: 12 },
+      { t: 'Seção', w: 11, align: 'c' },
+      { t: 'Md+ ', w: 11, align: 'r' },
+      { t: 'As+ (cm²)', w: 12, align: 'r' },
+      { t: 'Barras+', w: 15 },
+      { t: 'Md− e/d', w: 15, align: 'r' },
+      { t: 'As− e/d', w: 13, align: 'r' },
+      { t: 'Barras− e/d', w: 20 },
+      { t: 'Vd (kN)', w: 11, align: 'r' },
+      { t: 'Estribo', w: 13 },
+      { t: 'Td', w: 8, align: 'r' },
+      { t: 'Status', w: 10, align: 'c' },
     ],
     results.beamDesign.map((b) => [
       `${b.beamName} v${b.spanIndex + 1}`,
@@ -453,6 +454,7 @@ export function buildMemorialPdf(
       b.positive.bars,
       `${b.negLeft ? fmt(b.negLeft.md, 1) : '—'} / ${b.negRight ? fmt(b.negRight.md, 1) : '—'}`,
       `${b.negLeft ? cm2(b.negLeft.as) : '—'} / ${b.negRight ? cm2(b.negRight.as) : '—'}`,
+      `${b.negLeft?.bars ?? '—'} / ${b.negRight?.bars ?? '—'}`,
       fmt(b.shear.vd, 1),
       b.shear.spec,
       b.torsion.negligible ? '—' : fmt(b.torsion.td, 1),
@@ -461,7 +463,8 @@ export function buildMemorialPdf(
     6.8,
   )
   L.para(
-    'Momentos em kN·m (envoltória ELU). Estribos somam cisalhamento (modelo I, §17.4.2) e torção ' +
+    'Momentos em kN·m (envoltória ELU). Barras− por apoio (esquerdo/direito); bitolas, quantidades e ' +
+      'comprimentos de corte das negativas na tabela de aço por posição (§14). Estribos somam cisalhamento (modelo I, §17.4.2) e torção ' +
       '(§17.5, seção vazada equivalente). Vigas com h > 60 cm recebem armadura de pele de 0,10%·Ac por face (§17.3.5.2.3).',
     7.8,
     'I',

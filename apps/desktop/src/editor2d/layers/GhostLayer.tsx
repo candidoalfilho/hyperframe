@@ -2,9 +2,10 @@ import { memo } from 'react'
 import type { AiGhost } from '../../store'
 
 /**
- * Pré-visualização fantasma de uma proposta do Copiloto (aprovação pendente):
- * tracejado pulsante em coords de mundo × k (y invertido), como os demais layers.
- * mode 'add' = laranja (elemento novo); 'target' = vermelho (será alterado/removido).
+ * Pré-visualização fantasma — proposta do Copiloto pendente de aprovação OU
+ * arrasto de elemento em andamento: tracejado pulsante em coords de mundo × k
+ * (y invertido), como os demais layers.
+ * mode 'add' = laranja (posição nova); 'target' = vermelho (será alterado/removido).
  */
 export default memo(function GhostLayer({ ghost, k }: { ghost: AiGhost; k: number }) {
   const color = ghost.mode === 'add' ? 'var(--accent)' : 'var(--err)'
@@ -69,7 +70,7 @@ export default memo(function GhostLayer({ ghost, k }: { ghost: AiGhost; k: numbe
         fill={color}
         style={{ fontFamily: 'var(--mono)' }}
       >
-        ✨ {ghost.label}
+        {ghost.label}
       </text>
     </g>
   )

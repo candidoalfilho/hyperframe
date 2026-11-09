@@ -529,18 +529,18 @@ export function ghostForToolCall(name: string, input: Record<string, unknown>): 
         kind: 'column',
         pts: [{ x: input.x, y: input.y }],
         mode: 'add',
-        label: 'novo pilar',
+        label: '✨ novo pilar',
       }
     }
     case 'adicionar_viga': {
       const pts = input.points as Vec2[] | undefined
       if (!pts || pts.length < 2) return null
-      return { kind: 'beam', pts, bw: (input.bw as number) ?? 0.2, mode: 'add', label: 'nova viga' }
+      return { kind: 'beam', pts, bw: (input.bw as number) ?? 0.2, mode: 'add', label: '✨ nova viga' }
     }
     case 'adicionar_laje': {
       const poly = input.polygon as Vec2[] | undefined
       if (!poly || poly.length < 3) return null
-      return { kind: 'slab', pts: poly, mode: 'add', label: 'nova laje' }
+      return { kind: 'slab', pts: poly, mode: 'add', label: '✨ nova laje' }
     }
     case 'atualizar_elemento':
     case 'remover_elemento': {
@@ -551,14 +551,14 @@ export function ghostForToolCall(name: string, input: Record<string, unknown>): 
       const verb = name === 'remover_elemento' ? 'remover' : 'alterar'
       if (kind === 'column') {
         const c = el as Column
-        return { kind, pts: [c.pos], mode: 'target', label: `${verb} ${c.name}` }
+        return { kind, pts: [c.pos], mode: 'target', label: `✨ ${verb} ${c.name}` }
       }
       if (kind === 'beam') {
         const b = el as Beam
-        return { kind, pts: b.path, bw: b.section.bw, mode: 'target', label: `${verb} ${b.name}` }
+        return { kind, pts: b.path, bw: b.section.bw, mode: 'target', label: `✨ ${verb} ${b.name}` }
       }
       const sl = el as Slab
-      return { kind, pts: sl.polygon, mode: 'target', label: `${verb} ${sl.name}` }
+      return { kind, pts: sl.polygon, mode: 'target', label: `✨ ${verb} ${sl.name}` }
     }
     default:
       return null
