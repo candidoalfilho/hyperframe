@@ -23,39 +23,9 @@ import {
 } from '../analysis/buildModel'
 import { columnHalfExtents } from '../model/columnSection'
 import { polygonArea } from '../geometry/geometry'
-
-/** laje retangular? (4 vértices, lados opostos iguais, ângulos retos) */
-function isRectangular(poly: Vec2[]): boolean {
-  if (poly.length !== 4) return false
-  const l = [0, 1, 2, 3].map((i) => dist(poly[i], poly[(i + 1) % 4]))
-  if (Math.abs(l[0] - l[2]) > 0.02 || Math.abs(l[1] - l[3]) > 0.02) return false
-  const dot =
-    (poly[1].x - poly[0].x) * (poly[2].x - poly[1].x) +
-    (poly[1].y - poly[0].y) * (poly[2].y - poly[1].y)
-  return Math.abs(dot) < 0.02 * l[0] * l[1]
-}
-
-/** borda contínua = outra laje divide ≥ 50% desta borda (colinear) */
-function edgeContinuous(a: Vec2, b: Vec2, others: Slab[]): boolean {
-  const len = dist(a, b)
-  if (len < 1e-6) return false
-  for (const other of others) {
-    const poly = other.polygon
-    for (let i = 0; i < poly.length; i++) {
-      const c = poly[i]
-      const d = poly[(i + 1) % poly.length]
-      // colinearidade: extremos do outro segmento à distância ≤ tol da reta ab
-      const p1 = projectOnSegment(c, a, b)
-      const p2 = projectOnSegment(d, a, b)
-      if (p1.d > 0.02 || p2.d > 0.02) continue
-      const t1 = Math.min(p1.t, p2.t)
-      const t2 = Math.max(p1.t, p2.t)
-      const overlap = (Math.min(1, t2) - Math.max(0, t1)) * len
-      if (overlap >= 0.5 * len) return true
-    }
-  }
-  return false
-}
+import { edgeContinuous, isRectangular } from '../geometry/slabEdges'
+import { designLatticeSlab } from '../nbr/nbr6118/latticeSlab'
+import { crackLimit } from '../nbr/nbr6118/cracking'
 
 /** pressões características da laje (peso próprio + revest. + regiões, furos descontados) */
 function slabPressures(
@@ -162,7 +132,7 @@ export function runSlabDesign(
           `Furo/abertura de ${(100 * ratio).toFixed(0)}% da área — o método de Marcus não considera aberturas; prever reforço nas bordas do furo (verificação manual).`,
         )
       }
-      const kind = slab.ribbed ? 'nervurada' : 'macica'
+      const kind = slab.ribbed?.lattice ? 'trelicada' : slab.ribbed ? 'nervurada' : 'macica'
 
       // ------------------------------ método da GRELHA (maciças, qualquer forma)
       if (!slab.ribbed && project.settings.slabMethod === 'grelha') {
@@ -206,7 +176,12 @@ export function runSlabDesign(
           ribbedDesign: null,
           gridDesign: null,
           status: 'atencao',
-          notes: [...notes, 'Laje não retangular — dimensionar manualmente ou use o método da GRELHA nas configurações.'],
+          notes: [
+            ...notes,
+            slab.ribbed?.lattice
+              ? 'Laje treliçada não retangular — divida em painéis retangulares p/ dimensionar as vigotas (as cargas já descem unidirecionais na análise).'
+              : 'Laje não retangular — dimensionar manualmente ou use o método da GRELHA nas configurações.',
+          ],
         })
         continue
       }
@@ -223,6 +198,73 @@ export function runSlabDesign(
       const gSelf = slab.ribbed
         ? ribbedSelfWeight(slab.thickness, slab.ribbed, project.settings.concreteUnitWeight)
         : slab.thickness * project.settings.concreteUnitWeight
+
+      // nervuras/vigotas unidirecionais: vencem o vão da faixa A (1ª borda)?
+      const e0 = { x: p[1].x - p[0].x, y: p[1].y - p[0].y }
+      const edge0AlongX = Math.abs(e0.x) >= Math.abs(e0.y)
+      const ribsAlongA =
+        slab.ribbed && slab.ribbed.dirs !== 'xy'
+          ? (slab.ribbed.dirs === 'x') === edge0AlongX
+          : undefined
+
+      if (slab.ribbed?.lattice) {
+        const lat = slab.ribbed.lattice
+        const alongA = ribsAlongA ?? true
+        // as vigotas apoiam nas bordas PERPENDICULARES ao vão
+        const endEdges: [number, number] = alongA ? [3, 1] : [0, 2]
+        const cont = !!lat.continuous
+        const openFactor =
+          1 - Math.min(openArea, polygonArea(slab.polygon)) / Math.max(polygonArea(slab.polygon), 1e-9)
+        const latticeDesign = designLatticeSlab({
+          lattice: lat,
+          topping: slab.ribbed.topping,
+          span: alongA ? spanA : spanB,
+          fixedStart: cont && edgeContinuous(p[endEdges[0]], p[(endEdges[0] + 1) % 4], others),
+          fixedEnd: cont && edgeContinuous(p[endEdges[1]], p[(endEdges[1] + 1) % 4], others),
+          g: (gSelf + slab.finishLoad) * openFactor + extras.g,
+          q: slab.liveLoad * openFactor + extras.q,
+          g0: gSelf,
+          psi1: project.settings.psiLive.psi1,
+          psi2: project.settings.psiLive.psi2,
+          fck: cp.fck,
+          fcd: cp.fcd,
+          fctm: cp.fctm,
+          fctd: cp.fctd,
+          ecs: cp.ecs,
+          fyd: fydV,
+          gammaS: project.settings.steel.gammaS,
+          es: project.settings.steel.Es,
+          wkLimit: crackLimit(project.settings.caa),
+          ribsAlongA: alongA,
+        })
+        let status: SlabDesignResultItem['status'] = 'ok'
+        if (!latticeDesign.ok) status = 'falha'
+        else if (
+          !latticeDesign.deflectionOk ||
+          !latticeDesign.crackOk ||
+          !latticeDesign.mesh.ok ||
+          latticeDesign.solidStrip ||
+          openWarn
+        )
+          status = 'atencao'
+        out.push({
+          slabId: slab.id,
+          name: slab.name,
+          levelName: level.name,
+          spanA,
+          spanB,
+          thickness: slab.thickness,
+          rectangular: true,
+          kind,
+          design: null,
+          ribbedDesign: null,
+          gridDesign: null,
+          latticeDesign,
+          status,
+          notes: [...notes, ...latticeDesign.notes],
+        })
+        continue
+      }
 
       if (slab.ribbed) {
         const ribbedDesign = designRibbedSlab({
@@ -242,6 +284,7 @@ export function runSlabDesign(
           ecs: cp.ecs,
           fywk: project.settings.steel.fyk,
           gammaC: project.settings.concreteUnitWeight,
+          ribsAlongA,
         })
         const geomOk = ribbedDesign.geometry.checks.every((c) => c.ok)
         let status: SlabDesignResultItem['status'] = 'ok'
@@ -309,7 +352,10 @@ export function runSlabDesign(
   }
   for (const item of out) {
     const defl =
-      item.design?.deflection ?? item.gridDesign?.deflection ?? item.ribbedDesign?.deflection
+      item.design?.deflection ??
+      item.gridDesign?.deflection ??
+      item.ribbedDesign?.deflection ??
+      item.latticeDesign?.deflection
     if (defl === undefined || defl <= 1e-9) continue
     // flecha armazenada inclui fluência (×(1+1,32)) — vibração usa a imediata
     const vib = checkFloorVibration({

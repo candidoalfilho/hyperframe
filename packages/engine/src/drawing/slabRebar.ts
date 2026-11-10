@@ -51,6 +51,17 @@ function dirSpecs(
       : { span: g.specY, support: g.specYSup, asSupport: g.asYSup }
   }
   const isA = Math.abs(u.x * info.uA.x + u.y * info.uA.y) >= 0.7
+  if (it.latticeDesign) {
+    // ∥ vigotas: armadura da vigota + negativa; ⟂: tela da capa (distribuição)
+    const ld = it.latticeDesign
+    return isA === ld.ribsAlongA
+      ? {
+          span: `${ld.bars} /vigota`,
+          support: ld.fixedEnds > 0 ? ld.supportSpec : ld.negConstructiveSpec,
+          asSupport: ld.fixedEnds > 0 ? ld.asSupportPerM : ld.asNegConstructivePerM,
+        }
+      : { span: `tela ${ld.mesh.name}`, support: '—', asSupport: 0 }
+  }
   if (it.ribbedDesign) {
     const d = isA ? it.ribbedDesign.dirA : it.ribbedDesign.dirB
     return { span: `${d.ribBars} /nerv.`, support: d.supportSpec, asSupport: d.asSupportPerM }

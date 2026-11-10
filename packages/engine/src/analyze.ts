@@ -1241,6 +1241,9 @@ function computeQuantities(
     if (sd.design) {
       steelSlabs +=
         (sd.design.dirA.asSpan + sd.design.dirB.asSpan) * area * 7850 * 1.4 * reps
+    } else if (sd.latticeDesign) {
+      // treliça + adicionais + tela (real); 1,15 cobre negativas e traspasses
+      steelSlabs += sd.latticeDesign.steelKgPerM2 * area * 1.15 * reps
     } else if (sd.ribbedDesign) {
       // As por metro = As por nervura / espaçamento em cada direção;
       // fator 1,4 cobre negativos, distribuição da capa e ancoragens

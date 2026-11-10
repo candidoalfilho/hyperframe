@@ -15,6 +15,7 @@ import {
 import { useStore, type ResultsTab } from '../store'
 import { exportFile } from '../io/fileio'
 import { cm, cm2, fmt, fmtCmDim, ROMAN } from './format'
+import LatticeSlabsResults from './LatticeResults'
 import { IconClose, IconPrint } from '../components/Icons'
 import PranchasPanel from '../drawings/PranchasPanel'
 
@@ -832,8 +833,9 @@ function LajesTab({ results }: { results: AnalysisResults }) {
   )
 
   const grelhas = items.filter((i) => i.gridDesign)
-  const macicas = items.filter((i) => i.kind !== 'nervurada' && !i.gridDesign)
+  const macicas = items.filter((i) => i.kind === 'macica' && !i.gridDesign)
   const nervuradas = items.filter((i) => i.kind === 'nervurada')
+  const trelicadas = items.filter((i) => i.kind === 'trelicada')
 
   if (items.length === 0) return <Empty text="Nenhuma laje no modelo." />
 
@@ -987,6 +989,8 @@ function LajesTab({ results }: { results: AnalysisResults }) {
           </Footnote>
         </>
       )}
+
+      <LatticeSlabsResults items={trelicadas} />
 
       {macicas.length > 0 && (
         <Footnote>

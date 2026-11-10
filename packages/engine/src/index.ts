@@ -200,6 +200,15 @@ export {
   type RibbedDirectionResult,
   type RibbedGeometryInfo,
 } from './nbr/nbr6118/ribbedSlab'
+export {
+  designLatticeSlab,
+  latticeDesignation,
+  latticeRibbed,
+  trussLinearMass,
+  type LatticeDesignOutput,
+} from './nbr/nbr6118/latticeSlab'
+export { latticeSection } from './nbr/nbr6118/ribbedSlab'
+export { oneWayTributaryAreas } from './geometry/slabEdges'
 export { checkPunching, type PunchingInput, type PunchingOutput } from './nbr/nbr6118/punching'
 export {
   designDeepBeam,

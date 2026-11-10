@@ -805,6 +805,36 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.55 — Lajes treliçadas integradas (issue #5, Eng-Carlos) — fase 1
+
+> Laje de vigota pré-fabricada com armação treliçada (NBR 14859) dimensionada
+> DENTRO do modelo: as reações das vigotas descem só nas vigas de apoio e seguem
+> para pilares e fundações na análise global.
+
+- [x] Tipo de laje **Treliçada** no inspetor: composições LT 12/16/20/25/30,
+  catálogo de armações (TR 8644 … TR 25858, editável = treliça especial), sapata
+  bv×hv, enchimento cerâmico/EPS/concreto (he, be, aba, peso), capa, tela soldada
+  (Q-61 … Q-283), armadura adicional automática ou informada, sentido das vigotas
+- [x] **Corte transversal em escala** atualizado ao vivo (H, hf, bw, intereixo,
+  treliça e adicionais) e vigotas desenhadas na planta no sentido do vão
+- [x] **Caminho de carga unidirecional** no modelo (`oneWayTributaryAreas`):
+  metade da carga em cada viga de apoio (5/8–3/8 com continuidade em um extremo),
+  zero nas vigas paralelas às vigotas — vale também p/ nervuradas unidirecionais
+  moldadas in loco, que antes descarregavam por quinhões a 45°
+- [x] Dimensionamento por vigota (`nbr6118/latticeSlab.ts`): flexão como viga T
+  com aço da treliça CA-60 + adicionais em área equivalente, cisalhamento §19.4.1
+  e com as diagonais (§19.4.2), negativos por continuidade (aviso de faixa
+  maciça) ou negativa construtiva, tela mínima, flecha com Branson + fluência e
+  contraflecha sugerida, abertura de fissuras wk na combinação frequente
+- [x] Resultados: tabela por vigota + **diagramas de M e V com as reações** por
+  metro de apoio; memorial PDF com a seção de treliçadas; prancha de lajes,
+  incêndio e quantitativo de aço cientes da tipologia
+- [x] Peso próprio real da seção (capa + alma + sapata + enchimento)
+- [x] 17 testes novos com âncoras à mão (540 no total)
+- [ ] Fase 2: balanço (bordo livre), vigotas justapostas, treliçada bidirecional,
+  alvenaria sobre a laje, verificação da fase de montagem (escoramento), prancha
+  de montagem com paginação/quantitativo de vigotas e lajotas
+
 ## v0.2.54 — Issue #4 (Eng-Carlos) + Copiloto composer v2
 
 > Primeira release guiada por feedback de engenheiro usuário (issue #4 no GitHub):

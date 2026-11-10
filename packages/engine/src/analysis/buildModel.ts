@@ -17,6 +17,7 @@ import {
   sub,
 } from '../geometry/geometry'
 import { clipPolygon, overlapArea } from '../geometry/clip'
+import { edgeContinuous, oneWayTributaryAreas } from '../geometry/slabEdges'
 import { computeWind } from '../nbr/nbr6123/wind'
 import { flankingSlabs, tSectionInertia } from './flange'
 import { columnHalfExtents } from '../model/columnSection'
@@ -686,8 +687,21 @@ export function buildAnalysisModel(project: Project): {
       levelG[li] += gArea * area
       levelQ[li] += qArea * area
 
-      const edgeShares = tributaryAreas(slab.polygon)
+      // nervurada unidirecional / treliçada: a carga desce só nas vigas onde as
+      // nervuras apoiam (com 5/8–3/8 quando um extremo tem continuidade)
+      const oneWayAxis = slab.ribbed && slab.ribbed.dirs !== 'xy' ? slab.ribbed.dirs : null
       const n = slab.polygon.length
+      let edgeShares: number[]
+      if (oneWayAxis) {
+        const considerContinuity = slab.ribbed!.lattice ? !!slab.ribbed!.lattice.continuous : true
+        const others = plan.slabs.filter((o) => o.id !== slab.id)
+        const fixed = slab.polygon.map(
+          (p, e) => considerContinuity && edgeContinuous(p, slab.polygon[(e + 1) % n], others),
+        )
+        edgeShares = oneWayTributaryAreas(slab.polygon, oneWayAxis, (e) => fixed[e])
+      } else {
+        edgeShares = tributaryAreas(slab.polygon)
+      }
       // 1º passe: identifica bordas apoiadas e acumula quinhões de bordas livres
       interface EdgeSupport {
         aTrib: number
@@ -734,7 +748,7 @@ export function buildAnalysisModel(project: Project): {
         }
       }
       // ---------------- método da GRELHA: reações reais por borda + pilares
-      if (useGrid) {
+      if (useGrid && !oneWayAxis) {
         // pilares que apoiam a laje direto (internos, de borda livre e de
         // canto — §19.5.2): todos precisam entrar na grelha como apoio
         const supportedEdgeIdx = supported.map((ed) => ed.edgeIndex)

@@ -31,13 +31,32 @@ export default memo(function SlabsLayer({ slabs, k, selectedId, hoveredId }: Pro
         const cy = -cen.y * k
         const sel = sl.id === selectedId
         const hov = sl.id === hoveredId && !sel
+        // unidirecional (treliçada/nervurada): linhas no sentido das vigotas
+        const oneWay = sl.ribbed && sl.ribbed.dirs !== 'xy' ? sl.ribbed.dirs : null
+        const step = oneWay ? Math.max(sl.ribbed!.spacing * k, 5) : 0
+        const fillId = oneWay ? `hf2d-joist-${sl.id}` : 'hf2d-hatch'
         return (
           <g key={sl.id}>
+            {oneWay && (
+              <defs>
+                <pattern id={fillId} width={step} height={step} patternUnits="userSpaceOnUse">
+                  <line
+                    x1={oneWay === 'x' ? 0 : step / 2}
+                    y1={oneWay === 'x' ? step / 2 : 0}
+                    x2={oneWay === 'x' ? step : step / 2}
+                    y2={oneWay === 'x' ? step / 2 : step}
+                    stroke={sl.ribbed!.lattice ? 'var(--accent)' : '#5a6a8a'}
+                    strokeWidth={1}
+                    opacity={sl.ribbed!.lattice ? 0.45 : 0.6}
+                  />
+                </pattern>
+              </defs>
+            )}
             {hov && <polygon points={pts} fill="none" stroke="var(--blue)" strokeWidth={5} opacity={0.3} />}
             <polygon points={pts} fill={sel ? 'rgba(77,163,255,0.14)' : 'rgba(90,110,150,0.10)'} />
             <polygon
               points={pts}
-              fill="url(#hf2d-hatch)"
+              fill={`url(#${fillId})`}
               stroke={sel ? 'var(--sel)' : hov ? 'var(--blue)' : '#3a4050'}
               strokeWidth={sel ? 2.5 : 1}
             />
@@ -47,8 +66,13 @@ export default memo(function SlabsLayer({ slabs, k, selectedId, hoveredId }: Pro
                   {sl.name}
                 </tspan>
                 <tspan x={cx} dy="1.25em">
-                  h={cm(sl.thickness)}
+                  {sl.ribbed?.lattice ? (sl.ribbed.label ?? `h=${cm(sl.thickness)}`) : `h=${cm(sl.thickness)}`}
                 </tspan>
+                {oneWay && (
+                  <tspan x={cx} dy="1.25em" fill={sl.ribbed!.lattice ? 'var(--accent)' : undefined}>
+                    {oneWay === 'x' ? '⟷' : '↕'} {sl.ribbed!.lattice ? 'vigotas' : 'nervuras'}
+                  </tspan>
+                )}
               </text>
             )}
           </g>

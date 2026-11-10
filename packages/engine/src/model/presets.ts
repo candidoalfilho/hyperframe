@@ -199,6 +199,87 @@ export const RIBBED_FILLER_PRESETS = [
   { label: 'Bloco de concreto celular', weight: 5.5 },
 ]
 
+// ---------------------------------------------------------------------------
+// Lajes treliçadas (NBR 14859) — catálogo de armações, telas e composições
+// ---------------------------------------------------------------------------
+
+/**
+ * Armações treliçadas eletrossoldadas usuais (NBR 14859-3), aço CA-60.
+ * Designação TR HHSDI: altura (cm) + φ banzo superior + φ diagonal + φ banzo
+ * inferior (mm inteiros; "4" = 4,2 mm). Passo das diagonais: 20 cm.
+ * Valores de catálogo comercial — confira com o fabricante; todos os campos
+ * são editáveis na laje (treliça especial).
+ */
+export const LATTICE_TRUSSES = [
+  { name: 'TR 8644', h: 0.08, top: 0.006, diag: 0.0042, bottom: 0.0042 },
+  { name: 'TR 8645', h: 0.08, top: 0.006, diag: 0.0042, bottom: 0.005 },
+  { name: 'TR 12645', h: 0.12, top: 0.006, diag: 0.0042, bottom: 0.005 },
+  { name: 'TR 12646', h: 0.12, top: 0.006, diag: 0.0042, bottom: 0.006 },
+  { name: 'TR 16745', h: 0.16, top: 0.007, diag: 0.0042, bottom: 0.005 },
+  { name: 'TR 16746', h: 0.16, top: 0.007, diag: 0.0042, bottom: 0.006 },
+  { name: 'TR 20745', h: 0.2, top: 0.007, diag: 0.0042, bottom: 0.005 },
+  { name: 'TR 20756', h: 0.2, top: 0.007, diag: 0.005, bottom: 0.006 },
+  { name: 'TR 25856', h: 0.25, top: 0.008, diag: 0.005, bottom: 0.006 },
+  { name: 'TR 25858', h: 0.25, top: 0.008, diag: 0.005, bottom: 0.008 },
+] as const
+
+/** passo longitudinal das diagonais da treliça, m */
+export const LATTICE_DIAGONAL_PITCH = 0.2
+
+/** aço das treliças e telas: CA-60 (fyk em kPa) */
+export const CA60_FYK = 600_000
+
+/** telas soldadas quadradas (CA-60): área por metro em cada direção, m²/m */
+export const WELDED_MESHES = [
+  { name: 'Q-61', as: 0.61e-4 },
+  { name: 'Q-75', as: 0.75e-4 },
+  { name: 'Q-92', as: 0.92e-4 },
+  { name: 'Q-113', as: 1.13e-4 },
+  { name: 'Q-138', as: 1.38e-4 },
+  { name: 'Q-159', as: 1.59e-4 },
+  { name: 'Q-196', as: 1.96e-4 },
+  { name: 'Q-246', as: 2.46e-4 },
+  { name: 'Q-283', as: 2.83e-4 },
+] as const
+
+/** peso específico APARENTE do enchimento, kN/m³ */
+export const LATTICE_FILLER_WEIGHT = {
+  ceramico: 6.0, // lajota cerâmica vazada (~600 kgf/m³)
+  eps: 0.25,
+  concreto: 13.0, // bloco vazado de concreto
+} as const
+
+export const LATTICE_FILLER_LABEL = {
+  ceramico: 'Cerâmico (lajota)',
+  eps: 'EPS (isopor)',
+  concreto: 'Bloco de concreto',
+} as const
+
+/** composições usuais: LT H (he + capa) com a treliça típica */
+export const LATTICE_COMPOSITIONS = [
+  { label: 'LT 12 (8+4)', fillerHeight: 0.08, topping: 0.04, truss: 'TR 8644' },
+  { label: 'LT 16 (12+4)', fillerHeight: 0.12, topping: 0.04, truss: 'TR 12645' },
+  { label: 'LT 20 (16+4)', fillerHeight: 0.16, topping: 0.04, truss: 'TR 16745' },
+  { label: 'LT 25 (20+5)', fillerHeight: 0.2, topping: 0.05, truss: 'TR 20745' },
+  { label: 'LT 30 (25+5)', fillerHeight: 0.25, topping: 0.05, truss: 'TR 25856' },
+] as const
+
+/** vigota padrão: LT 16 (12+4), TR 12645, lajota cerâmica 30 cm, tela Q-61 */
+export const LATTICE_DEFAULTS = {
+  truss: 'TR 12645',
+  trussHeight: 0.12,
+  phiTop: 0.006,
+  phiDiag: 0.0042,
+  phiBottom: 0.005,
+  baseWidth: 0.12,
+  baseHeight: 0.03,
+  filler: 'ceramico' as const,
+  fillerHeight: 0.12,
+  fillerWidth: 0.3,
+  fillerLedge: 0.015,
+  mesh: 'Q-61',
+}
+
 export const STAIR_DEFAULTS = {
   waist: 0.12, // espessura da laje do lance, m
   riser: 0.175, // espelho, m

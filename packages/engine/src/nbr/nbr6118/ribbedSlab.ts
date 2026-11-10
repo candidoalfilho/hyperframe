@@ -1,4 +1,4 @@
-import type { RibbedParams } from '../../model/types'
+import type { LatticeParams, RibbedParams } from '../../model/types'
 import { designBeamFlexure } from './beamDesign'
 import { pickSlabBars, type EdgeCondition, type SlabStripInput } from './slabDesign'
 import { BAR_DIAMETERS } from '../../model/presets'
@@ -40,6 +40,39 @@ export interface RibbedGeometryInfo {
   checks: RibbedCheck[]
 }
 
+/**
+ * Seção transversal de UMA nervura de laje treliçada (por intereixo):
+ * capa I×hf + alma bw×he + abas da sapata (bv−bw)×hv sob o enchimento.
+ * bw = bv − 2·ah · I = be + bv · H = he + hf.
+ */
+export interface LatticeSection {
+  /** altura total, m */
+  h: number
+  /** largura da alma (nervura), m */
+  bw: number
+  /** intereixo, m */
+  spacing: number
+  /** área de concreto por nervura, m² */
+  concreteArea: number
+  /** área de enchimento por nervura, m² */
+  fillerArea: number
+}
+
+export function latticeSection(l: LatticeParams, topping: number): LatticeSection {
+  const bw = Math.max(l.baseWidth - 2 * l.fillerLedge, 0.01)
+  const spacing = l.fillerWidth + l.baseWidth
+  const h = l.fillerHeight + topping
+  const hv = Math.min(l.baseHeight, l.fillerHeight)
+  const ribArea = bw * l.fillerHeight + (l.baseWidth - bw) * hv
+  return {
+    h,
+    bw,
+    spacing,
+    concreteArea: spacing * topping + ribArea,
+    fillerArea: Math.max(spacing * l.fillerHeight - ribArea, 0),
+  }
+}
+
 /** fração da área em planta ocupada pelas nervuras */
 export function ribFraction(r: RibbedParams): number {
   const s = Math.max(r.spacing, r.ribWidth + 0.01)
@@ -68,11 +101,15 @@ export function ribbedGeometry(h: number, r: RibbedParams): RibbedGeometryInfo {
       ok: h > r.topping + 0.02 && r.spacing > r.ribWidth,
     },
   ]
+  // treliçada: volume real da seção (inclui as abas da sapata da vigota)
+  const lat = r.lattice ? latticeSection(r.lattice, r.topping) : null
   return {
     l0,
     topping: r.topping,
     ribFraction: f,
-    concreteThickness: r.topping + (h - r.topping) * f,
+    concreteThickness: lat
+      ? lat.concreteArea / lat.spacing
+      : r.topping + (h - r.topping) * f,
     shearAsSlab: l0 <= 0.65 + 1e-9,
     asTBeams: l0 > 1.1 + 1e-9,
     checks,
@@ -81,6 +118,10 @@ export function ribbedGeometry(h: number, r: RibbedParams): RibbedGeometryInfo {
 
 /** peso próprio por m² (concreto + enchimento), kN/m² */
 export function ribbedSelfWeight(h: number, r: RibbedParams, gammaC: number): number {
+  if (r.lattice) {
+    const sec = latticeSection(r.lattice, r.topping)
+    return (sec.concreteArea * gammaC + sec.fillerArea * r.fillerWeight) / sec.spacing
+  }
   const geo = ribbedGeometry(h, r)
   const fillerVol = (h - r.topping) * (1 - geo.ribFraction)
   return geo.concreteThickness * gammaC + fillerVol * r.fillerWeight
@@ -111,6 +152,11 @@ export interface RibbedDesignInput {
   fywk: number
   /** peso específico do concreto, kN/m³ (g0 informativo) */
   gammaC: number
+  /**
+   * unidirecional: as nervuras vencem o vão da faixa A? (o chamador resolve
+   * pela geometria real da laje; ausente = assume faixa A ∥ X global)
+   */
+  ribsAlongA?: boolean
 }
 
 export interface RibbedDirectionResult {
@@ -216,7 +262,7 @@ export function designRibbedSlab(inp: RibbedDesignInput): RibbedDesignOutput {
   if (oneWay) {
     // nervuras 'x' correm ao longo de X ⇒ vencem o vão na direção X.
     // A faixa da direção A tem vão la; escolhe a direção das nervuras/menor vão.
-    const aCarries = oneWayGeom ? r.dirs === 'x' : la <= lb
+    const aCarries = oneWayGeom ? (inp.ribsAlongA ?? r.dirs === 'x') : la <= lb
     wa = aCarries ? wk : 0
     wb = aCarries ? 0 : wk
     notes.push(

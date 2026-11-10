@@ -601,17 +601,37 @@ export function buildMemorialPdf(
       { t: 'Status', w: 11, align: 'c' },
     ],
     results.slabDesign.map((s) => [
-      s.kind === 'nervurada' ? `${s.name} (nerv.)` : s.name,
+      s.kind === 'nervurada'
+        ? `${s.name} (nerv.)`
+        : s.kind === 'trelicada'
+          ? `${s.name} (trel.)`
+          : s.name,
       s.levelName,
       cmDim(s.thickness),
       s.rectangular ? `${fmt(s.spanA, 2)}×${fmt(s.spanB, 2)}` : 'não ret.',
       s.design?.dirA.spanSpec ??
         s.gridDesign?.specX ??
-        (s.ribbedDesign ? `${s.ribbedDesign.dirA.ribBars}/nerv.` : 'manual'),
+        (s.latticeDesign
+          ? s.latticeDesign.ribsAlongA
+            ? `${s.latticeDesign.bars}/vig.`
+            : `tela ${s.latticeDesign.mesh.name}`
+          : s.ribbedDesign
+            ? `${s.ribbedDesign.dirA.ribBars}/nerv.`
+            : 'manual'),
       s.design?.dirB.spanSpec ??
         s.gridDesign?.specY ??
-        (s.ribbedDesign ? `${s.ribbedDesign.dirB.ribBars}/nerv.` : '—'),
-      s.design
+        (s.latticeDesign
+          ? s.latticeDesign.ribsAlongA
+            ? `tela ${s.latticeDesign.mesh.name}`
+            : `${s.latticeDesign.bars}/vig.`
+          : s.ribbedDesign
+            ? `${s.ribbedDesign.dirB.ribBars}/nerv.`
+            : '—'),
+      s.latticeDesign
+        ? s.latticeDesign.fixedEnds > 0
+          ? s.latticeDesign.supportSpec
+          : `${s.latticeDesign.negConstructiveSpec} (constr.)`
+        : s.design
         ? [
             s.design.dirA.mSupportD > 0 ? `A: ${s.design.dirA.supportSpec}` : '',
             s.design.dirB.mSupportD > 0 ? `B: ${s.design.dirB.supportSpec}` : '',
@@ -640,11 +660,90 @@ export function buildMemorialPdf(
             ? s.ribbedDesign.deflectionOk
               ? 'OK'
               : 'excede'
-            : '—',
+            : s.latticeDesign
+              ? s.latticeDesign.deflectionOk
+                ? 'OK'
+                : s.latticeDesign.counterCamber > 0
+                  ? 'contrafl.'
+                  : 'excede'
+              : '—',
       STATUS_TXT[s.status],
     ]),
     7.0,
   )
+  const lattices = results.slabDesign.filter((s) => s.latticeDesign)
+  if (lattices.length > 0) {
+    L.h2('Lajes treliçadas — vigotas pré-fabricadas (NBR 14859 / NBR 6118)')
+    L.table(
+      [
+        { t: 'Laje', w: 12 },
+        { t: 'Composição', w: 19 },
+        { t: 'Treliça', w: 14 },
+        { t: 'Vão (m)', w: 10, align: 'r' },
+        { t: 'g + q (kN/m²)', w: 17, align: 'c' },
+        { t: 'Md+ /vig.', w: 13, align: 'r' },
+        { t: 'As nec/ef (cm²)', w: 18, align: 'c' },
+        { t: 'Armadura por vigota', w: 28 },
+        { t: 'Vd / VRd (kN)', w: 17, align: 'c' },
+        { t: 'Status', w: 10, align: 'c' },
+      ],
+      lattices.map((s) => {
+        const d = s.latticeDesign!
+        return [
+          s.name,
+          d.designation,
+          d.truss,
+          fmt(d.span, 2),
+          `${fmt(d.g, 2)} + ${fmt(d.q, 2)}`,
+          fmt(d.mdSpan, 2),
+          `${cm2(d.asReq)} / ${cm2(d.asProvided)}`,
+          d.bars,
+          `${fmt(d.vd, 1)} / ${fmt(d.usesDiagonals ? d.vrd3 : d.vrd1, 1)}`,
+          STATUS_TXT[s.status],
+        ]
+      }),
+      7.0,
+    )
+    L.table(
+      [
+        { t: 'Laje', w: 12 },
+        { t: 'Intereixo·bw·d (cm)', w: 24, align: 'c' },
+        { t: 'Tela da capa', w: 14 },
+        { t: 'Negativa (apoios)', w: 30 },
+        { t: 'Flecha / lim. (cm)', w: 22, align: 'c' },
+        { t: 'Contrafl. (cm)', w: 15, align: 'r' },
+        { t: 'wk (mm)', w: 12, align: 'r' },
+        { t: 'Reações g · q (kN/m)', w: 32, align: 'c' },
+      ],
+      lattices.map((s) => {
+        const d = s.latticeDesign!
+        return [
+          s.name,
+          `${cmDim(d.spacing)} · ${cmDim(d.bw)} · ${fmt(d.d * 100, 1)}`,
+          d.mesh.name,
+          d.fixedEnds > 0 ? d.supportSpec : `${d.negConstructiveSpec} (constr.)`,
+          `${fmt(d.deflection * 100, 2)} / ${fmt(d.deflectionLimit * 100, 2)}`,
+          d.counterCamber > 0 ? fmt(d.counterCamber * 100, 1) : '—',
+          fmt(d.wk * 1000, 2),
+          `${fmt(d.reactions.g[0], 1)}/${fmt(d.reactions.g[1], 1)} · ${fmt(d.reactions.q[0], 1)}/${fmt(d.reactions.q[1], 1)}`,
+        ]
+      }),
+      7.0,
+    )
+    L.para(
+      'Treliçadas: cada vigota é dimensionada como viga T (mesa = intereixo × capa) vencendo o vão ' +
+        'entre as vigas de apoio; armadura positiva = banzo inferior da treliça (CA-60) + barras ' +
+        'adicionais na sapata, em área equivalente CA-60. Cisalhamento por §19.4.1 (VRd1) e, se ' +
+        'necessário, com as diagonais da treliça (§19.4.2). Flecha total com Branson + fluência ' +
+        '(αf = 1,32) e wk na combinação frequente (§17.3.3.2). As reações características por ' +
+        'metro de apoio (inicial/final) são as cargas aplicadas às vigas na análise global — ' +
+        'bordas paralelas às vigotas não recebem carga da laje. Fase de montagem (escoramento) ' +
+        'conforme o fabricante.',
+      7.8,
+      'I',
+      0.3,
+    )
+  }
   if (results.slabDesign.some((s) => s.kind === 'nervurada')) {
     L.para(
       'Nervuradas (§13.2.4.2): peso próprio real (capa + nervuras + enchimento); momento por ' +

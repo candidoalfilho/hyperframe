@@ -153,6 +153,39 @@ export interface Beam {
  * Laje nervurada moldada in loco (NBR 6118 §13.2.4.2). A espessura da laje
  * (`Slab.thickness`) é a altura TOTAL (capa + nervura).
  */
+/**
+ * Vigota treliçada + enchimento de laje pré-fabricada (NBR 14859). Quando
+ * presente em `RibbedParams.lattice`, a laje é TRELIÇADA unidirecional e os
+ * campos geométricos da nervura são derivados daqui (ver `latticeRibbed`):
+ * bw = bv − 2·ah · intereixo = be + bv · H = he + capa.
+ */
+export interface LatticeParams {
+  /** designação da armação treliçada (NBR 14859-3), ex.: 'TR 12645' */
+  truss: string
+  /** altura da treliça, m */
+  trussHeight: number
+  /** φ do banzo superior (1 fio), das diagonais (2 sinusoides) e do banzo inferior (2 fios), m */
+  phiTop: number
+  phiDiag: number
+  phiBottom: number
+  /** sapata de concreto da vigota: largura bv × altura hv, m */
+  baseWidth: number
+  baseHeight: number
+  /** elemento de enchimento (NBR 14859-2) */
+  filler: 'ceramico' | 'eps' | 'concreto'
+  /** altura he do enchimento e largura livre be entre sapatas, m */
+  fillerHeight: number
+  fillerWidth: number
+  /** apoio (aba) do enchimento sobre a sapata ah, m */
+  fillerLedge: number
+  /** tela soldada da capa (armadura de distribuição), ex.: 'Q-61' */
+  mesh: string
+  /** armadura adicional positiva por vigota; ausente = escolha automática */
+  extraBars?: { n: number; phi: number }
+  /** continuidade sobre os apoios com laje vizinha (ausente/false = biapoiada) */
+  continuous?: boolean
+}
+
 export interface RibbedParams {
   /** direções das nervuras: bidirecional ou unidirecional */
   dirs: 'xy' | 'x' | 'y'
@@ -165,6 +198,8 @@ export interface RibbedParams {
   /** peso específico do enchimento entre nervuras, kN/m³ (0 = forma removível/vazio) */
   fillerWeight: number
   label?: string
+  /** laje TRELIÇADA (vigota pré-fabricada) — ausente = nervurada moldada in loco */
+  lattice?: LatticeParams
 }
 
 export interface Slab {

@@ -4,8 +4,10 @@ import {
   FINISH_LOAD_PRESETS,
   LIVE_LOAD_PRESETS,
   REGION_PRESETS,
+  LATTICE_DEFAULTS,
   RIBBED_DEFAULTS,
   RIBBED_FILLER_PRESETS,
+  latticeRibbed,
   STAIR_DEFAULTS,
   TANK_DEFAULTS,
   WALL_PRESETS,
@@ -35,6 +37,7 @@ import { cm, fmt, ROMAN } from './format'
 import { IconTrash } from '../components/Icons'
 import PlansManager from './PlansManager'
 import { MemberForcesSection } from './MemberDiagrams'
+import LatticeSlabFields from './LatticeSlabFields'
 
 // ---------------------------------------------------------------------------
 // blocos reutilizáveis
@@ -1513,13 +1516,21 @@ function SlabInspector({ slab }: { slab: Slab }) {
       </div>
 
       <div className="field">
-        <label className="label">Espessura (cm)</label>
+        <label className="label">
+          {slab.ribbed?.lattice ? 'Altura total (cm) — enchimento + capa' : 'Espessura (cm)'}
+        </label>
         <NumberField
           value={cm(slab.thickness)}
           digits={1}
           min={5}
           max={60}
           style={{ width: '100%' }}
+          disabled={!!slab.ribbed?.lattice}
+          title={
+            slab.ribbed?.lattice
+              ? 'Derivada da composição da laje treliçada (edite enchimento/capa abaixo)'
+              : undefined
+          }
           onCommit={(v) => updateSlab(slab.id, { thickness: v / 100 })}
         />
       </div>
@@ -1595,8 +1606,18 @@ function SlabInspector({ slab }: { slab: Slab }) {
         <select
           className="select"
           style={{ width: '100%' }}
-          value={slab.ribbed ? 'nervurada' : 'macica'}
-          onChange={(e) =>
+          value={slab.ribbed?.lattice ? 'trelicada' : slab.ribbed ? 'nervurada' : 'macica'}
+          onChange={(e) => {
+            if (e.target.value === 'trelicada') {
+              // vigotas vencem o MENOR vão da laje por padrão
+              const xs = slab.polygon.map((p) => p.x)
+              const ys = slab.polygon.map((p) => p.y)
+              const dx = Math.max(...xs) - Math.min(...xs)
+              const dy = Math.max(...ys) - Math.min(...ys)
+              const r = latticeRibbed({ ...LATTICE_DEFAULTS }, 0.04, dx <= dy ? 'x' : 'y')
+              updateSlab(slab.id, { ribbed: r.ribbed, thickness: r.thickness })
+              return
+            }
             updateSlab(slab.id, {
               ribbed:
                 e.target.value === 'nervurada'
@@ -1604,14 +1625,17 @@ function SlabInspector({ slab }: { slab: Slab }) {
                   : undefined,
               thickness: e.target.value === 'nervurada' ? Math.max(slab.thickness, 0.2) : slab.thickness,
             })
-          }
+          }}
         >
           <option value="macica">Maciça</option>
           <option value="nervurada">Nervurada (moldada in loco)</option>
+          <option value="trelicada">Treliçada (vigota pré-fabricada)</option>
         </select>
       </div>
 
-      {slab.ribbed && (
+      {slab.ribbed?.lattice && <LatticeSlabFields slab={slab} />}
+
+      {slab.ribbed && !slab.ribbed.lattice && (
         <>
           <div className="field">
             <label className="label">Nervuras: direções</label>

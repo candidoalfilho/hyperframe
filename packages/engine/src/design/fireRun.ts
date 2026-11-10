@@ -71,12 +71,17 @@ export function runFireCheck(
       sd.rectangular && Math.min(sd.spanA, sd.spanB) > 0.01
         ? Math.max(sd.spanA, sd.spanB) / Math.min(sd.spanA, sd.spanB)
         : 2.5 // não retangular: trata como armada em uma direção (conservador)
-    if (sd.kind === 'nervurada' && sd.ribbedDesign) {
+    const tMean =
+      sd.kind === 'nervurada' && sd.ribbedDesign
+        ? sd.ribbedDesign.geometry.concreteThickness
+        : sd.kind === 'trelicada' && sd.latticeDesign
+          ? sd.latticeDesign.concreteThickness
+          : null
+    if (tMean !== null) {
       // simplificação conservadora: verifica o isolamento com a espessura
       // MÉDIA de concreto (capa + nervuras rateadas) como laje unidirecional
-      const rd = sd.ribbedDesign
       const rSlab = checkSlabFire(
-        Math.max(rd.geometry.concreteThickness * 1000, 40),
+        Math.max(tMean * 1000, 40),
         c1,
         trrf,
         lambda,
@@ -85,14 +90,14 @@ export function runFireCheck(
       items.push({
         element: `Laje ${sd.name} (${sd.levelName}) — capa`,
         kind: 'laje',
-        dim: Math.round(rd.geometry.concreteThickness * 1000),
+        dim: Math.round(tMean * 1000),
         dimRequired: rSlab.hMin,
         c1,
         c1Required: rSlab.c1Required,
         ok: rSlab.ok,
         notes: [
           ...rSlab.notes,
-          'Nervurada: espessura média de concreto usada p/ isolamento (conservador vs tab. 10/11 da NBR 15200).',
+          `${sd.kind === 'trelicada' ? 'Treliçada' : 'Nervurada'}: espessura média de concreto usada p/ isolamento (conservador vs tab. 10/11 da NBR 15200).`,
         ],
       })
       continue
