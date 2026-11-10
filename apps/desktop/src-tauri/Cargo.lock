@@ -1448,7 +1448,7 @@ dependencies = [
 
 [[package]]
 name = "hyperframe"
-version = "0.2.54"
+version = "0.2.55"
 dependencies = [
  "serde",
  "serde_json",
