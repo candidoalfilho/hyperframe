@@ -680,6 +680,9 @@ export default function Editor2D() {
     if (tool === 'beam' || tool === 'region' || tool === 'mwall' || tool === 'measure') finishChain()
   }
 
+  // seleção múltipla efetiva (ignora um `multi` antigo que não contém a seleção)
+  const groupRefs = useMemo(() => selectedRefs({ selection, multi }), [selection, multi])
+
   // ---- ids de seleção/hover por camada (props primitivas p/ React.memo) ----
   const selColumn = selection?.kind === 'column' ? selection.id : null
   const selBeam = selection?.kind === 'beam' ? selection.id : null
@@ -832,8 +835,8 @@ export default function Editor2D() {
             <GhostLayer key={i} ghost={g} k={vp.k} />
           ))}
           <SelectionOverlay
-            refs={multi.length > 1 && selection ? multi : []}
-            single={multi.length > 1 ? null : selection}
+            refs={groupRefs.length > 1 ? groupRefs : []}
+            single={groupRefs.length > 1 ? null : selection}
             columns={columns}
             plan={plan}
             k={vp.k}
