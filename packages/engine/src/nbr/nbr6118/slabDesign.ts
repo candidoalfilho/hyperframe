@@ -74,9 +74,12 @@ const SPAN_M: Record<EdgeCondition, number> = { 0: 8, 1: 128 / 9, 2: 24 }
 const SUPPORT_M: Record<EdgeCondition, number> = { 0: Infinity, 1: 8, 2: 12 }
 
 /** escolha de malha: menor φ com espaçamento dentro de [7,5 cm; min(2h, 20 cm)] */
-export function pickSlabBars(as: number, thickness: number): string {
+export function pickSlabBarsDetail(
+  as: number,
+  thickness: number,
+): { spec: string; phi: number; spacing: number } | null {
   const sMax = Math.min(2 * thickness, 0.2)
-  if (as < 1e-9) return '—'
+  if (as < 1e-9) return null
   for (const phi of SLAB_BAR_DIAMETERS) {
     const aPhi = (Math.PI * phi * phi) / 4
     let s = aPhi / as
@@ -84,13 +87,18 @@ export function pickSlabBars(as: number, thickness: number): string {
     if (s >= 0.075) {
       const mm = Math.round(phi * 10000) / 10
       const scm = Math.floor(s * 100)
-      return `φ${mm % 1 === 0 ? mm.toFixed(0) : mm} c/ ${scm}`
+      return { spec: `φ${mm % 1 === 0 ? mm.toFixed(0) : mm} c/ ${scm}`, phi, spacing: scm / 100 }
     }
   }
   const phi = SLAB_BAR_DIAMETERS[SLAB_BAR_DIAMETERS.length - 1]
   const aPhi = (Math.PI * phi * phi) / 4
   const s = Math.max(0.05, aPhi / as)
-  return `φ12.5 c/ ${Math.floor(s * 100)} (adensar/aumentar h)`
+  const scm = Math.floor(s * 100)
+  return { spec: `φ12.5 c/ ${scm} (adensar/aumentar h)`, phi, spacing: scm / 100 }
+}
+
+export function pickSlabBars(as: number, thickness: number): string {
+  return pickSlabBarsDetail(as, thickness)?.spec ?? '—'
 }
 
 /** ρmin de tab. 17.3 (mesma do beamDesign) aplicada a lajes */

@@ -205,19 +205,32 @@ export function designBeamTorsion(input: BeamTorsionInput): BeamTorsionOutput {
 // ---------------------------------------------------------------------------
 
 /**
- * Vigas com h > 60 cm exigem armadura de pele de 0,10%·Ac,alma POR FACE,
- * em barras de alta aderência com espaçamento ≤ min(20 cm, d/3).
+ * Vigas com h > 60 cm exigem armadura de pele de 0,10%·Ac,alma POR FACE, em
+ * barras de alta aderência com espaçamento ≤ 20 cm (e ≤ d/3, §18.3.5), não
+ * sendo necessário mais que 5 cm²/m por face (§17.3.5.2.3). As barras são
+ * distribuídas na altura da alma entre as armaduras principais.
  */
 export function skinReinforcement(
   bw: number,
   h: number,
-): { required: boolean; asPerFace: number; spec: string } {
-  if (h <= 0.6) return { required: false, asPerFace: 0, spec: '—' }
-  const asPerFace = 0.001 * bw * h
+): {
+  required: boolean
+  asPerFace: number
+  spec: string
+  /** barras por face, bitola (m) e espaçamento vertical entre elas (m) */
+  n: number
+  phi: number
+  spacing: number
+} {
+  if (h <= 0.6) return { required: false, asPerFace: 0, spec: '—', n: 0, phi: 0, spacing: 0 }
+  const asPerFace = Math.min(0.001 * bw * h, 5e-4 * h)
   const phi = 0.008
   const aPhi = (Math.PI * phi * phi) / 4
-  const n = Math.max(2, Math.ceil(asPerFace / aPhi))
-  return { required: true, asPerFace, spec: `${n} φ 8 por face` }
+  // altura disponível entre as camadas principais (≈ 5 cm de cada borda)
+  const free = h - 0.1
+  const sMax = Math.min(0.2, (0.9 * h) / 3)
+  const n = Math.max(2, Math.ceil(asPerFace / aPhi - 1e-9), Math.ceil(free / sMax - 1e-9) - 1)
+  return { required: true, asPerFace, spec: `${n} φ 8 por face`, n, phi, spacing: free / (n + 1) }
 }
 
 // ---------------------------------------------------------------------------

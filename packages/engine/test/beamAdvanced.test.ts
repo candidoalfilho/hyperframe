@@ -73,6 +73,19 @@ describe('skinReinforcement (§17.3.5.2.3)', () => {
     expect(r.required).toBe(true)
     expect(relErr(r.asPerFace, 2.0e-4)).toBeLessThan(1e-9)
     expect(r.spec).toBe('4 φ 8 por face')
+    // 4 barras na altura livre de 70 cm → 5 espaços de 14 cm (≤ 20 cm)
+    expect(r.n).toBe(4)
+    expect(r.spacing).toBeCloseTo(0.14, 9)
+  })
+  it('espaçamento ≤ 20 cm governa em alma estreita e alta', () => {
+    // 12×120: 0,10%·12·120 = 1,44 cm² → 3 φ8 bastariam, mas 110/4 = 27,5 cm > 20
+    const r = skinReinforcement(0.12, 1.2)
+    expect(r.n).toBe(5)
+    expect(r.spacing).toBeLessThanOrEqual(0.2 + 1e-9)
+  })
+  it('teto de 5 cm²/m por face em alma larga', () => {
+    // 80×100: 0,10%·Ac = 8 cm² > 5 cm²/m · 1,0 m = 5 cm²
+    expect(skinReinforcement(0.8, 1.0).asPerFace).toBeCloseTo(5e-4, 12)
   })
 })
 

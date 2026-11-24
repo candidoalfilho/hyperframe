@@ -118,11 +118,42 @@ describe('buildMemorialPdf (memorial completo)', () => {
   })
 
   it('tabela de vigas traz as barras das negativas (bitola × quantidade) por apoio', () => {
-    expect(pdf).toContain('Barras- e/d') // cabeçalho (− transliterado p/ hífen)
+    // apoio esquerdo e direito em colunas próprias (− transliterado p/ hífen)
+    expect(pdf).toContain('Barras- esq')
+    expect(pdf).toContain('Barras- dir')
+    expect(pdf).toContain('Md- esq')
     const comNeg = results.beamDesign.find((b) => b.negLeft)
     expect(comNeg).toBeDefined()
     // spec tipo "3Ø10" (φ transliterado p/ Ø) presente no PDF
     expect(comNeg!.negLeft!.bars.length).toBeGreaterThan(0)
     expect(pdf).toContain(comNeg!.negLeft!.bars.replace('φ', '\\330'))
+  })
+})
+
+describe('memorial — armadura de pele e memória da carga de alvenaria (issue #6)', () => {
+  it('lista a armadura de pele das vigas com h > 60 cm e a composição da parede', () => {
+    const project = createSampleProject()
+    const plan = project.plans[0]
+    plan.beams[0].section = { bw: 0.2, h: 0.8 }
+    plan.wallLoads[0] = {
+      ...plan.wallLoads[0],
+      calc: {
+        height: 2.6,
+        thickness: 0.14,
+        block: 'Bloco de concreto vazado',
+        unitWeight: 10,
+        coatingThickness: 0.02,
+        coatingFaces: 2,
+        coatingUnitWeight: 19,
+        openingsArea: 0,
+      },
+    }
+    const out = toStr(
+      buildMemorialPdf(project, analyze(project), { generatedAt: '24/11/2026 10:00' }),
+    )
+    expect(out).toContain('Armadura de pele \\(') // seção própria
+    expect(out).toContain('Espa\\347. vertical') // "Espaç. vertical"
+    expect(out).toContain('Bloco de concreto vazado')
+    expect(out).toContain('kN/m\\262 parede') // "kN/m² parede"
   })
 })

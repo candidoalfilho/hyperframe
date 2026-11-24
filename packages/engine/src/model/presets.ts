@@ -43,6 +43,36 @@ export const WALL_PRESETS: WallPreset[] = [
   { label: 'Drywall / divisória leve', wPerArea: 0.8 },
 ]
 
+/**
+ * Blocos p/ compor a carga de alvenaria: peso específico APARENTE da parede
+ * (bloco + juntas), kN/m³. Valores usuais coerentes com a NBR 6120:2019
+ * (tab. 1 e 2) — editáveis na carga; confira com o bloco do fornecedor.
+ */
+export const WALL_BLOCK_PRESETS = [
+  { label: 'Bloco cerâmico vazado', unitWeight: 8 },
+  { label: 'Bloco de concreto vazado', unitWeight: 10 },
+  { label: 'Tijolo cerâmico maciço', unitWeight: 18 },
+  { label: 'Bloco de concreto celular', unitWeight: 5.5 },
+] as const
+
+/** revestimentos de parede: peso específico, kN/m³ (NBR 6120:2019 tab. 1) */
+export const WALL_COATING_PRESETS = [
+  { label: 'Argamassa de cal, cimento e areia', unitWeight: 19 },
+  { label: 'Argamassa de cimento e areia', unitWeight: 21 },
+  { label: 'Gesso', unitWeight: 12.5 },
+] as const
+
+export const WALL_CALC_DEFAULTS = {
+  height: 2.6,
+  thickness: 0.14,
+  block: 'Bloco cerâmico vazado',
+  unitWeight: 8,
+  coatingThickness: 0.02,
+  coatingFaces: 2,
+  coatingUnitWeight: 19,
+  openingsArea: 0,
+}
+
 // ---------------------------------------------------------------------------
 // Revestimento de piso (g2) usuais
 // ---------------------------------------------------------------------------

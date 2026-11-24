@@ -960,9 +960,9 @@ function designBeams(
     // mesa colaborante do positivo (§14.6.2.2): lajes coladas ao vão
     const beamIdT = first.ref.kind === 'beam' ? first.ref.sourceId : ''
     const planOfBeam = project.plans.find((pl) => pl.beams.some((b) => b.id === beamIdT))
-    const pSpan0 = model.nodes[first.ni]
+    const pSpan0 = first.axis?.a ?? model.nodes[first.ni]
     const lastM = model.members[memberIds[memberIds.length - 1]]
-    const pSpan1 = model.nodes[lastM.nj]
+    const pSpan1 = lastM.axis?.b ?? model.nodes[lastM.nj]
     const flank = flankingSlabs(planOfBeam, pSpan0, pSpan1, bw)
     const contEnds = ((mdNegLeft > 0.5 ? 1 : 0) + (mdNegRight > 0.5 ? 1 : 0)) as 0 | 1 | 2
     const fl =
