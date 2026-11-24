@@ -14,7 +14,7 @@ import {
   type Grid,
   type Vec2,
 } from '@hyperframe/engine'
-import { useActivePlan, useStore, type AiGhost } from '../store'
+import { selectedRefs, useActivePlan, useStore, type AiGhost } from '../store'
 import {
   fitBounds,
   screenToWorld,
@@ -24,7 +24,7 @@ import {
 } from './useViewport'
 import { eventPoint } from '../ui/zoom'
 import { buildSnapData, computeSnap, roundPoint05 } from './snap'
-import { hitTest, nearestBeam, type HitContext } from './hittest'
+import { hitTest, marqueeHits, nearestBeam, wallLoadOnBeamAt, type HitContext } from './hittest'
 import GridLayer from './layers/GridLayer'
 import UnderlayLayer from './layers/UnderlayLayer'
 import AxesLayer from './layers/AxesLayer'
@@ -36,6 +36,8 @@ import WallLoadsLayer from './layers/WallLoadsLayer'
 import FoundationsLayer from './layers/FoundationsLayer'
 import PreviewLayer, { type CursorSnap } from './layers/PreviewLayer'
 import GhostLayer from './layers/GhostLayer'
+import SelectionOverlay from './layers/SelectionOverlay'
+import MeasureLayer from './layers/MeasureLayer'
 
 const ORTHO_MAX_RAD = (15 * Math.PI) / 180
 /** tolerância de snap em px de tela */
@@ -100,7 +102,8 @@ const r05 = (v: number) => Math.round(v / 0.05) * 0.05
 
 /** estado de um arrasto de elemento (ferramenta selecionar) */
 interface DragState {
-  kind: 'column' | 'beam' | 'loadRegion' | 'mwall'
+  /** 'group' = conjunto selecionado · 'marquee' = janela de seleção no vazio */
+  kind: 'column' | 'beam' | 'loadRegion' | 'mwall' | 'group' | 'marquee'
   id: string
   name: string
   /** ponto de mundo onde o arrasto começou */
@@ -116,6 +119,14 @@ interface DragState {
   snap?: ReturnType<typeof buildSnapData>
   /** proposta corrente: pilar = posição nova; demais = delta */
   proposal?: Vec2
+  /** grupo: elementos e geometria-base dos fantasmas */
+  refs?: ElementRef[]
+  ghosts?: AiGhost[]
+  /** clique sem arrasto: em membro do grupo, reduz a seleção a ele; em viga já
+   *  selecionada, alterna p/ a carga de parede sobre ela */
+  clickSelect?: ElementRef
+  /** janela com Shift: soma à seleção atual */
+  additive?: boolean
 }
 
 export default function Editor2D() {
@@ -129,6 +140,7 @@ export default function Editor2D() {
   const tool = useStore((s) => s.tool)
   const display = useStore((s) => s.display)
   const selection = useStore((s) => s.selection)
+  const multi = useStore((s) => s.multi)
   const hoverRef = useStore((s) => s.hoverRef)
   const defaults = useStore((s) => s.defaults)
   const aiGhost = useStore((s) => s.aiGhost)
@@ -147,7 +159,11 @@ export default function Editor2D() {
 
   // arrasto de elemento (ferramenta selecionar) — commit único no pointerup
   const dragRef = useRef<DragState | null>(null)
-  const [dragGhost, setDragGhost] = useState<AiGhost | null>(null)
+  const [dragGhosts, setDragGhosts] = useState<AiGhost[]>([])
+  /** janela de seleção em andamento (mundo) + sentido (direita→esquerda = crossing) */
+  const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2; crossing: boolean } | null>(null)
+  /** medição concluída (Enter/duplo-clique): fica na tela até o próximo clique */
+  const [measureDone, setMeasureDone] = useState(false)
 
   const [chain, setChain] = useState<Vec2[]>([])
   const chainRef = useRef<Vec2[]>(chain)
@@ -237,7 +253,8 @@ export default function Editor2D() {
         e.preventDefault()
         e.stopPropagation()
         dragRef.current = null
-        setDragGhost(null)
+        setDragGhosts([])
+        setMarquee(null)
       }
     }
     window.addEventListener('keydown', onKey, true)
@@ -263,6 +280,9 @@ export default function Editor2D() {
         else useStore.getState().addMasonryWallPath(c)
       }
       setChain([])
+    } else if (t === 'measure') {
+      if (c.length >= 2) setMeasureDone(true)
+      else setChain([])
     } else if (t === 'region') {
       if (c.length < 3) {
         showToast('Região precisa de pelo menos 3 pontos')
@@ -276,11 +296,12 @@ export default function Editor2D() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = useStore.getState().tool
-      if (t !== 'beam' && t !== 'region' && t !== 'mwall') return
+      if (t !== 'beam' && t !== 'region' && t !== 'mwall' && t !== 'measure') return
       if (e.key === 'Escape' && chainRef.current.length > 0) {
         e.preventDefault()
         e.stopPropagation()
         setChain([])
+        setMeasureDone(false)
       } else if (e.key === 'Enter' && chainRef.current.length > 0) {
         e.preventDefault()
         finishChain()
@@ -294,6 +315,7 @@ export default function Editor2D() {
   const planId = plan?.id ?? null
   useEffect(() => {
     setChain([])
+    setMeasureDone(false)
     setCursorSnap(null)
     const st = useStore.getState()
     if (st.hoverRef) st.setHover(null)
@@ -319,7 +341,7 @@ export default function Editor2D() {
       const snap = computeSnap(raw, snapData, tolW)
       return snap ?? { point: roundPoint05(raw), kind: null }
     }
-    if (tool === 'beam' || tool === 'region' || tool === 'mwall') {
+    if (tool === 'beam' || tool === 'region' || tool === 'mwall' || tool === 'measure') {
       const snap = computeSnap(raw, snapData, tolW)
       if (snap) return snap
       let pt = roundPoint05(raw)
@@ -357,59 +379,96 @@ export default function Editor2D() {
     const st = useStore.getState()
     switch (tool) {
       case 'select': {
-        const hit = hitTest(raw, hitCtx())
+        const ctx = hitCtx()
+        const hit = hitTest(raw, ctx)
+        const group = selectedRefs(st)
+        const startDrag = (d: Omit<DragState, 'start' | 'startScreen' | 'moved'>) => {
+          dragRef.current = { ...d, start: raw, startScreen: s, moved: false }
+          e.currentTarget.setPointerCapture(e.pointerId)
+        }
+        // Shift: soma/retira da seleção; no vazio, janela que soma
+        if (e.shiftKey) {
+          // Shift+clique soma/retira; Shift+arrasto (no vazio ou sobre laje) abre
+          // janela que soma — o clique só vale se não virar arrasto
+          if (!hit || hit.kind === 'slab') {
+            startDrag({ kind: 'marquee', id: '', name: '', additive: true, clickSelect: hit ?? undefined })
+          } else {
+            st.toggleSelect(hit)
+          }
+          break
+        }
+        // clique em elemento de um grupo selecionado: arrasta o grupo inteiro
+        if (hit && group.length > 1 && group.some((r) => r.kind === hit.kind && r.id === hit.id)) {
+          const ghosts: AiGhost[] = []
+          for (const r of group) {
+            if (r.kind === 'column') {
+              const c = columns.find((x) => x.id === r.id)
+              if (c) ghosts.push({ kind: 'column', pts: [c.pos], mode: 'add', label: '' })
+            } else if (r.kind === 'beam') {
+              const b = plan?.beams.find((x) => x.id === r.id)
+              if (b) ghosts.push({ kind: 'beam', pts: b.path, bw: b.section.bw, mode: 'add', label: '' })
+            } else if (r.kind === 'slab') {
+              const sl = plan?.slabs.find((x) => x.id === r.id)
+              if (sl) ghosts.push({ kind: 'slab', pts: sl.polygon, mode: 'add', label: '' })
+            } else if (r.kind === 'loadRegion') {
+              const rg = plan?.loadRegions.find((x) => x.id === r.id)
+              if (rg) ghosts.push({ kind: 'slab', pts: rg.polygon, mode: 'add', label: '' })
+            }
+          }
+          if (ghosts[0]) ghosts[0] = { ...ghosts[0], label: `mover ${group.length} elementos` }
+          startDrag({ kind: 'group', id: hit.id, name: '', refs: group, ghosts, clickSelect: hit })
+          break
+        }
+        // clicar de novo na viga já selecionada alterna p/ a carga de parede dela
+        const wasSelected = !!hit && st.selection?.kind === hit.kind && st.selection.id === hit.id
+        const wl = hit?.kind === 'beam' && wasSelected ? wallLoadOnBeamAt(raw, ctx, hit.id) : null
+        const clickSelect: ElementRef | undefined = wl ? { kind: 'wallLoad', id: wl.id } : undefined
         st.select(hit)
+        if (!hit || hit.kind === 'slab') {
+          // arrasto no vazio — ou a partir de uma laje, que não se move sozinha
+          // e cobre quase toda a planta: janela de seleção. Clique simples numa
+          // laje continua selecionando a laje.
+          startDrag({ kind: 'marquee', id: '', name: '' })
+          break
+        }
         // prepara possível arrasto (vira movimento após 5 px) — lajes seguem
         // as vigas e cargas de parede seguem a viga, então não são arrastáveis
-        if (hit) {
-          if (hit.kind === 'column') {
-            const c = columns.find((x) => x.id === hit.id)
-            if (c) {
-              dragRef.current = {
-                kind: 'column',
-                id: c.id,
-                name: c.name,
-                start: raw,
-                startScreen: s,
-                moved: false,
-                colStart: { ...c.pos },
-                snap: buildSnapData(
-                  grid,
-                  columns.filter((x) => x.id !== c.id),
-                  plan?.beams ?? [],
-                ),
-              }
-              e.currentTarget.setPointerCapture(e.pointerId)
-            }
-          } else if (hit.kind === 'beam') {
-            const b = plan?.beams.find((x) => x.id === hit.id)
-            if (b) {
-              dragRef.current = {
-                kind: 'beam',
-                id: b.id,
-                name: b.name,
-                start: raw,
-                startScreen: s,
-                moved: false,
-                path: b.path.map((p) => ({ ...p })),
-                bw: b.section.bw,
-              }
-              e.currentTarget.setPointerCapture(e.pointerId)
-            }
-          } else if (hit.kind === 'loadRegion') {
-            const r = plan?.loadRegions.find((x) => x.id === hit.id)
-            if (r) {
-              dragRef.current = {
-                kind: 'loadRegion',
-                id: r.id,
-                name: r.name,
-                start: raw,
-                startScreen: s,
-                moved: false,
-                path: r.polygon.map((p) => ({ ...p })),
-              }
-              e.currentTarget.setPointerCapture(e.pointerId)
-            }
+        if (hit.kind === 'column') {
+          const c = columns.find((x) => x.id === hit.id)
+          if (c) {
+            startDrag({
+              kind: 'column',
+              id: c.id,
+              name: c.name,
+              colStart: { ...c.pos },
+              snap: buildSnapData(
+                grid,
+                columns.filter((x) => x.id !== c.id),
+                plan?.beams ?? [],
+              ),
+            })
+          }
+        } else if (hit.kind === 'beam') {
+          const b = plan?.beams.find((x) => x.id === hit.id)
+          if (b) {
+            startDrag({
+              kind: 'beam',
+              id: b.id,
+              name: b.name,
+              path: b.path.map((p) => ({ ...p })),
+              bw: b.section.bw,
+              clickSelect,
+            })
+          }
+        } else if (hit.kind === 'loadRegion') {
+          const r = plan?.loadRegions.find((x) => x.id === hit.id)
+          if (r) {
+            startDrag({
+              kind: 'loadRegion',
+              id: r.id,
+              name: r.name,
+              path: r.polygon.map((p) => ({ ...p })),
+            })
           }
         }
         break
@@ -417,6 +476,20 @@ export default function Editor2D() {
       case 'column':
         st.addColumn(effectiveCursor(raw, e.altKey).point)
         break
+      case 'measure': {
+        const pt = effectiveCursor(raw, e.altKey).point
+        if (measureDone) {
+          // nova medição
+          setMeasureDone(false)
+          setChain([pt])
+        } else {
+          setChain((c) => {
+            const last = c[c.length - 1]
+            return last && dist(last, pt) < 1e-6 ? c : [...c, pt]
+          })
+        }
+        break
+      }
       case 'beam':
       case 'region': {
         if (!plan) break
@@ -460,18 +533,39 @@ export default function Editor2D() {
         return
       }
       drag.moved = true
-      const lock = orthoMode !== e.shiftKey // Shift inverte o modo ORTO só durante o gesto
-      if (drag.kind === 'column' && drag.colStart && drag.snap) {
+      if (drag.kind === 'marquee') {
+        // esquerda→direita: só o que está inteiro dentro; direita→esquerda: o que tocar
+        setMarquee({ a: drag.start, b: raw, crossing: s.x < drag.startScreen.x })
+        return
+      }
+      // no grupo o Shift não inverte o ORTO (Shift ali é "somar à seleção")
+      const lock = drag.kind === 'group' ? orthoMode : orthoMode !== e.shiftKey
+      if (drag.kind === 'group' && drag.ghosts) {
+        let delta = { x: r05(raw.x - drag.start.x), y: r05(raw.y - drag.start.y) }
+        if (lock) {
+          delta =
+            Math.abs(delta.x) >= Math.abs(delta.y) ? { x: delta.x, y: 0 } : { x: 0, y: delta.y }
+        }
+        drag.proposal = delta
+        setDragGhosts(
+          drag.ghosts.map((g) => ({
+            ...g,
+            pts: g.pts.map((q) => ({ x: q.x + delta.x, y: q.y + delta.y })),
+          })),
+        )
+      } else if (drag.kind === 'column' && drag.colStart && drag.snap) {
         const tolW = SNAP_PX / vp.k
         let pt = computeSnap(raw, drag.snap, tolW)?.point ?? roundPoint05(raw)
         if (lock) pt = applyOrtho(drag.colStart, pt, true)
         drag.proposal = pt
-        setDragGhost({
-          kind: 'column',
-          pts: [pt],
-          mode: 'add',
-          label: `mover ${drag.name}`,
-        })
+        setDragGhosts([
+          {
+            kind: 'column',
+            pts: [pt],
+            mode: 'add',
+            label: `mover ${drag.name}`,
+          },
+        ])
       } else if (drag.path) {
         let delta = { x: r05(raw.x - drag.start.x), y: r05(raw.y - drag.start.y) }
         if (lock) {
@@ -479,13 +573,15 @@ export default function Editor2D() {
             Math.abs(delta.x) >= Math.abs(delta.y) ? { x: delta.x, y: 0 } : { x: 0, y: delta.y }
         }
         drag.proposal = delta
-        setDragGhost({
-          kind: drag.kind === 'loadRegion' ? 'slab' : 'beam',
-          pts: drag.path.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })),
-          bw: drag.bw,
-          mode: 'add',
-          label: `mover ${drag.name}`,
-        })
+        setDragGhosts([
+          {
+            kind: drag.kind === 'loadRegion' ? 'slab' : 'beam',
+            pts: drag.path.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })),
+            bw: drag.bw,
+            mode: 'add',
+            label: `mover ${drag.name}`,
+          },
+        ])
       }
       st.setCursorWorld(raw)
       return
@@ -517,12 +613,50 @@ export default function Editor2D() {
     const drag = dragRef.current
     if (drag) {
       dragRef.current = null
-      setDragGhost(null)
+      setDragGhosts([])
       if (e.currentTarget.hasPointerCapture(e.pointerId)) {
         e.currentTarget.releasePointerCapture(e.pointerId)
       }
+      const st = useStore.getState()
+      if (drag.kind === 'marquee') {
+        setMarquee(null)
+        // Shift+clique numa laje (sem arrastar): soma/retira a laje
+        if (!drag.moved && drag.additive && drag.clickSelect) st.toggleSelect(drag.clickSelect)
+        if (drag.moved) {
+          const sp = toScreenPt(e)
+          const end = screenToWorld(vp, sp)
+          const hits = marqueeHits(
+            {
+              x0: Math.min(drag.start.x, end.x),
+              y0: Math.min(drag.start.y, end.y),
+              x1: Math.max(drag.start.x, end.x),
+              y1: Math.max(drag.start.y, end.y),
+            },
+            sp.x < drag.startScreen.x,
+            hitCtx(),
+          )
+          if (drag.additive) {
+            const cur = selectedRefs(st)
+            const extra = hits.filter((h) => !cur.some((r) => r.kind === h.kind && r.id === h.id))
+            st.selectMany([...cur, ...extra])
+          } else {
+            st.selectMany(hits)
+          }
+        }
+        return
+      }
+      if (drag.kind === 'group') {
+        if (drag.moved && drag.proposal && drag.refs) {
+          if (st.moveElements(drag.refs, drag.proposal) === 'duplicate') {
+            showToast('Há um pilar parado na posição de destino')
+          }
+        } else if (!drag.moved && drag.clickSelect) {
+          st.select(drag.clickSelect)
+        }
+        return
+      }
+      if (!drag.moved && drag.clickSelect) st.select(drag.clickSelect)
       if (drag.moved && drag.proposal) {
-        const st = useStore.getState()
         if (drag.kind === 'column') {
           if (st.moveColumn(drag.id, drag.proposal) === 'duplicate') {
             showToast('Já existe pilar neste ponto')
@@ -543,7 +677,7 @@ export default function Editor2D() {
   }
 
   const onDoubleClick = () => {
-    if (tool === 'beam' || tool === 'region' || tool === 'mwall') finishChain()
+    if (tool === 'beam' || tool === 'region' || tool === 'mwall' || tool === 'measure') finishChain()
   }
 
   // ---- ids de seleção/hover por camada (props primitivas p/ React.memo) ----
@@ -560,7 +694,7 @@ export default function Editor2D() {
 
   const cursorCss = panning
     ? 'grabbing'
-    : dragGhost
+    : dragGhosts.length > 0
       ? 'move'
       : spaceDown || handMode
         ? 'grab'
@@ -694,7 +828,24 @@ export default function Editor2D() {
             columnRotation={defaults.columnRotation}
           />
           {aiGhost && <GhostLayer ghost={aiGhost} k={vp.k} />}
-          {dragGhost && <GhostLayer ghost={dragGhost} k={vp.k} />}
+          {dragGhosts.map((g, i) => (
+            <GhostLayer key={i} ghost={g} k={vp.k} />
+          ))}
+          <SelectionOverlay
+            refs={multi.length > 1 && selection ? multi : []}
+            single={multi.length > 1 ? null : selection}
+            columns={columns}
+            plan={plan}
+            k={vp.k}
+            marquee={marquee}
+          />
+          {tool === 'measure' && (
+            <MeasureLayer
+              points={chain}
+              cursor={measureDone ? null : (cursorSnap?.point ?? null)}
+              k={vp.k}
+            />
+          )}
         </g>
       </svg>
 
@@ -742,6 +893,49 @@ export default function Editor2D() {
           {label}
         </button>
       ))}
+
+      {tool === 'measure' && (() => {
+        const pts = !measureDone && cursorSnap && chain.length > 0 ? [...chain, cursorSnap.point] : chain
+        if (pts.length < 2) return null
+        let total = 0
+        for (let i = 0; i + 1 < pts.length; i++) total += dist(pts[i], pts[i + 1])
+        const first = pts[0]
+        const last = pts[pts.length - 1]
+        const cell = (label: string, value: string) => (
+          <span>
+            <span style={{ color: 'var(--text-dim)' }}>{label} </span>
+            <b style={{ fontFamily: 'var(--mono)' }}>{value}</b>
+          </span>
+        )
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              top: 10,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 4,
+              display: 'flex',
+              gap: 16,
+              background: 'var(--bg-2)',
+              border: '1px solid #50c878',
+              borderRadius: 8,
+              padding: '7px 14px',
+              fontSize: 12.5,
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+              boxShadow: 'var(--shadow)',
+            }}
+          >
+            {cell('trechos', String(pts.length - 1))}
+            {cell('acumulado', `${total.toFixed(2).replace('.', ',')} m`)}
+            {pts.length > 2 &&
+              cell('início → fim', `${dist(first, last).toFixed(2).replace('.', ',')} m`)}
+            {cell('Δx', `${Math.abs(last.x - first.x).toFixed(2).replace('.', ',')} m`)}
+            {cell('Δy', `${Math.abs(last.y - first.y).toFixed(2).replace('.', ',')} m`)}
+          </div>
+        )
+      })()}
 
       {!plan && (
         <div

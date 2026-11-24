@@ -22,6 +22,13 @@ export const IconCursor = (p: P) => (
   </svg>
 )
 
+export const IconRuler = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3 17L17 3l4 4L7 21z" />
+    <path d="M7.5 12.5l2 2M10.5 9.5l2 2M13.5 6.5l2 2" />
+  </svg>
+)
+
 export const IconColumn = (p: P) => (
   <svg {...base(p)}>
     <rect x="8" y="5" width="8" height="14" />

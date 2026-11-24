@@ -1,4 +1,5 @@
 import {
+  columnHalfExtents,
   dist,
   projectOnSegment,
   type Beam,
@@ -65,13 +66,29 @@ export function buildSnapData(grid: Grid, columns: Column[], beams: Beam[]): Sna
       segments.push({ a, b: c })
     }
   }
+  // faces (meio de cada lado) e cantos da seção dos pilares: a viga pode ser
+  // lançada na face — a análise liga ao nó do pilar o que cai dentro da seção
+  const columnFaces: Vec2[] = []
+  const columnCorners: Vec2[] = []
+  for (const c of columns) {
+    const { dx, dy } = columnHalfExtents(c)
+    columnFaces.push(
+      { x: c.pos.x - dx, y: c.pos.y },
+      { x: c.pos.x + dx, y: c.pos.y },
+      { x: c.pos.x, y: c.pos.y - dy },
+      { x: c.pos.x, y: c.pos.y + dy },
+    )
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      columnCorners.push({ x: c.pos.x + sx * dx, y: c.pos.y + sy * dy })
+    }
+  }
   return {
     xs,
     ys,
     intersections,
     columns: columns.map((c) => c.pos),
-    endpoints,
-    midpoints,
+    endpoints: [...endpoints, ...columnCorners],
+    midpoints: [...midpoints, ...columnFaces],
     segments,
   }
 }

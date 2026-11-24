@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { Project } from '@hyperframe/engine'
-import { useStore } from './store'
+import { selectedRefs, useStore } from './store'
 import {
   autosaveWebProject,
   clearAutosave,
@@ -107,11 +107,37 @@ export default function App() {
         else useStore.temporal.getState().undo()
         return
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        s.setTool('select')
+        s.selectAll()
+        return
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return
       switch (e.key) {
         case 'v':
         case 'V':
           s.setTool('select')
           break
+        case 'd':
+        case 'D':
+          s.setTool('measure')
+          break
+        case 'g':
+        case 'G': {
+          // girar 90°: o pilar a inserir (ferramenta Pilar) ou os pilares selecionados
+          if (s.tool === 'column') {
+            s.setDefaults({
+              columnRotation: ((s.defaults.columnRotation + 90) % 360) as 0 | 90 | 180 | 270,
+            })
+          } else {
+            const ids = selectedRefs(s)
+              .filter((r) => r.kind === 'column')
+              .map((r) => r.id)
+            if (ids.length > 0) s.rotateColumns(ids)
+          }
+          break
+        }
         case 'p':
         case 'P':
           s.setTool('column')

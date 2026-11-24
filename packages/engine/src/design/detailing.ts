@@ -103,6 +103,7 @@ export function runDetailing(
       element,
       elementId,
       note,
+      reps,
     })
     return pos
   }

@@ -1,7 +1,34 @@
-import type { LatticeDesignOutput, SlabDesignResultItem } from '@hyperframe/engine'
+import type { LatticeDesignOutput, LatticeNegativeEnd, SlabDesignResultItem } from '@hyperframe/engine'
 import { fmt } from './format'
 
 const cm2 = (a: number) => fmt(a * 1e4, 2)
+const phiMm = (phi: number) => fmt(phi * 1000, phi * 1000 % 1 === 0 ? 0 : 1)
+
+const NEG_KIND: Record<LatticeNegativeEnd['kind'], string> = {
+  continuidade: 'continuidade',
+  construtiva: 'construtiva',
+  borda: 'borda',
+}
+
+/** "Q-61 + φ6,3 c/ 20 · 21 barras de 1,25 m" */
+function NegCell({ e }: { e: LatticeNegativeEnd }) {
+  return (
+    <>
+      {e.spec}
+      {e.phi ? (
+        <>
+          {' '}
+          · {e.count !== null ? `${e.count} barras de ` : ''}
+          {fmt(e.length, 2)} m
+        </>
+      ) : null}
+      <span className="faint">
+        {' '}
+        ({NEG_KIND[e.kind]}, {fmt(e.reach, 2)} m no vão)
+      </span>
+    </>
+  )
+}
 
 function Chip({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return <span className={`chip ${ok ? 'ok' : 'err'}`}>{children}</span>
@@ -166,7 +193,7 @@ export default function LatticeSlabsResults({ items }: { items: SlabDesignResult
                   </>
                 ) : (
                   <td colSpan={9} className="faint">
-                    manual — laje não retangular (as cargas já descem unidirecionais na análise)
+                    sem vão definido no sentido das vigotas — confira o contorno
                   </td>
                 )}
                 <td>
@@ -179,6 +206,77 @@ export default function LatticeSlabsResults({ items }: { items: SlabDesignResult
           })}
         </tbody>
       </table>
+
+      <h4 style={{ margin: '18px 0 8px' }}>Treliçadas — detalhamento p/ montagem</h4>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Laje</th>
+            <th>Vigotas</th>
+            <th>Adicional positiva</th>
+            <th>Negativa — apoio inicial</th>
+            <th>Negativa — apoio final</th>
+            <th>Tela (m²)</th>
+            <th>Nervuras de travamento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items
+            .filter((s) => s.latticeDesign)
+            .map((s) => {
+              const d = s.latticeDesign!
+              const dt = d.detail
+              const b = d.bracing
+              return (
+                <tr key={s.slabId}>
+                  <td style={{ fontWeight: 600 }}>{s.name}</td>
+                  <td>
+                    {dt.joists !== null ? `${dt.joists} × ` : ''}
+                    {fmt(dt.joistLength, 2)} m
+                  </td>
+                  <td>
+                    {dt.extra ? (
+                      <>
+                        {dt.extra.n} φ{phiMm(dt.extra.phi)} × {fmt(dt.extra.length, 2)} m por vigota
+                        {dt.extra.total !== null ? ` · ${dt.extra.total} barras` : ''}
+                      </>
+                    ) : (
+                      <span className="faint">a treliça basta</span>
+                    )}
+                  </td>
+                  <td style={{ fontFamily: 'var(--sans)', fontSize: 11.5, whiteSpace: 'normal', minWidth: 170, maxWidth: 250, lineHeight: 1.45 }}>
+                    <NegCell e={dt.negStart} />
+                  </td>
+                  <td style={{ fontFamily: 'var(--sans)', fontSize: 11.5, whiteSpace: 'normal', minWidth: 170, maxWidth: 250, lineHeight: 1.45 }}>
+                    <NegCell e={dt.negEnd} />
+                  </td>
+                  <td>{dt.meshArea !== null ? fmt(dt.meshArea, 1) : '—'}</td>
+                  <td style={{ fontFamily: 'var(--sans)', fontSize: 11.5, whiteSpace: 'normal', minWidth: 170, maxWidth: 250, lineHeight: 1.45 }}>
+                    {b.count === 0 ? (
+                      b.recommended > 0 ? (
+                        <span className="chip warn">0 — recomendado {b.recommended}</span>
+                      ) : (
+                        <span className="faint">dispensadas (vão ≤ 4 m)</span>
+                      )
+                    ) : (
+                      <>
+                        {b.count} de {fmt(b.width * 100, 0)}×{fmt(b.height * 100, 0)} cm a{' '}
+                        {b.positions.map((x) => fmt(x, 2)).join(' e ')} m · {b.bars}
+                        {b.length !== null ? ` · ${fmt(b.length, 2)} m` : ''}
+                      </>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+        </tbody>
+      </table>
+      <div className="faint" style={{ fontSize: 11, margin: '8px 0 4px', lineHeight: 1.5 }}>
+        Vigotas e barras adicionais com o comprimento do vão teórico (penetrar ≥ 5 cm em cada
+        apoio). Negativas por continuidade alcançam 0,25·ℓ + 1,5·d p/ dentro do vão (§19.4.1);
+        construtivas e de borda, 0,15·ℓ (§20.1). Sobre apoio com laje vizinha, o comprimento da
+        barra é o dobro do alcance — ajuste se o vão vizinho for diferente.
+      </div>
 
       <div
         style={{

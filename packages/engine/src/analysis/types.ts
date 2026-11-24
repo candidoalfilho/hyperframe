@@ -654,6 +654,8 @@ export interface RebarItem {
   /** id do elemento de modelagem (filtra o quadro de ferros da prancha) */
   elementId?: string
   note?: string
+  /** nº de repetições do elemento (pavimentos que usam a planta) já embutido em n/kg */
+  reps?: number
 }
 
 export interface BeamDetailSpan {

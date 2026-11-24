@@ -805,6 +805,67 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.56 — Issue #6: correções de modelagem, seleção múltipla, medição e detalhamento
+
+> Lote de pedidos do Eng-Carlos e do razielazureskys (issue #6). Três eram
+> defeitos de modelagem que afetavam resultado; o resto é produtividade no
+> editor e documentação de saída.
+
+**Correções**
+- [x] **"Laje não retangular" em painel retangular**: o nó que uma viga em "T"
+  deixa na borda criava um vértice colinear no contorno. Dimensionamento,
+  quinhões a 45° e o casamento borda–viga agora usam o contorno simplificado
+  (vale p/ maciças, nervuradas e treliçadas); continuidade soma a divisa com
+  várias lajes vizinhas
+- [x] **Viga com carga de parede não era selecionável**: a viga passa a ter
+  prioridade no clique; a carga é alcançada pelo 2º clique na viga já
+  selecionada, clicando ao lado dela ou pelo painel da viga, que ganhou a
+  lista "Cargas de parede nesta viga" (editar, remover, adicionar — inclusive
+  mais de uma carga por viga, em trechos diferentes)
+- [x] **Trechos de viga dentro do pilar viravam vão**: ponto de viga dentro da
+  projeção da seção pertence ao nó do pilar (região nodal rígida, §14.6.2.1) —
+  a viga lançada na face fica ligada ao pilar, o vão é eixo a eixo e o trecho
+  contido na seção some dos relatórios. Aviso quando a excentricidade ignorada
+  passa de 25 cm
+
+**Editor 2D**
+- [x] **Seleção múltipla**: Shift+clique, janela (esquerda→direita só o que
+  está inteiro dentro; direita→esquerda também o que toca), ⌘/Ctrl+A; mover o
+  conjunto arrastando (com ORTO) ou por Δx/Δy no painel; excluir o conjunto —
+  sempre em um único passo de desfazer
+- [x] **Ferramenta de medição (D)**: distância por trecho com snap, Δx/Δy e
+  cota acumulada; laje, viga ou região selecionada mostra a cota de cada lado
+  e o painel da laje traz dimensões e perímetro
+- [x] **G gira o pilar 90°** (selecionado ou a inserir) e o snap passa a
+  oferecer o meio das faces e os cantos da seção dos pilares
+
+**Treliçadas (fase 2 da issue #5)**
+- [x] Painel de qualquer forma dimensionado pelo maior vão das vigotas
+- [x] **Nervuras transversais de travamento**: automático pelo vão (> 4 m: 1;
+  > 6 m: 2) ou informado, com posição, peso próprio e armadura mínima
+- [x] **Detalhamento p/ montagem**: nº e comprimento das vigotas, adicionais
+  positivas, negativas por apoio (continuidade, construtiva ou de borda) com
+  alcance, comprimento e quantidade, área de tela
+
+**Cargas, relatórios e quantitativos**
+- [x] **Carga de alvenaria pela composição da parede**: altura, espessura e
+  tipo de bloco, peso específico, revestimento por face e desconto de
+  aberturas, com a memória de cálculo no memorial
+- [x] Memorial: tabelas de vigas com apoio esquerdo/direito em colunas
+  próprias (flexão separada de cortante/torção) e **armadura de pele** com
+  barras por face, espaçamento vertical e comprimento (teto de 5 cm²/m e
+  espaçamento ≤ 20 cm, §17.3.5.2.3)
+- [x] **Relação de aço por elemento** na aba Quantitativos: posição, bitola,
+  quantidade, comprimento unitário/total e peso, subtotal por elemento, visão
+  por pavimento e exportação CSV
+- [x] 39 testes novos (569 no total)
+
+**Ficou p/ as próximas versões** (pedidos da mesma issue): cotas permanentes
+no desenho, cargas concentradas em lajes, visualização do caminho das cargas,
+memorial detalhado com o desenvolvimento das contas e diagramas dentro do PDF,
+edição de armaduras com comprimentos/continuidade e estribos por trecho,
+excentricidade viga–pilar com offset rígido de verdade.
+
 ## v0.2.55 — Lajes treliçadas integradas (issue #5, Eng-Carlos) — fase 1
 
 > Laje de vigota pré-fabricada com armação treliçada (NBR 14859) dimensionada
@@ -831,9 +892,9 @@
   incêndio e quantitativo de aço cientes da tipologia
 - [x] Peso próprio real da seção (capa + alma + sapata + enchimento)
 - [x] 17 testes novos com âncoras à mão (540 no total)
-- [ ] Fase 2: balanço (bordo livre), vigotas justapostas, treliçada bidirecional,
-  alvenaria sobre a laje, verificação da fase de montagem (escoramento), prancha
-  de montagem com paginação/quantitativo de vigotas e lajotas
+- [ ] Ainda em aberto: balanço (bordo livre), vigotas justapostas, treliçada
+  bidirecional, alvenaria/carga concentrada sobre a laje, verificação da fase
+  de montagem (escoramento), prancha de montagem com paginação de vigotas e lajotas
 
 ## v0.2.54 — Issue #4 (Eng-Carlos) + Copiloto composer v2
 

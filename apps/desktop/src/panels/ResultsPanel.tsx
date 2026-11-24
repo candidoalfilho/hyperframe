@@ -16,6 +16,7 @@ import { useStore, type ResultsTab } from '../store'
 import { exportFile } from '../io/fileio'
 import { cm, cm2, fmt, fmtCmDim, ROMAN } from './format'
 import LatticeSlabsResults from './LatticeResults'
+import SteelSchedule from './SteelSchedule'
 import { IconClose, IconPrint } from '../components/Icons'
 import PranchasPanel from '../drawings/PranchasPanel'
 
@@ -380,9 +381,12 @@ function VigasTab({ results }: { results: AnalysisResults }) {
             <th>Md+ (kN·m)</th>
             <th>As+ (cm²)</th>
             <th>Barras +</th>
-            <th>Md− esq/dir (kN·m)</th>
-            <th>As− esq/dir (cm²)</th>
-            <th>Barras −</th>
+            <th>Md− esq</th>
+            <th>As− esq</th>
+            <th>Barras − esq</th>
+            <th>Md− dir</th>
+            <th>As− dir</th>
+            <th>Barras − dir</th>
             <th>Vd (kN)</th>
             <th>Estribos</th>
             <th title="Torção §17.5 — envoltória de T e interação Vd/VRd2 + Td/TRd2">Td (kN·m)</th>
@@ -395,7 +399,7 @@ function VigasTab({ results }: { results: AnalysisResults }) {
             <Fragment key={name}>
               <tr>
                 <td
-                  colSpan={14}
+                  colSpan={17}
                   style={{
                     background: 'var(--bg-2)',
                     color: 'var(--accent)',
@@ -420,17 +424,12 @@ function VigasTab({ results }: { results: AnalysisResults }) {
                     <td>{fmt(d.positive.md, 1)}</td>
                     <td>{fmt(cm2(d.positive.as), 2)}</td>
                     <td>{d.positive.bars || '—'}</td>
-                    <td>
-                      {d.negLeft ? fmt(d.negLeft.md, 1) : '—'} /{' '}
-                      {d.negRight ? fmt(d.negRight.md, 1) : '—'}
-                    </td>
-                    <td>
-                      {d.negLeft ? fmt(cm2(d.negLeft.as), 2) : '—'} /{' '}
-                      {d.negRight ? fmt(cm2(d.negRight.as), 2) : '—'}
-                    </td>
-                    <td>
-                      {d.negLeft?.bars ?? '—'} / {d.negRight?.bars ?? '—'}
-                    </td>
+                    <td>{d.negLeft ? fmt(d.negLeft.md, 1) : '—'}</td>
+                    <td>{d.negLeft ? fmt(cm2(d.negLeft.as), 2) : '—'}</td>
+                    <td>{d.negLeft?.bars ?? '—'}</td>
+                    <td>{d.negRight ? fmt(d.negRight.md, 1) : '—'}</td>
+                    <td>{d.negRight ? fmt(cm2(d.negRight.as), 2) : '—'}</td>
+                    <td>{d.negRight?.bars ?? '—'}</td>
                     <td>{fmt(d.shear.vd, 1)}</td>
                     <td>{d.shear.spec}</td>
                     <td
@@ -445,7 +444,17 @@ function VigasTab({ results }: { results: AnalysisResults }) {
                         <span style={{ color: 'var(--err)', marginLeft: 4 }}>⚠</span>
                       )}
                     </td>
-                    <td>{d.skin.required ? d.skin.spec : '—'}</td>
+                    <td
+                      title={
+                        d.skin.required
+                          ? `As/face ${fmt(cm2(d.skin.asPerFace), 2)} cm² · espaçamento vertical ${fmt((d.skin.spacing ?? 0) * 100, 1)} cm · comprimento ${fmt(d.length, 2)} m + ancoragem`
+                          : 'Dispensada (h ≤ 60 cm)'
+                      }
+                    >
+                      {d.skin.required
+                        ? `${d.skin.spec} c/ ${fmt((d.skin.spacing ?? 0) * 100, 0)}`
+                        : '—'}
+                    </td>
                     <td>
                       <StatusChip s={d.status} />
                     </td>
@@ -1984,6 +1993,13 @@ function QuantitativosTab({ results, project }: { results: AnalysisResults; proj
         </>
       )}
 
+      <SectionTitle>Relação de aço por elemento</SectionTitle>
+      {steel.items.length === 0 ? (
+        <Empty text="Sem relação de aço — detalhamento indisponível." />
+      ) : (
+        <SteelSchedule steel={steel} projectName={project.name} />
+      )}
+
       <SectionTitle>Resumo do aço por bitola</SectionTitle>
       {steel.byPhi.length === 0 ? (
         <Empty text="Sem tabela de aço — detalhamento indisponível." />
@@ -2384,8 +2400,10 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
               <th style={rTh}>Seção (cm)</th>
               <th style={rTh}>As+ (cm²)</th>
               <th style={rTh}>Barras+</th>
-              <th style={rTh}>As− e/d (cm²)</th>
-              <th style={rTh}>Barras− e/d</th>
+              <th style={rTh}>As− esq (cm²)</th>
+              <th style={rTh}>Barras− esq</th>
+              <th style={rTh}>As− dir (cm²)</th>
+              <th style={rTh}>Barras− dir</th>
               <th style={rTh}>Estribos</th>
               <th style={rTh}>Status</th>
             </tr>
@@ -2402,13 +2420,10 @@ function RelatorioTab({ results, project }: { results: AnalysisResults; project:
                   </td>
                   <td style={rTd}>{fmt(cm2(d.positive.as), 2)}</td>
                   <td style={rTd}>{d.positive.bars}</td>
-                  <td style={rTd}>
-                    {d.negLeft ? fmt(cm2(d.negLeft.as), 2) : '—'} /{' '}
-                    {d.negRight ? fmt(cm2(d.negRight.as), 2) : '—'}
-                  </td>
-                  <td style={rTd}>
-                    {d.negLeft?.bars ?? '—'} / {d.negRight?.bars ?? '—'}
-                  </td>
+                  <td style={rTd}>{d.negLeft ? fmt(cm2(d.negLeft.as), 2) : '—'}</td>
+                  <td style={rTd}>{d.negLeft?.bars ?? '—'}</td>
+                  <td style={rTd}>{d.negRight ? fmt(cm2(d.negRight.as), 2) : '—'}</td>
+                  <td style={rTd}>{d.negRight?.bars ?? '—'}</td>
                   <td style={rTd}>{d.shear.spec}</td>
                   <td
                     style={{
