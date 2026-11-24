@@ -31,13 +31,20 @@ import {
   type Slab,
   type WallLoad,
 } from '@hyperframe/engine'
-import { useStore } from '../store'
+import { selectedRefs, useStore } from '../store'
 import { NumberField } from './NumberField'
 import { cm, fmt, ROMAN } from './format'
 import { IconTrash } from '../components/Icons'
 import PlansManager from './PlansManager'
 import { MemberForcesSection } from './MemberDiagrams'
 import LatticeSlabFields from './LatticeSlabFields'
+import {
+  BeamWallLoads,
+  MultiInspector,
+  SlabDims,
+  WallCalcFields,
+  wallFromCalc,
+} from './InspectorExtras'
 
 // ---------------------------------------------------------------------------
 // blocos reutilizáveis
@@ -1311,6 +1318,8 @@ function BeamInspector({ beam }: { beam: Beam }) {
         }}
       />
 
+      <BeamWallLoads beam={beam} />
+
       <MemberForcesSection kind="beam" id={beam.id} />
 
       <DeleteButton onClick={() => deleteElement({ kind: 'beam', id: beam.id })} />
@@ -1600,6 +1609,7 @@ function SlabInspector({ slab }: { slab: Slab }) {
       </div>
 
       <Row label="Área" value={`${fmt(area, 2)} m²`} />
+      <SlabDims slab={slab} />
 
       <div className="field" style={{ marginTop: 10 }}>
         <label className="label">Tipo de laje</label>
@@ -1771,6 +1781,7 @@ function SlabInspector({ slab }: { slab: Slab }) {
 // ---------------------------------------------------------------------------
 
 function WallLoadInspector({ wl, project }: { wl: WallLoad; project: Project }) {
+  const select = useStore((s) => s.select)
   const updateWallLoad = useStore((s) => s.updateWallLoad)
   const deleteElement = useStore((s) => s.deleteElement)
 
@@ -1783,6 +1794,13 @@ function WallLoadInspector({ wl, project }: { wl: WallLoad; project: Project }) 
     return L
   }, [beam])
   const partial = wl.x0 !== undefined && wl.x1 !== undefined
+  /** muda o trecho; com composição, w acompanha o novo comprimento (aberturas) */
+  const setStretch = (patch: { x0?: number; x1?: number }) => {
+    const next = { ...wl, ...patch }
+    const len =
+      next.x0 !== undefined && next.x1 !== undefined ? Math.max(next.x1 - next.x0, 0) : beamLength
+    updateWallLoad(wl.id, { ...patch, ...(wl.calc ? wallFromCalc(wl.calc, len) : {}) })
+  }
 
   return (
     <>
@@ -1792,23 +1810,27 @@ function WallLoadInspector({ wl, project }: { wl: WallLoad; project: Project }) 
       {wl.label ? <Row label="Tipo" value={wl.label} /> : null}
 
       <div className="field" style={{ marginTop: 8 }}>
-        <label className="label">Carga w (kN/m)</label>
+        <label className="label">
+          Carga w (kN/m){wl.calc ? ' — calculada pela composição' : ''}
+        </label>
         <NumberField
           value={wl.w}
           digits={2}
           min={0}
           max={100}
           style={{ width: '100%' }}
+          disabled={!!wl.calc}
           onCommit={(v) => updateWallLoad(wl.id, { w: v })}
         />
       </div>
+
+      <WallCalcFields wl={wl} beam={beam} />
 
       <Check
         label="Aplicar só em um trecho da viga"
         checked={partial}
         onChange={(v) =>
-          updateWallLoad(
-            wl.id,
+          setStretch(
             v
               ? { x0: 0, x1: Math.round(beamLength * 100) / 100 }
               : { x0: undefined, x1: undefined },
@@ -1824,19 +1846,20 @@ function WallLoadInspector({ wl, project }: { wl: WallLoad; project: Project }) 
               digits={2}
               min={0}
               max={beamLength}
-              onCommit={(v) => updateWallLoad(wl.id, { x0: v })}
+              onCommit={(v) => setStretch({ x0: v })}
             />
             <NumberField
               value={wl.x1 ?? beamLength}
               digits={2}
               min={0}
               max={beamLength}
-              onCommit={(v) => updateWallLoad(wl.id, { x1: v })}
+              onCommit={(v) => setStretch({ x1: v })}
             />
           </div>
         </div>
       )}
 
+      {!wl.calc && (
       <div className="field">
         <label className="label">Preset (pé-direito 2,40 m)</label>
         <select
@@ -1864,6 +1887,17 @@ function WallLoadInspector({ wl, project }: { wl: WallLoad; project: Project }) 
           ))}
         </select>
       </div>
+      )}
+
+      {beam && (
+        <button
+          className="btn"
+          style={{ width: '100%', marginBottom: 8 }}
+          onClick={() => select({ kind: 'beam', id: beam.id })}
+        >
+          ← Voltar para a viga {beam.name}
+        </button>
+      )}
 
       <DeleteButton onClick={() => deleteElement({ kind: 'wallLoad', id: wl.id })} />
     </>
@@ -2163,10 +2197,14 @@ function TankParamsEditor({ region }: { region: LoadRegion }) {
 
 export default function InspectorPanel() {
   const selection = useStore((s) => s.selection)
+  const multi = useStore((s) => s.multi)
   const project = useStore((s) => s.project)
+  const refs = selectedRefs({ selection, multi })
 
   let content: ReactNode = null
-  if (selection) {
+  if (refs.length > 1) {
+    content = <MultiInspector refs={refs} />
+  } else if (selection) {
     if (selection.kind === 'column') {
       const col = project.columns.find((c) => c.id === selection.id)
       if (col) content = <ColumnInspector key={col.id} col={col} project={project} />

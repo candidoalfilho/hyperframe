@@ -4,10 +4,12 @@ import {
   LATTICE_FILLER_WEIGHT,
   LATTICE_TRUSSES,
   WELDED_MESHES,
+  latticeBracing,
+  latticeDesignSpan,
   latticeDesignation,
   latticeRibbed,
   latticeSection,
-  ribbedSelfWeight,
+  slabSelfWeight,
   type LatticeParams,
   type Slab,
 } from '@hyperframe/engine'
@@ -158,7 +160,9 @@ export default function LatticeSlabFields({ slab }: { slab: Slab }) {
     const t = LATTICE_TRUSSES.find((x) => x.name === name)
     if (t) apply({ truss: t.name, trussHeight: t.h, phiTop: t.top, phiDiag: t.diag, phiBottom: t.bottom })
   }
-  const g0 = ribbedSelfWeight(slab.thickness, ribbed, concreteWeight)
+  const g0 = slabSelfWeight(slab, concreteWeight)
+  const span = latticeDesignSpan(slab)
+  const bracing = latticeBracing(lat, span)
   const extraKey = lat.extraBars ? `${lat.extraBars.n}x${lat.extraBars.phi}` : 'auto'
 
   return (
@@ -403,6 +407,43 @@ export default function LatticeSlabFields({ slab }: { slab: Slab }) {
         </select>
       </div>
 
+      <div className="field">
+        <label className="label">Nervuras de travamento · largura (cm)</label>
+        <div className="field-row">
+          <select
+            className="select"
+            style={{ flex: 2, minWidth: 0 }}
+            value={lat.bracingRibs === undefined ? 'auto' : String(lat.bracingRibs)}
+            onChange={(e) =>
+              apply({ bracingRibs: e.target.value === 'auto' ? undefined : Number(e.target.value) })
+            }
+          >
+            <option value="auto">
+              Automático — {bracing.recommended} p/ vão de {fmt(span, 2)} m
+            </option>
+            {[0, 1, 2, 3, 4].map((n) => (
+              <option key={n} value={n}>
+                {n === 0 ? 'Nenhuma' : `${n} nervura${n > 1 ? 's' : ''}`}
+              </option>
+            ))}
+          </select>
+          <NumberField
+            value={cm(lat.bracingRibWidth ?? 0.1)}
+            digits={0}
+            min={8}
+            max={30}
+            title="Largura da nervura transversal de travamento"
+            onCommit={(v) => apply({ bracingRibWidth: v / 100 })}
+          />
+        </div>
+        <div className="faint" style={{ fontSize: 10.5, marginTop: 4, lineHeight: 1.5 }}>
+          {bracing.count === 0
+            ? 'Sem nervura transversal.'
+            : `${bracing.count} a ${bracing.positions.map((x) => fmt(x, 2)).join(' e ')} m do apoio.`}{' '}
+          Critério usual: vão &gt; 4 m → 1; &gt; 6 m → 2. Armadura e posição saem nos resultados.
+        </div>
+      </div>
+
       <label
         style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, padding: '3px 0', cursor: 'pointer' }}
         title="Desligado (padrão): vigotas biapoiadas com negativa construtiva. Ligado: engaste por continuidade onde há laje vizinha no apoio — dimensiona o negativo e redistribui as reações (5/8–3/8)."
@@ -417,7 +458,7 @@ export default function LatticeSlabFields({ slab }: { slab: Slab }) {
       </label>
 
       <div className="faint" style={{ fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>
-        Peso próprio real {fmt(g0, 2)} kN/m² (capa + vigotas + enchimento). As reações das vigotas
+        Peso próprio real {fmt(g0, 2)} kN/m² (capa + vigotas + enchimento + travamento). As reações das vigotas
         descem só nas vigas de apoio e seguem p/ pilares e fundações na análise — NBR 14859 / NBR
         6118 §13.2.4.2.
       </div>

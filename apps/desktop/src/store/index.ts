@@ -35,7 +35,15 @@ import {
 } from '@hyperframe/engine'
 import { pushRecent } from '../io/fileio'
 
-export type Tool = 'select' | 'column' | 'beam' | 'slab' | 'wall' | 'region' | 'mwall'
+/** elementos efetivamente selecionados (seleção múltipla válida ou a simples) */
+export function selectedRefs(s: { selection: ElementRef | null; multi: ElementRef[] }): ElementRef[] {
+  const sel = s.selection
+  if (!sel) return []
+  if (s.multi.length >= 2 && s.multi.some((r) => r.kind === sel.kind && r.id === sel.id)) return s.multi
+  return [sel]
+}
+
+export type Tool = 'select' | 'column' | 'beam' | 'slab' | 'wall' | 'region' | 'mwall' | 'measure'
 export type ViewMode = 'plan' | '3d' | 'split'
 export type Theme = 'dark' | 'light'
 
@@ -133,6 +141,11 @@ export interface HFState {
   viewMode: ViewMode
   activeLevelId: string
   selection: ElementRef | null
+  /**
+   * seleção múltipla (Shift+clique, janela, ⌘A). Só vale quando tem ≥ 2
+   * elementos e contém `selection` — use `selectedRefs(state)` p/ ler.
+   */
+  multi: ElementRef[]
   hoverRef: ElementRef | null
   theme: Theme
   welcomeOpen: boolean
@@ -188,6 +201,12 @@ export interface HFState {
   setViewMode: (v: ViewMode) => void
   setActiveLevel: (id: string) => void
   select: (ref: ElementRef | null) => void
+  /** Shift+clique: inclui/retira o elemento da seleção múltipla */
+  toggleSelect: (ref: ElementRef) => void
+  /** substitui a seleção por um conjunto (janela de seleção) */
+  selectMany: (refs: ElementRef[]) => void
+  /** todos os pilares + vigas, lajes e regiões da planta ativa */
+  selectAll: () => void
   setHover: (ref: ElementRef | null) => void
   setAiGhost: (g: AiGhost | null) => void
   setCursorWorld: (p: Vec2 | null) => void
@@ -215,6 +234,14 @@ export interface HFState {
   moveBeam: (id: string, delta: Vec2) => void
   moveLoadRegion: (id: string, delta: Vec2) => void
   moveMasonryWall: (id: string, delta: Vec2) => void
+  /**
+   * move um CONJUNTO de elementos pelo mesmo deslocamento, em um único passo
+   * de desfazer. Vértices de elementos não selecionados que coincidem com os
+   * pontos movidos acompanham (o modelo continua conectado).
+   */
+  moveElements: (refs: ElementRef[], delta: Vec2) => 'ok' | 'duplicate'
+  /** gira 90° os pilares indicados */
+  rotateColumns: (ids: string[]) => void
   addBeamPath: (path: Vec2[]) => void
   /** parede de alvenaria estrutural (NBR 16868) na planta ativa */
   addMasonryWallPath: (path: Vec2[]) => void
@@ -224,12 +251,15 @@ export interface HFState {
   /** tenta criar laje na face fechada de vigas que contém o ponto */
   addSlabAt: (point: Vec2) => 'ok' | 'no-face' | 'exists'
   updateSlab: (id: string, patch: Partial<Omit<Slab, 'id'>>) => void
-  addWallLoad: (beamId: string) => void
+  /** carga de parede na viga; `another` cria uma carga adicional (outro trecho) */
+  addWallLoad: (beamId: string, another?: boolean) => void
   updateWallLoad: (id: string, patch: Partial<Omit<WallLoad, 'id'>>) => void
   /** cria região de carga (escada/reservatório) com preset do tipo padrão */
   addLoadRegion: (polygon: Vec2[]) => void
   updateLoadRegion: (id: string, patch: Partial<Omit<LoadRegion, 'id'>>) => void
   deleteElement: (ref: ElementRef) => void
+  /** exclui vários elementos em um único passo de desfazer */
+  deleteElements: (refs: ElementRef[]) => void
   deleteSelected: () => void
 
   updateGridAxis: (dir: 'x' | 'y', axisId: string, pos: number) => void
@@ -309,6 +339,7 @@ export const useStore = create<HFState>()(
       viewMode: 'split',
       activeLevelId: firstEditableLevel(initialProject),
       selection: null,
+      multi: [],
       hoverRef: null,
       aiGhost: null,
       theme: readInitialTheme(),
@@ -478,7 +509,28 @@ export const useStore = create<HFState>()(
       setTool: (tool) => set({ tool }),
       setViewMode: (viewMode) => set({ viewMode }),
       setActiveLevel: (activeLevelId) => set({ activeLevelId }),
-      select: (selection) => set({ selection }),
+      select: (selection) => set({ selection, multi: selection ? [selection] : [] }),
+      toggleSelect: (ref) =>
+        set((s) => {
+          const cur = selectedRefs(s)
+          const has = cur.some((r) => r.kind === ref.kind && r.id === ref.id)
+          const multi = has
+            ? cur.filter((r) => !(r.kind === ref.kind && r.id === ref.id))
+            : [...cur, ref]
+          return { multi, selection: has ? (multi[multi.length - 1] ?? null) : ref }
+        }),
+      selectMany: (refs) => set({ multi: refs, selection: refs[refs.length - 1] ?? null }),
+      selectAll: () => {
+        const s = get()
+        const plan = activePlanOf(s.project, s.activeLevelId)
+        const refs: ElementRef[] = [
+          ...s.project.columns.map((c) => ({ kind: 'column' as const, id: c.id })),
+          ...(plan?.beams ?? []).map((b) => ({ kind: 'beam' as const, id: b.id })),
+          ...(plan?.slabs ?? []).map((x) => ({ kind: 'slab' as const, id: x.id })),
+          ...(plan?.loadRegions ?? []).map((r) => ({ kind: 'loadRegion' as const, id: r.id })),
+        ]
+        set({ multi: refs, selection: refs[refs.length - 1] ?? null })
+      },
       setHover: (hoverRef) => set({ hoverRef }),
       setAiGhost: (aiGhost) => set({ aiGhost }),
       setCursorWorld: (cursorWorld) => set({ cursorWorld }),
@@ -635,6 +687,72 @@ export const useStore = create<HFState>()(
             analysisStatus: 'idle',
           }
         }),
+      moveElements: (refs, delta) => {
+        if (Math.abs(delta.x) < 1e-9 && Math.abs(delta.y) < 1e-9) return 'ok'
+        const s = get()
+        const p = s.project
+        const has = (kind: ElementRef['kind'], id: string) =>
+          refs.some((r) => r.kind === kind && r.id === id)
+        const movedCols = p.columns.filter((c) => has('column', c.id))
+        // pilar não pode cair sobre outro que fica parado
+        const collide = movedCols.some((c) =>
+          p.columns.some(
+            (o) =>
+              !has('column', o.id) &&
+              Math.hypot(o.pos.x - (c.pos.x + delta.x), o.pos.y - (c.pos.y + delta.y)) < 0.05,
+          ),
+        )
+        if (collide) return 'duplicate'
+        // pontos que se movem: pilares (valem em todas as plantas) + vértices
+        // dos elementos selecionados (valem na planta deles)
+        const globalPts = movedCols.map((c) => c.pos)
+        const shift = (q: Vec2) => ({ x: q.x + delta.x, y: q.y + delta.y })
+        const plans = p.plans.map((pl) => {
+          const pts = [
+            ...globalPts,
+            ...pl.beams.filter((b) => has('beam', b.id)).flatMap((b) => b.path),
+            ...pl.slabs.filter((x) => has('slab', x.id)).flatMap((x) => x.polygon),
+            ...pl.loadRegions.filter((r) => has('loadRegion', r.id)).flatMap((r) => r.polygon),
+          ]
+          if (pts.length === 0) return pl
+          const near = (q: Vec2) => pts.some((m) => Math.hypot(q.x - m.x, q.y - m.y) < 0.02)
+          const mv = (q: Vec2) => (near(q) ? shift(q) : q)
+          return {
+            ...pl,
+            beams: pl.beams.map((b) => ({ ...b, path: b.path.map(mv) })),
+            slabs: pl.slabs.map((x) => ({ ...x, polygon: x.polygon.map(mv) })),
+            loadRegions: pl.loadRegions.map((r) => ({ ...r, polygon: r.polygon.map(mv) })),
+            ...(pl.masonryWalls
+              ? { masonryWalls: pl.masonryWalls.map((w) => ({ ...w, path: w.path.map(mv) })) }
+              : {}),
+          }
+        })
+        set({
+          project: {
+            ...p,
+            columns: p.columns.map((c) => (has('column', c.id) ? { ...c, pos: shift(c.pos) } : c)),
+            plans,
+          },
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+        })
+        return 'ok'
+      },
+      rotateColumns: (ids) =>
+        set((s) => ({
+          project: {
+            ...s.project,
+            columns: s.project.columns.map((c) =>
+              ids.includes(c.id)
+                ? { ...c, rotationDeg: ((c.rotationDeg + 90) % 360) as Column['rotationDeg'] }
+                : c,
+            ),
+          },
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+        })),
       addBeamPath: (path) => {
         if (path.length < 2) return
         const s = get()
@@ -768,13 +886,14 @@ export const useStore = create<HFState>()(
           analysisStatus: 'idle',
         })
       },
-      addWallLoad: (beamId) => {
+      addWallLoad: (beamId, another) => {
         const s = get()
         const plan = s.project.plans.find((pl) => pl.beams.some((b) => b.id === beamId))
         if (!plan) return
-        // uma carga de parede por viga (edita a existente)
+        // ferramenta de carga: uma por viga (edita a existente); `another`
+        // permite outras cargas na mesma viga (trechos/paredes diferentes)
         const existing = plan.wallLoads.find((w) => w.beamId === beamId)
-        if (existing) {
+        if (existing && !another) {
           set({ selection: { kind: 'wallLoad', id: existing.id } })
           return
         }
@@ -884,9 +1003,39 @@ export const useStore = create<HFState>()(
           selection: s.selection?.id === ref.id ? null : s.selection,
         })
       },
+      deleteElements: (refs) => {
+        if (refs.length === 0) return
+        const s = get()
+        const ids = (kind: ElementRef['kind']) =>
+          new Set(refs.filter((r) => r.kind === kind).map((r) => r.id))
+        const cols = ids('column')
+        const beams = ids('beam')
+        const slabs = ids('slab')
+        const regions = ids('loadRegion')
+        const walls = ids('wallLoad')
+        set({
+          project: {
+            ...s.project,
+            columns: s.project.columns.filter((c) => !cols.has(c.id)),
+            plans: s.project.plans.map((pl) => ({
+              ...pl,
+              beams: pl.beams.filter((b) => !beams.has(b.id)),
+              slabs: pl.slabs.filter((x) => !slabs.has(x.id)),
+              loadRegions: pl.loadRegions.filter((r) => !regions.has(r.id)),
+              wallLoads: pl.wallLoads.filter((w) => !walls.has(w.id) && !beams.has(w.beamId)),
+            })),
+          },
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+          selection: null,
+          multi: [],
+        })
+      },
       deleteSelected: () => {
-        const sel = get().selection
-        if (sel) get().deleteElement(sel)
+        const refs = selectedRefs(get())
+        if (refs.length > 1) get().deleteElements(refs)
+        else if (refs.length === 1) get().deleteElement(refs[0])
       },
 
       updateGridAxis: (dir, axisId, pos) =>

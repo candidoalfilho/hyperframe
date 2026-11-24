@@ -2,6 +2,7 @@
 
 export * from './model/types'
 export * from './model/presets'
+export { wallLoadFromCalc, type WallLoadBreakdown } from './model/wallLoad'
 export * from './model/factory'
 export * from './model/naming'
 export { uid } from './model/uid'
@@ -207,6 +208,19 @@ export {
   trussLinearMass,
   type LatticeDesignOutput,
 } from './nbr/nbr6118/latticeSlab'
+export {
+  bracingSelfWeight,
+  latticeBracing,
+  recommendedBracingRibs,
+  type LatticeNegativeEnd,
+} from './nbr/nbr6118/latticeSlab'
+export { latticeDesignSpan, slabSelfWeight } from './analysis/slabWeight'
+export {
+  isRectangular,
+  oneWaySpanStats,
+  simplifyPolygon,
+  simplifyPolygonMap,
+} from './geometry/slabEdges'
 export { latticeSection } from './nbr/nbr6118/ribbedSlab'
 export { oneWayTributaryAreas } from './geometry/slabEdges'
 export { checkPunching, type PunchingInput, type PunchingOutput } from './nbr/nbr6118/punching'

@@ -32,8 +32,10 @@ export default function StatusBar() {
   const tool = useStore((s) => s.tool)
 
   const toolHints: Record<string, string> = {
-    select: 'clique para selecionar · Delete exclui',
-    column: 'clique para inserir pilar (snap nos eixos)',
+    select:
+      'clique seleciona · Shift soma · arraste = janela/mover · G gira pilar · Delete exclui',
+    column: 'clique para inserir pilar (snap nos eixos e nas faces) · G gira 90°',
+    measure: 'clique os pontos p/ medir · Enter/duplo-clique conclui · Esc limpa · F8 orto',
     beam: 'clique os pontos da viga · Enter/duplo-clique finaliza · Esc cancela',
     slab: 'clique dentro de um contorno fechado de vigas',
     wall: 'clique na viga para aplicar carga de alvenaria',

@@ -184,6 +184,10 @@ export interface LatticeParams {
   extraBars?: { n: number; phi: number }
   /** continuidade sobre os apoios com laje vizinha (ausente/false = biapoiada) */
   continuous?: boolean
+  /** nº de nervuras transversais de travamento; ausente = automático pelo vão */
+  bracingRibs?: number
+  /** largura da nervura de travamento, m (ausente = 10 cm) */
+  bracingRibWidth?: number
 }
 
 export interface RibbedParams {
@@ -232,6 +236,27 @@ export interface WallLoad {
   x0?: number
   x1?: number
   label?: string
+  /** composição da parede que gerou `w` (memória de cálculo); ausente = w informado direto */
+  calc?: WallLoadCalc
+}
+
+/** Parâmetros da parede de alvenaria p/ compor a carga linear (NBR 6120) */
+export interface WallLoadCalc {
+  /** altura da parede apoiada na viga, m */
+  height: number
+  /** espessura do bloco (sem revestimento), m */
+  thickness: number
+  /** tipo de bloco (rótulo do preset ou "Personalizado") */
+  block: string
+  /** peso específico aparente da alvenaria (bloco + juntas), kN/m³ */
+  unitWeight: number
+  /** espessura do revestimento POR FACE, m, e nº de faces revestidas (0–2) */
+  coatingThickness: number
+  coatingFaces: number
+  /** peso específico do revestimento, kN/m³ */
+  coatingUnitWeight: number
+  /** área total de aberturas (portas e janelas) descontada, m² */
+  openingsArea: number
 }
 
 /** Geometria do lance p/ dimensionamento da escada (região kind 'escada') */

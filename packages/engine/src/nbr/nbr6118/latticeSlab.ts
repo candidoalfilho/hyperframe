@@ -7,7 +7,7 @@ import {
 } from '../../model/presets'
 import { designBeamFlexure, rhoMin } from './beamDesign'
 import { designTBeamFlexure } from './tSection'
-import { pickSlabBars, type EdgeCondition } from './slabDesign'
+import { pickSlabBarsDetail, type EdgeCondition } from './slabDesign'
 import { latticeSection, slabShearVrd1 } from './ribbedSlab'
 
 /**
@@ -59,6 +59,45 @@ export function latticeRibbed(
   }
 }
 
+/**
+ * Nervuras transversais de travamento. A NBR 6118:2023 não fixa quantidade; o
+ * automático segue o critério clássico (NB-1/78 §6.1.1.3, mantido pelos
+ * fabricantes): vão > 4 m → 1 nervura · vão > 6 m → 2 nervuras.
+ */
+export function recommendedBracingRibs(span: number): number {
+  if (span > 6 + 1e-9) return 2
+  if (span > 4 + 1e-9) return 1
+  return 0
+}
+
+/** nº de nervuras de travamento adotado e posições (m a partir do apoio inicial) */
+export function latticeBracing(
+  l: LatticeParams,
+  span: number,
+): { count: number; auto: boolean; recommended: number; width: number; positions: number[] } {
+  const recommended = recommendedBracingRibs(span)
+  const auto = l.bracingRibs === undefined
+  const count = Math.max(0, Math.round(auto ? recommended : l.bracingRibs!))
+  const positions = Array.from({ length: count }, (_, i) => (span * (i + 1)) / (count + 1))
+  return { count, auto, recommended, width: l.bracingRibWidth ?? 0.1, positions }
+}
+
+/**
+ * Acréscimo de peso próprio das nervuras de travamento, kN/m²: o concreto da
+ * nervura substitui o enchimento (largura bn, altura he, só no trecho be).
+ */
+export function bracingSelfWeight(
+  l: LatticeParams,
+  span: number,
+  gammaC: number,
+  fillerWeight: number,
+): number {
+  if (!(span > 0)) return 0
+  const b = latticeBracing(l, span)
+  const frac = l.fillerWidth / (l.fillerWidth + l.baseWidth)
+  return (b.count * b.width * l.fillerHeight * frac * Math.max(gammaC - fillerWeight, 0)) / span
+}
+
 /** massa linear da armação treliçada, kg/m (1 banzo sup. + 2 inf. + 2 sinusoides) */
 export function trussLinearMass(l: LatticeParams): number {
   const a = (phi: number) => (Math.PI * phi * phi) / 4
@@ -101,6 +140,28 @@ export interface LatticeDesignInput {
   wkLimit: number
   /** as vigotas vencem o vão da faixa A da laje (1ª borda)? — p/ pranchas */
   ribsAlongA: boolean
+  /** largura do painel transversal às vigotas, m — p/ contar vigotas e barras */
+  width?: number
+  /** há laje vizinha além do apoio inicial/final (negativa passa p/ o vão vizinho) */
+  neighborStart?: boolean
+  neighborEnd?: boolean
+}
+
+/** armadura superior em um apoio da vigota */
+export interface LatticeNegativeEnd {
+  /** calculada por continuidade · construtiva sobre apoio com laje vizinha · de borda (§20.1) */
+  kind: 'continuidade' | 'construtiva' | 'borda'
+  /** "Q-61 + φ6.3 c/ 20" */
+  spec: string
+  /** barras complementares à tela (null = a tela basta) */
+  phi: number | null
+  spacing: number | null
+  /** alcance p/ dentro do vão, medido do eixo do apoio, m */
+  reach: number
+  /** comprimento da barra, m (2·alcance sobre apoio com vizinha; alcance + gancho na borda) */
+  length: number
+  /** quantidade de barras no apoio (null se a largura do painel é desconhecida) */
+  count: number | null
 }
 
 export interface LatticeCheck {
@@ -183,6 +244,36 @@ export interface LatticeDesignOutput {
   reactions: { g: [number, number]; q: [number, number] }
   /** consumo de aço (treliça + adicionais + tela), kg/m² */
   steelKgPerM2: number
+  /** nervuras transversais de travamento */
+  bracing: {
+    count: number
+    auto: boolean
+    recommended: number
+    /** largura × altura, m */
+    width: number
+    height: number
+    /** posições a partir do apoio inicial, m */
+    positions: number[]
+    /** As,mín da nervura (tab. 17.3), m² */
+    asMin: number
+    /** "2 φ8 (inf.) + 1 φ6,3 (sup.)" */
+    bars: string
+    /** comprimento de cada nervura = largura do painel, m (null se desconhecida) */
+    length: number | null
+  }
+  /** detalhamento p/ montagem: quantidades e comprimentos */
+  detail: {
+    /** nº de vigotas no painel (null se a largura é desconhecida) */
+    joists: number | null
+    /** comprimento da vigota e das barras adicionais ≈ vão teórico, m */
+    joistLength: number
+    /** barras adicionais positivas: por vigota e no painel */
+    extra: { n: number; phi: number; length: number; total: number | null } | null
+    negStart: LatticeNegativeEnd
+    negEnd: LatticeNegativeEnd
+    /** área de tela, m² (com 10% de traspasse) */
+    meshArea: number | null
+  }
   ok: boolean
   notes: string[]
 }
@@ -350,6 +441,7 @@ export function designLatticeSlab(inp: LatticeDesignInput): LatticeDesignOutput 
   }
   const meshEq50 = (mesh.as * fyd60) / inp.fyd // tela em área equivalente CA-50
   let asSupportPerM = 0
+  let supportPick: ReturnType<typeof pickSlabBarsDetail> = null
   let supportSpec = '—'
   let solidStrip = false
   let supportOk = true
@@ -383,13 +475,14 @@ export function designLatticeSlab(inp: LatticeDesignInput): LatticeDesignOutput 
     }
     asSupportPerM = Math.max(flexSup.as / spacing, 0.67 * rhoMin(inp.fck / 1000) * h)
     const deficit = asSupportPerM - meshEq50
-    supportSpec = deficit > 1e-9 ? `${mesh.name} + ${pickSlabBars(deficit, h)}` : mesh.name
+    supportPick = deficit > 1e-9 ? pickSlabBarsDetail(deficit, h) : null
+    supportSpec = supportPick ? `${mesh.name} + ${supportPick.spec}` : mesh.name
   }
   // apoios simples com laje vizinha: negativa construtiva (tab. 19.1: 0,67·ρmin)
   const asNegConstructivePerM = 0.67 * rhoMin(inp.fck / 1000) * h
   const constrDeficit = asNegConstructivePerM - meshEq50
-  const negConstructiveSpec =
-    constrDeficit > 1e-9 ? `${mesh.name} + ${pickSlabBars(constrDeficit, h)}` : mesh.name
+  const constrPick = constrDeficit > 1e-9 ? pickSlabBarsDetail(constrDeficit, h) : null
+  const negConstructiveSpec = constrPick ? `${mesh.name} + ${constrPick.spec}` : mesh.name
 
   // --------------------------------------------------------- cisalhamento
   const shares = latticeEndShares(inp.fixedStart, inp.fixedEnd)
@@ -500,10 +593,57 @@ export function designLatticeSlab(inp: LatticeDesignInput): LatticeDesignOutput 
       `Calculada como biapoiada — sobre apoios com laje vizinha prever negativa construtiva ${negConstructiveSpec} (≥ ${(asNegConstructivePerM * 1e4).toFixed(2)} cm²/m, tab. 19.1) p/ controle de fissuração.`,
     )
   }
-  if (L > 4 + 1e-9) {
+  // ------------------------------------------- nervuras de travamento
+  const br = latticeBracing(l, L)
+  // armadura construtiva: As,mín (tab. 17.3) na face inferior, ≥ 2 barras
+  const brAsMin = rhoMin(inp.fck / 1000) * br.width * h
+  let brPhi = 0.0125
+  for (const phi of [0.0063, 0.008, 0.01, 0.0125]) {
+    if (2 * area(phi) >= brAsMin - 1e-12) {
+      brPhi = phi
+      break
+    }
+  }
+  const brBars = `2 φ${fmtPhi(brPhi)} (inf.) + 1 φ6,3 (sup.)`
+  if (br.count < br.recommended) {
     notes.push(
-      'Vão > 4 m: prever nervura(s) transversal(is) de travamento (prática corrente dos fabricantes) — obrigatória(s) se houver carga concentrada ou parede sobre a laje.',
+      `Travamento: ${br.count} nervura(s) transversal(is) informada(s) p/ vão de ${L.toFixed(2)} m — o critério usual pede ${br.recommended} (vão > 4 m: 1; > 6 m: 2).`,
     )
+  } else if (br.count > 0) {
+    notes.push(
+      `Travamento: ${br.count} nervura(s) transversal(is) de ${(br.width * 100).toFixed(0)}×${(h * 100).toFixed(0)} cm a ${br.positions.map((x) => x.toFixed(2).replace('.', ',')).join(' e ')} m do apoio, com ${brBars} — obrigatória(s) também sob carga concentrada ou parede.`,
+    )
+  }
+
+  // ------------------------------------------ detalhamento p/ montagem
+  const round5up = (v: number) => Math.ceil(v / 0.05 - 1e-9) * 0.05
+  const joists = inp.width && inp.width > 0 ? Math.max(1, Math.round(inp.width / spacing)) : null
+  const negEndOf = (fixed: boolean, neighbor: boolean): LatticeNegativeEnd => {
+    // continuidade: 0,25·ℓ + decalagem al = 1,5·d (laje sem armadura
+    // transversal, §19.4.1); construtiva e de borda: 0,15·ℓ (§20.1)
+    const kind = fixed ? 'continuidade' : neighbor ? 'construtiva' : 'borda'
+    const pick = fixed ? supportPick : constrPick
+    const reach = round5up(fixed ? 0.25 * L + 1.5 * d : 0.15 * L)
+    const length = kind === 'borda' ? round5up(reach + 0.15) : round5up(2 * reach)
+    return {
+      kind,
+      spec: fixed ? supportSpec : negConstructiveSpec,
+      phi: pick?.phi ?? null,
+      spacing: pick?.spacing ?? null,
+      reach,
+      length,
+      count: pick && inp.width && inp.width > 0 ? Math.ceil(inp.width / pick.spacing) : null,
+    }
+  }
+  const detail: LatticeDesignOutput['detail'] = {
+    joists,
+    joistLength: L,
+    extra: extra
+      ? { n: extra.n, phi: extra.phi, length: L, total: joists !== null ? extra.n * joists : null }
+      : null,
+    negStart: negEndOf(inp.fixedStart, !!inp.neighborStart),
+    negEnd: negEndOf(inp.fixedEnd, !!inp.neighborEnd),
+    meshArea: inp.width && inp.width > 0 ? inp.width * L * 1.1 : null,
   }
   notes.push('Fase de montagem não verificada: escoramento e contraflecha conforme o fabricante da vigota.')
 
@@ -555,6 +695,18 @@ export function designLatticeSlab(inp: LatticeDesignInput): LatticeDesignOutput 
     crackOk,
     reactions,
     steelKgPerM2,
+    bracing: {
+      count: br.count,
+      auto: br.auto,
+      recommended: br.recommended,
+      width: br.width,
+      height: h,
+      positions: br.positions,
+      asMin: brAsMin,
+      bars: brBars,
+      length: inp.width && inp.width > 0 ? inp.width : null,
+    },
+    detail,
     ok: flexOk && shearOk && supportOk && checks.every((c) => c.ok),
     notes,
   }

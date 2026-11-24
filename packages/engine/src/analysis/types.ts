@@ -48,6 +48,11 @@ export interface AMember {
   xLocal: Vec3
   yLocal: Vec3
   zLocal: Vec3
+  /**
+   * eixo GEOMÉTRICO da viga em planta, quando difere dos nós (extremo
+   * capturado pelo nó de um pilar por estar dentro da projeção dele)
+   */
+  axis?: { a: { x: number; y: number }; b: { x: number; y: number } }
 }
 
 /** Casos de carga fundamentais (EQ* = sismo NBR 15421, forças equivalentes) */
@@ -285,6 +290,10 @@ export interface SkinReinforcement {
   /** As por face, m² */
   asPerFace: number
   spec: string
+  /** barras por face, bitola (m) e espaçamento vertical (m) — 0 se dispensada */
+  n?: number
+  phi?: number
+  spacing?: number
 }
 
 export interface BeamSpanDesign {
@@ -645,6 +654,8 @@ export interface RebarItem {
   /** id do elemento de modelagem (filtra o quadro de ferros da prancha) */
   elementId?: string
   note?: string
+  /** nº de repetições do elemento (pavimentos que usam a planta) já embutido em n/kg */
+  reps?: number
 }
 
 export interface BeamDetailSpan {

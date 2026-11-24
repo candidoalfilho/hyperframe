@@ -1,6 +1,6 @@
 import type { FloorPlan, Project, SectionRect, Slab, Vec2 } from '../model/types'
 import { columnSectionInfo, columnWorldDirs } from '../model/columnSection'
-import { ribbedSelfWeight } from '../nbr/nbr6118/ribbedSlab'
+import { slabSelfWeight } from './slabWeight'
 import { analyzeSlabGrid, slabGridCacheKey, type SlabGridOutput } from './grid'
 import { averageModulus } from '../geotech/soil'
 import {
@@ -17,7 +17,12 @@ import {
   sub,
 } from '../geometry/geometry'
 import { clipPolygon, overlapArea } from '../geometry/clip'
-import { edgeContinuous, oneWayTributaryAreas } from '../geometry/slabEdges'
+import {
+  edgeContinuous,
+  oneWayTributaryAreas,
+  simplifyPolygon,
+  simplifyPolygonMap,
+} from '../geometry/slabEdges'
 import { computeWind } from '../nbr/nbr6123/wind'
 import { flankingSlabs, tSectionInertia } from './flange'
 import { columnHalfExtents } from '../model/columnSection'
@@ -58,6 +63,9 @@ interface Piece {
   /** posição ao longo do eixo da viga (comprimento acumulado), m */
   s0: number
   s1: number
+  /** eixo geométrico original, quando um extremo foi capturado por um pilar */
+  ga?: Vec2
+  gb?: Vec2
 }
 
 const CASES: CaseId[] = ['G', 'Q', 'WXP', 'WXN', 'WYP', 'WYN', 'EQXP', 'EQXN', 'EQYP', 'EQYN']
@@ -103,6 +111,21 @@ export function buildAnalysisModel(project: Project): {
 
   // -------------------------------------------------- vigas → pedaços
   const colPoints = project.columns.map((c) => c.pos)
+  // REGIÃO NODAL do pilar: ponto de viga dentro da projeção da seção (+2 cm)
+  // pertence ao nó do pilar. A viga que chega na face — ou cruza o pilar fora
+  // do centro — fica ligada a ele, e o trecho contido na seção não vira vão
+  // (trecho rígido, §14.6.2.1). A excentricidade em planta não gera momento.
+  const footprintsAt = (li: number) =>
+    project.columns
+      .filter((c) => {
+        const ib = levelIndexById.get(c.baseLevelId) ?? 0
+        const it = levelIndexById.get(c.topLevelId) ?? levels.length - 1
+        return li >= ib && li <= it
+      })
+      .map((c) => ({ pos: c.pos, name: c.name, he: columnHalfExtents(c) }))
+  let nCaptured = 0
+  let nStubs = 0
+  const eccentric = new Map<string, number>()
   /** pieces por índice de nível */
   const piecesByLevel = new Map<number, Piece[]>()
 
@@ -141,9 +164,26 @@ export function buildAnalysisModel(project: Project): {
       }
     }
 
+    const footprints = footprintsAt(li)
+    const captureOf = (p: Vec2) => {
+      let best: (typeof footprints)[number] | null = null
+      let bestD = Infinity
+      for (const f of footprints) {
+        if (Math.abs(p.x - f.pos.x) > f.he.dx + 0.02 || Math.abs(p.y - f.pos.y) > f.he.dy + 0.02)
+          continue
+        const d = dist(p, f.pos)
+        if (d < bestD) {
+          best = f
+          bestD = d
+        }
+      }
+      return best
+    }
+
     const pieces: Piece[] = []
     for (const beam of plan.beams) {
       let spanIndex = 0
+      let pendingBreak = false
       let sAcc = 0 // comprimento acumulado ao longo da polilinha
       const sectionOfSeg = (si: number): SectionRect =>
         beam.segmentSections?.[si] ?? beam.section
@@ -168,6 +208,15 @@ export function buildAnalysisModel(project: Project): {
           const { t, d } = projectOnSegment(cp, a, b)
           if (d <= TOL * 2) cuts.add(Math.round((t * L) / TOL) * (TOL / L))
         }
+        // viga que atravessa a seção de um pilar fora do centro: corta no ponto
+        // mais próximo do centro (que será capturado pelo nó do pilar)
+        for (const f of footprints) {
+          const { t, d } = projectOnSegment(f.pos, a, b)
+          if (d <= TOL * 2 || t <= 0 || t >= 1) continue
+          const q = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+          if (Math.abs(q.x - f.pos.x) <= f.he.dx + 0.02 && Math.abs(q.y - f.pos.y) <= f.he.dy + 0.02)
+            cuts.add(Math.round((t * L) / TOL) * (TOL / L))
+        }
         let ts = [...cuts].sort((x, y) => x - y)
         // baldrames (nível 0) sobre Winkler: refina em segmentos ≤ 0,5 m
         if (li === 0 && ksGround > 0) {
@@ -187,8 +236,38 @@ export function buildAnalysisModel(project: Project): {
           const t0 = ts[k]
           const t1 = ts[k + 1]
           if ((t1 - t0) * L < TOL) continue
-          const pa = { x: a.x + (b.x - a.x) * t0, y: a.y + (b.y - a.y) * t0 }
-          const pb = { x: a.x + (b.x - a.x) * t1, y: a.y + (b.y - a.y) * t1 }
+          const ga = { x: a.x + (b.x - a.x) * t0, y: a.y + (b.y - a.y) * t0 }
+          const gb = { x: a.x + (b.x - a.x) * t1, y: a.y + (b.y - a.y) * t1 }
+          const ca = captureOf(ga)
+          const cb = captureOf(gb)
+          const pa = ca ? ca.pos : ga
+          const pb = cb ? cb.pos : gb
+          const isSegEnd = k + 2 === ts.length
+          const nextSection = si + 2 < beam.path.length ? sectionOfSeg(si + 1) : section
+          const sectionChanges =
+            isSegEnd && (nextSection.bw !== section.bw || nextSection.h !== section.h)
+          if (dist(pa, pb) < TOL) {
+            // trecho inteiro dentro da seção do pilar: rígido, não vira barra
+            nStubs++
+            if (sectionChanges) pendingBreak = true
+            continue
+          }
+          for (const [c, g] of [
+            [ca, ga],
+            [cb, gb],
+          ] as const) {
+            if (!c) continue
+            const ecc = dist(c.pos, g)
+            if (ecc <= TOL * 2) continue
+            nCaptured++
+            if (ecc > 0.25) eccentric.set(`${beam.name}–${c.name}`, ecc)
+          }
+          const moved = dist(pa, ga) > TOL || dist(pb, gb) > TOL
+          // novo vão de dimensionamento: apoio em pilar ou mudança de seção
+          if (pendingBreak) {
+            spanIndex++
+            pendingBreak = false
+          }
           pieces.push({
             a: pa,
             b: pb,
@@ -198,26 +277,41 @@ export function buildAnalysisModel(project: Project): {
             section,
             s0: sAcc + t0 * L,
             s1: sAcc + t1 * L,
+            ...(moved ? { ga, gb } : {}),
           })
-          const isLastPiece = k + 2 === ts.length && si + 2 === beam.path.length
-          // novo vão de dimensionamento: apoio em pilar ou mudança de seção
           const endsOnColumn = colPoints.some((cp) => dist(cp, pb) <= TOL * 2)
-          const isSegEnd = k + 2 === ts.length
-          const nextSection = si + 2 < beam.path.length ? sectionOfSeg(si + 1) : section
-          const sectionChanges =
-            isSegEnd && (nextSection.bw !== section.bw || nextSection.h !== section.h)
-          if ((endsOnColumn || sectionChanges) && !isLastPiece) spanIndex++
+          if (endsOnColumn || sectionChanges) pendingBreak = true
         }
         sAcc += L
       }
     }
     piecesByLevel.set(li, pieces)
   }
+  if (nCaptured + nStubs > 0) {
+    warnings.push(
+      `Ligação viga–pilar: ${nCaptured} extremo(s) de viga dentro da seção de pilar ligado(s) ao nó do pilar` +
+        (nStubs > 0 ? ` e ${nStubs} trecho(s) contido(s) na seção tratado(s) como rígido(s) (não viram vão)` : '') +
+        ' — a excentricidade em planta não é considerada.',
+    )
+  }
+  if (eccentric.size > 0) {
+    warnings.push(
+      `Excentricidade viga–pilar acima de 25 cm não considerada (${[...eccentric]
+        .map(([k, e]) => `${k}: ${(e * 100).toFixed(0)} cm`)
+        .join('; ')}) — em pilar-parede, verifique o momento adicional no pilar.`,
+    )
+  }
 
   // ---------------------------------------------------------------- membros
   const members: AMember[] = []
   /** arco [s0,s1] do membro ao longo da viga de origem (cargas parciais) */
   const memberArc = new Map<number, { s0: number; s1: number }>()
+  /** comprimento geométrico / comprimento da barra — conserva a força de cargas
+   *  lineares quando um extremo foi capturado pelo nó do pilar */
+  const loadScale = (mid: number): number => {
+    const ax = members[mid].axis
+    return ax ? dist(ax.a, ax.b) / Math.max(members[mid].length, 1e-9) : 1
+  }
   const addMember = (
     ni: number,
     nj: number,
@@ -362,7 +456,7 @@ export function buildAnalysisModel(project: Project): {
       const zL: Vec3 = [dy / L, -dx / L, 0]
       let propsT: AMember['props'] | undefined
       if (planT) {
-        const fl = flankingSlabs(planT, pc.a, pc.b, pc.section.bw)
+        const fl = flankingSlabs(planT, pc.ga ?? pc.a, pc.gb ?? pc.b, pc.section.bw)
         if (fl.hf !== null && fl.hf < pc.section.h) {
           const a075 = 0.75 * L
           const sideB = (c: number | null): number =>
@@ -391,6 +485,7 @@ export function buildAnalysisModel(project: Project): {
         zL,
         propsT,
       )
+      if (pc.ga && pc.gb) m.axis = { a: pc.ga, b: pc.gb }
       memberArc.set(m.id, { s0: pc.s0, s1: pc.s1 })
     }
   }
@@ -575,7 +670,7 @@ export function buildAnalysisModel(project: Project): {
             const s1 = arc?.s1 ?? members[mid].length
             const ov = Math.min(s1, x1) - Math.max(s0, x0)
             if (ov <= TOL) continue
-            const frac = Math.min(ov / (s1 - s0), 1)
+            const frac = Math.min(ov / (s1 - s0), 1) * loadScale(mid)
             memberLoads.G[mid].wy -= st.g * frac
             memberLoads.Q[mid].wy -= st.q * frac
             levelG[liBelow] += st.g * ov
@@ -615,7 +710,7 @@ export function buildAnalysisModel(project: Project): {
         const ov = Math.min(s1, x1) - Math.max(s0, x0)
         if (ov <= TOL) continue
         // carga uniforme equivalente no pedaço, conservando a força total
-        const frac = Math.min(ov / (s1 - s0), 1)
+        const frac = Math.min(ov / (s1 - s0), 1) * loadScale(mid)
         memberLoads.G[mid].wy -= wl.w * frac
         levelG[li] += wl.w * ov
         applied += ov
@@ -679,9 +774,7 @@ export function buildAnalysisModel(project: Project): {
           )}% da área — verifique o modelo.`,
         )
       }
-      const gSelf = slab.ribbed
-        ? ribbedSelfWeight(slab.thickness, slab.ribbed, γ)
-        : slab.thickness * γ
+      const gSelf = slabSelfWeight(slab, γ)
       const gArea = (gSelf + slab.finishLoad) * netFactor + extras.g // kN/m²
       const qArea = slab.liveLoad * netFactor + extras.q
       levelG[li] += gArea * area
@@ -690,17 +783,20 @@ export function buildAnalysisModel(project: Project): {
       // nervurada unidirecional / treliçada: a carga desce só nas vigas onde as
       // nervuras apoiam (com 5/8–3/8 quando um extremo tem continuidade)
       const oneWayAxis = slab.ribbed && slab.ribbed.dirs !== 'xy' ? slab.ribbed.dirs : null
-      const n = slab.polygon.length
+      // contorno SEM vértices colineares: a borda é casada inteira com as vigas
+      // (um vértice no meio do lado não pode virar "borda livre" pela metade)
+      const poly = simplifyPolygon(slab.polygon)
+      const n = poly.length
       let edgeShares: number[]
       if (oneWayAxis) {
         const considerContinuity = slab.ribbed!.lattice ? !!slab.ribbed!.lattice.continuous : true
         const others = plan.slabs.filter((o) => o.id !== slab.id)
-        const fixed = slab.polygon.map(
-          (p, e) => considerContinuity && edgeContinuous(p, slab.polygon[(e + 1) % n], others),
+        const fixed = poly.map(
+          (p, e) => considerContinuity && edgeContinuous(p, poly[(e + 1) % n], others),
         )
-        edgeShares = oneWayTributaryAreas(slab.polygon, oneWayAxis, (e) => fixed[e])
+        edgeShares = oneWayTributaryAreas(poly, oneWayAxis, (e) => fixed[e])
       } else {
-        edgeShares = tributaryAreas(slab.polygon)
+        edgeShares = tributaryAreas(poly)
       }
       // 1º passe: identifica bordas apoiadas e acumula quinhões de bordas livres
       interface EdgeSupport {
@@ -713,8 +809,8 @@ export function buildAnalysisModel(project: Project): {
       const supported: EdgeSupport[] = []
       let freeTrib = 0
       for (let e = 0; e < n; e++) {
-        const pa = slab.polygon[e]
-        const pb = slab.polygon[(e + 1) % n]
+        const pa = poly[e]
+        const pb = poly[(e + 1) % n]
         const edgeLen = dist(pa, pb)
         if (edgeLen < TOL) continue
         const aTrib = edgeShares[e]
@@ -723,15 +819,13 @@ export function buildAnalysisModel(project: Project): {
         const onEdge: number[] = []
         let covered = 0
         for (const m of levelMembers) {
-          const na = nodes[m.ni]
-          const nb = nodes[m.nj]
-          const p1 = { x: na.x, y: na.y }
-          const p2 = { x: nb.x, y: nb.y }
+          const p1 = m.axis?.a ?? { x: nodes[m.ni].x, y: nodes[m.ni].y }
+          const p2 = m.axis?.b ?? { x: nodes[m.nj].x, y: nodes[m.nj].y }
           const pr1 = projectOnSegment(p1, pa, pb)
           const pr2 = projectOnSegment(p2, pa, pb)
           if (pr1.d <= TOL * 3 && pr2.d <= TOL * 3) {
             onEdge.push(m.id)
-            covered += m.length
+            covered += m.axis ? dist(p1, p2) : m.length
           }
         }
         if (onEdge.length === 0) {
@@ -755,8 +849,8 @@ export function buildAnalysisModel(project: Project): {
         const supportedSet = new Set(supportedEdgeIdx)
         const onBeamFn = (p: Vec2): boolean =>
           levelMembers.some((m) => {
-            const na = nodes[m.ni]
-            const nb = nodes[m.nj]
+            const na = m.axis?.a ?? nodes[m.ni]
+            const nb = m.axis?.b ?? nodes[m.nj]
             return projectOnSegment(p, { x: na.x, y: na.y }, { x: nb.x, y: nb.y }).d <= TOL * 2
           })
         const candidates = project.columns
@@ -770,14 +864,14 @@ export function buildAnalysisModel(project: Project): {
           })
         const interior = classifySlabColumns(
           candidates,
-          slab.polygon,
+          poly,
           (e) => supportedSet.has(e),
           onBeamFn,
         )
         if (supportedEdgeIdx.length + interior.length > 0) {
           try {
             const key = slabGridCacheKey({
-              polygon: slab.polygon,
+              polygon: poly,
               holes: slabOpeningPolygons(plan, slab),
               supportedEdges: supportedEdgeIdx,
               interiorColumns: interior,
@@ -786,7 +880,7 @@ export function buildAnalysisModel(project: Project): {
             let grid = gridCache.get(key)
             if (!grid) {
               grid = analyzeSlabGrid({
-                polygon: slab.polygon,
+                polygon: poly,
                 holes: slabOpeningPolygons(plan, slab),
                 supportedEdges: supportedEdgeIdx,
                 interiorColumns: interior,
@@ -804,8 +898,8 @@ export function buildAnalysisModel(project: Project): {
               const wLineG = (share * totalG) / ed.covered
               const wLineQ = (share * totalQ) / ed.covered
               for (const mid of ed.onEdge) {
-                memberLoads.G[mid].wy -= wLineG
-                memberLoads.Q[mid].wy -= wLineQ
+                memberLoads.G[mid].wy -= wLineG * loadScale(mid)
+                memberLoads.Q[mid].wy -= wLineQ * loadScale(mid)
               }
             }
             for (const [colId, fUnit] of grid.columnLoads) {
@@ -853,8 +947,8 @@ export function buildAnalysisModel(project: Project): {
         const wLineG = (share * gArea) / ed.covered
         const wLineQ = (share * qArea) / ed.covered
         for (const mid of ed.onEdge) {
-          memberLoads.G[mid].wy -= wLineG
-          memberLoads.Q[mid].wy -= wLineQ
+          memberLoads.G[mid].wy -= wLineG * loadScale(mid)
+          memberLoads.Q[mid].wy -= wLineQ * loadScale(mid)
         }
       }
     }
@@ -1152,7 +1246,22 @@ export function slabExtraLoads(plan: FloorPlan, slab: Slab): { g: number; q: num
  * trapézios nos maiores). Outros polígonos: proporcional ao comprimento
  * da borda (aproximação documentada).
  */
-export function tributaryAreas(polygon: Vec2[]): number[] {
+export function tributaryAreas(original: Vec2[]): number[] {
+  // vértices colineares (viga em "T" na borda) não mudam a forma: calcula no
+  // contorno simplificado e rateia cada borda entre seus trechos originais
+  const simp = simplifyPolygonMap(original)
+  if (simp.polygon.length !== original.length) {
+    const base = tributaryAreas(simp.polygon)
+    const no = original.length
+    const lenO = original.map((p, i) => dist(p, original[(i + 1) % no]))
+    const lenS = new Array<number>(simp.polygon.length).fill(0)
+    simp.edgeMap.forEach((se, e) => (lenS[se] += lenO[e]))
+    return lenO.map((l, e) => {
+      const se = simp.edgeMap[e]
+      return lenS[se] > 1e-12 ? (base[se] * l) / lenS[se] : 0
+    })
+  }
+  const polygon = original
   const n = polygon.length
   const area = polygonArea(polygon)
   const lens: number[] = []

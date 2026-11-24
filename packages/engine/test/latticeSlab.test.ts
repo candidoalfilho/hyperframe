@@ -202,7 +202,9 @@ describe('treliçadas integradas à análise global', () => {
     const p = createSampleProject()
     for (const plan of p.plans) {
       for (const slab of plan.slabs) {
-        const { ribbed, thickness } = latticeRibbed(LAT, 0.04, dirs)
+        // sem travamento: o peso das nervuras transversais depende do vão das
+        // vigotas e quebraria a igualdade de carga total entre os dois sentidos
+        const { ribbed, thickness } = latticeRibbed({ ...LAT, bracingRibs: 0 }, 0.04, dirs)
         slab.ribbed = ribbed
         slab.thickness = thickness
       }

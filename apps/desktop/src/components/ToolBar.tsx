@@ -9,11 +9,16 @@ import {
   IconTrash,
   IconWall,
   IconMasonry,
+  IconRuler,
 } from './Icons'
 
 const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Element }[] = [
-  { id: 'select', title: 'Selecionar (V ou Esc)', icon: IconCursor },
-  { id: 'column', title: 'Pilar (P) — clique na posição', icon: IconColumn },
+  {
+    id: 'select',
+    title: 'Selecionar (V ou Esc) — Shift+clique soma · arraste no vazio abre janela · ⌘/Ctrl+A tudo',
+    icon: IconCursor,
+  },
+  { id: 'column', title: 'Pilar (P) — clique na posição · G gira 90°', icon: IconColumn },
   { id: 'beam', title: 'Viga (B) — clique nos pontos, Enter/duplo-clique finaliza', icon: IconBeam },
   { id: 'slab', title: 'Laje (L) — clique dentro de um contorno fechado de vigas', icon: IconSlab },
   { id: 'wall', title: 'Carga de parede (W) — clique na viga', icon: IconWall },
@@ -26,6 +31,11 @@ const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Elem
     id: 'region',
     title: 'Região de carga (R) — escada/reservatório: clique os vértices, Enter fecha',
     icon: IconStairs,
+  },
+  {
+    id: 'measure',
+    title: 'Medir (D) — clique os pontos: distância por trecho e acumulada · Enter conclui · Esc limpa',
+    icon: IconRuler,
   },
 ]
 
@@ -53,7 +63,7 @@ export default function ToolBar() {
       <div style={{ flex: 1 }} />
       <button
         className="btn-icon tip-right"
-        data-tip="Excluir selecionado (Delete)"
+        data-tip="Excluir seleção (Delete)"
         disabled={!selection}
         onClick={deleteSelected}
       >

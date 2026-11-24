@@ -23,7 +23,8 @@ import {
 } from '../analysis/buildModel'
 import { columnHalfExtents } from '../model/columnSection'
 import { polygonArea } from '../geometry/geometry'
-import { edgeContinuous, isRectangular } from '../geometry/slabEdges'
+import { edgeContinuous, isRectangular, oneWaySpanStats, simplifyPolygon } from '../geometry/slabEdges'
+import { slabSelfWeight } from '../analysis/slabWeight'
 import { designLatticeSlab } from '../nbr/nbr6118/latticeSlab'
 import { crackLimit } from '../nbr/nbr6118/cracking'
 
@@ -162,43 +163,10 @@ export function runSlabDesign(
         notes.push('Grelha indisponível p/ esta laje (sem apoios) — caindo p/ Marcus.')
       }
 
-      if (!rect) {
-        out.push({
-          slabId: slab.id,
-          name: slab.name,
-          levelName: level.name,
-          spanA: 0,
-          spanB: 0,
-          thickness: slab.thickness,
-          rectangular: false,
-          kind,
-          design: null,
-          ribbedDesign: null,
-          gridDesign: null,
-          status: 'atencao',
-          notes: [
-            ...notes,
-            slab.ribbed?.lattice
-              ? 'Laje treliçada não retangular — divida em painéis retangulares p/ dimensionar as vigotas (as cargas já descem unidirecionais na análise).'
-              : 'Laje não retangular — dimensionar manualmente ou use o método da GRELHA nas configurações.',
-          ],
-        })
-        continue
-      }
-
       const others = plan.slabs.filter((s) => s.id !== slab.id)
-      const p = slab.polygon
-      const cont = [0, 1, 2, 3].map((i) => edgeContinuous(p[i], p[(i + 1) % 4], others))
-      const spanA = dist(p[0], p[1])
-      const spanB = dist(p[1], p[2])
-      // faixa na direção A (vão = |e0|) apoia nas bordas 1 e 3
-      const fixedA = ((cont[1] ? 1 : 0) + (cont[3] ? 1 : 0)) as EdgeCondition
-      const fixedB = ((cont[0] ? 1 : 0) + (cont[2] ? 1 : 0)) as EdgeCondition
-
-      const gSelf = slab.ribbed
-        ? ribbedSelfWeight(slab.thickness, slab.ribbed, project.settings.concreteUnitWeight)
-        : slab.thickness * project.settings.concreteUnitWeight
-
+      // contorno sem vértices colineares (nó de viga em "T" na borda): 4 cantos
+      const p = simplifyPolygon(slab.polygon)
+      const gSelf = slabSelfWeight(slab, project.settings.concreteUnitWeight)
       // nervuras/vigotas unidirecionais: vencem o vão da faixa A (1ª borda)?
       const e0 = { x: p[1].x - p[0].x, y: p[1].y - p[0].y }
       const edge0AlongX = Math.abs(e0.x) >= Math.abs(e0.y)
@@ -207,20 +175,60 @@ export function runSlabDesign(
           ? (slab.ribbed.dirs === 'x') === edge0AlongX
           : undefined
 
+      // ------------------- TRELIÇADA: por vigota, em painel de qualquer forma
       if (slab.ribbed?.lattice) {
         const lat = slab.ribbed.lattice
+        const axis = slab.ribbed.dirs === 'y' ? 'y' : 'x'
         const alongA = ribsAlongA ?? true
-        // as vigotas apoiam nas bordas PERPENDICULARES ao vão
-        const endEdges: [number, number] = alongA ? [3, 1] : [0, 2]
-        const cont = !!lat.continuous
-        const openFactor =
-          1 - Math.min(openArea, polygonArea(slab.polygon)) / Math.max(polygonArea(slab.polygon), 1e-9)
+        const stats = oneWaySpanStats(slab.polygon, axis)
+        const area = polygonArea(slab.polygon)
+        let fixedStart = false
+        let fixedEnd = false
+        let neighborStart = false
+        let neighborEnd = false
+        if (rect) {
+          // as vigotas apoiam nas bordas PERPENDICULARES ao vão
+          const endEdges: [number, number] = alongA ? [3, 1] : [0, 2]
+          neighborStart = edgeContinuous(p[endEdges[0]], p[(endEdges[0] + 1) % 4], others)
+          neighborEnd = edgeContinuous(p[endEdges[1]], p[(endEdges[1] + 1) % 4], others)
+          fixedStart = !!lat.continuous && neighborStart
+          fixedEnd = !!lat.continuous && neighborEnd
+        } else {
+          notes.push(
+            `Painel não retangular: vigotas dimensionadas pelo MAIOR vão (${stats.max.toFixed(2)} m; vãos de ${stats.min.toFixed(2)} a ${stats.max.toFixed(2)} m), como biapoiadas — as vigotas mais curtas ficam a favor da segurança.`,
+          )
+        }
+        const span = rect ? (alongA ? dist(p[0], p[1]) : dist(p[1], p[2])) : stats.max
+        if (!(span > 0.05)) {
+          out.push({
+            slabId: slab.id,
+            name: slab.name,
+            levelName: level.name,
+            spanA: 0,
+            spanB: 0,
+            thickness: slab.thickness,
+            rectangular: false,
+            kind,
+            design: null,
+            ribbedDesign: null,
+            gridDesign: null,
+            status: 'atencao',
+            notes: [...notes, 'Laje treliçada sem vão definido no sentido das vigotas — confira o contorno.'],
+          })
+          continue
+        }
+        // largura do painel transversal às vigotas (média, p/ contar vigotas)
+        const width = area / Math.max(stats.mean, 1e-6)
+        const openFactor = 1 - Math.min(openArea, area) / Math.max(area, 1e-9)
         const latticeDesign = designLatticeSlab({
           lattice: lat,
           topping: slab.ribbed.topping,
-          span: alongA ? spanA : spanB,
-          fixedStart: cont && edgeContinuous(p[endEdges[0]], p[(endEdges[0] + 1) % 4], others),
-          fixedEnd: cont && edgeContinuous(p[endEdges[1]], p[(endEdges[1] + 1) % 4], others),
+          span,
+          fixedStart,
+          fixedEnd,
+          neighborStart,
+          neighborEnd,
+          width,
           g: (gSelf + slab.finishLoad) * openFactor + extras.g,
           q: slab.liveLoad * openFactor + extras.q,
           g0: gSelf,
@@ -244,6 +252,7 @@ export function runSlabDesign(
           !latticeDesign.crackOk ||
           !latticeDesign.mesh.ok ||
           latticeDesign.solidStrip ||
+          latticeDesign.bracing.count < latticeDesign.bracing.recommended ||
           openWarn
         )
           status = 'atencao'
@@ -251,10 +260,10 @@ export function runSlabDesign(
           slabId: slab.id,
           name: slab.name,
           levelName: level.name,
-          spanA,
-          spanB,
+          spanA: alongA ? span : width,
+          spanB: alongA ? width : span,
           thickness: slab.thickness,
-          rectangular: true,
+          rectangular: rect,
           kind,
           design: null,
           ribbedDesign: null,
@@ -265,6 +274,35 @@ export function runSlabDesign(
         })
         continue
       }
+
+      if (!rect) {
+        out.push({
+          slabId: slab.id,
+          name: slab.name,
+          levelName: level.name,
+          spanA: 0,
+          spanB: 0,
+          thickness: slab.thickness,
+          rectangular: false,
+          kind,
+          design: null,
+          ribbedDesign: null,
+          gridDesign: null,
+          status: 'atencao',
+          notes: [
+            ...notes,
+            'Laje não retangular — dimensionar manualmente ou use o método da GRELHA nas configurações.',
+          ],
+        })
+        continue
+      }
+
+      const cont = [0, 1, 2, 3].map((i) => edgeContinuous(p[i], p[(i + 1) % 4], others))
+      const spanA = dist(p[0], p[1])
+      const spanB = dist(p[1], p[2])
+      // faixa na direção A (vão = |e0|) apoia nas bordas 1 e 3
+      const fixedA = ((cont[1] ? 1 : 0) + (cont[3] ? 1 : 0)) as EdgeCondition
+      const fixedB = ((cont[0] ? 1 : 0) + (cont[2] ? 1 : 0)) as EdgeCondition
 
       if (slab.ribbed) {
         const ribbedDesign = designRibbedSlab({
@@ -707,7 +745,7 @@ function designSlabByGrid(
     spanA: maxX - minX,
     spanB: maxY - minY,
     thickness: slab.thickness,
-    rectangular: slab.polygon.length === 4,
+    rectangular: isRectangular(slab.polygon),
     kind: 'macica',
     design: null,
     ribbedDesign: null,

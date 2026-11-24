@@ -5,6 +5,8 @@
  * avisos e premissas), gerado com o writer PDF próprio (zero dependências).
  */
 
+import { wallLoadFromCalc } from '../model/wallLoad'
+import type { LatticeNegativeEnd } from '../nbr/nbr6118/latticeSlab'
 import { A4, PdfDoc, textWidth, wrapText, type PdfFont } from './pdf'
 import type { Project } from '../model/types'
 import type { AnalysisResults } from '../analysis/types'
@@ -281,18 +283,76 @@ export function buildMemorialPdf(
       )
     }
     if (plan.wallLoads.length > 0) {
+      const beamLen = (id: string): number => {
+        const b = plan.beams.find((x) => x.id === id)
+        if (!b) return 0
+        let len = 0
+        for (let i = 0; i + 1 < b.path.length; i++) {
+          len += Math.hypot(b.path[i + 1].x - b.path[i].x, b.path[i + 1].y - b.path[i].y)
+        }
+        return len
+      }
+      const stretch = (w: (typeof plan.wallLoads)[number]): string =>
+        w.x0 !== undefined && w.x1 !== undefined
+          ? `${fmt(w.x0, 2)}–${fmt(w.x1, 2)} m`
+          : 'viga inteira'
       const wallRows = plan.wallLoads.map((w) => {
         const beam = plan.beams.find((b) => b.id === w.beamId)
-        return [beam?.name ?? '?', fmt(w.w, 2), w.label ?? '—']
+        return [beam?.name ?? '?', stretch(w), fmt(w.w, 2), w.label ?? '—']
       })
       L.table(
         [
-          { t: 'Alvenaria na viga', w: 20 },
-          { t: 'w (kN/m)', w: 14, align: 'r' },
-          { t: 'Descrição', w: 56 },
+          { t: 'Alvenaria na viga', w: 18 },
+          { t: 'Trecho', w: 18 },
+          { t: 'w (kN/m)', w: 12, align: 'r' },
+          { t: 'Descrição', w: 46 },
         ],
         wallRows,
       )
+      const composed = plan.wallLoads.filter((w) => w.calc)
+      if (composed.length > 0) {
+        L.table(
+          [
+            { t: 'Viga', w: 9 },
+            { t: 'Bloco', w: 26 },
+            { t: 'h (m)', w: 8, align: 'r' },
+            { t: 'e (cm)', w: 8, align: 'r' },
+            { t: 'γ alv', w: 8, align: 'r' },
+            { t: 'Revest. (cm · faces · γ)', w: 23, align: 'c' },
+            { t: 'kN/m² parede', w: 14, align: 'r' },
+            { t: 'L (m)', w: 8, align: 'r' },
+            { t: 'Abert. (m²)', w: 11, align: 'r' },
+            { t: 'w (kN/m)', w: 11, align: 'r' },
+          ],
+          composed.map((w) => {
+            const c = w.calc!
+            const len =
+              w.x0 !== undefined && w.x1 !== undefined ? w.x1 - w.x0 : beamLen(w.beamId)
+            const bd = wallLoadFromCalc(c, len)
+            return [
+              plan.beams.find((b) => b.id === w.beamId)?.name ?? '?',
+              c.block,
+              fmt(c.height, 2),
+              fmt(c.thickness * 100, 1),
+              fmt(c.unitWeight, 1),
+              `${fmt(c.coatingThickness * 100, 1)} · ${c.coatingFaces} · ${fmt(c.coatingUnitWeight, 1)}`,
+              fmt(bd.perArea, 2),
+              fmt(len, 2),
+              fmt(c.openingsArea, 2),
+              fmt(bd.w, 2),
+            ]
+          }),
+          7.0,
+        )
+        L.para(
+          'Memória da carga de alvenaria (ação permanente, NBR 6120): peso por m² de parede = ' +
+            'e·γalv + nfaces·erev·γrev; w = (kN/m² de parede)·(h·L − aberturas)/L, com L = ' +
+            'comprimento do trecho carregado. γ em kN/m³.',
+          7.8,
+          'I',
+          0.3,
+        )
+      }
     }
     if ((plan.loadRegions ?? []).length > 0) {
       L.table(
@@ -429,21 +489,21 @@ export function buildMemorialPdf(
     project.plans.find((p) => p.beams.some((b) => b.id === beamId))?.name ?? '—'
 
   L.h1('6. Vigas — dimensionamento ELU (flexão, cortante e torção)')
+  L.h2('Flexão — armaduras longitudinais (apoio esquerdo · apoio direito)')
   L.table(
     [
-      { t: 'Viga/vão', w: 14 },
+      { t: 'Viga/vão', w: 13 },
       { t: 'Planta', w: 12 },
-      { t: 'Seção', w: 11, align: 'c' },
-      { t: 'Md+ ', w: 11, align: 'r' },
-      { t: 'As+ (cm²)', w: 12, align: 'r' },
-      { t: 'Barras+', w: 15 },
-      { t: 'Md− e/d', w: 15, align: 'r' },
-      { t: 'As− e/d', w: 13, align: 'r' },
-      { t: 'Barras− e/d', w: 20 },
-      { t: 'Vd (kN)', w: 11, align: 'r' },
-      { t: 'Estribo', w: 13 },
-      { t: 'Td', w: 8, align: 'r' },
-      { t: 'Status', w: 10, align: 'c' },
+      { t: 'Seção', w: 10, align: 'c' },
+      { t: 'Md+', w: 9, align: 'r' },
+      { t: 'As+', w: 9, align: 'r' },
+      { t: 'Barras+', w: 13 },
+      { t: 'Md− esq', w: 10, align: 'r' },
+      { t: 'As− esq', w: 10, align: 'r' },
+      { t: 'Barras− esq', w: 14 },
+      { t: 'Md− dir', w: 10, align: 'r' },
+      { t: 'As− dir', w: 10, align: 'r' },
+      { t: 'Barras− dir', w: 14 },
     ],
     results.beamDesign.map((b) => [
       `${b.beamName} v${b.spanIndex + 1}`,
@@ -452,24 +512,89 @@ export function buildMemorialPdf(
       fmt(b.positive.md, 1),
       cm2(Math.max(b.positive.as, b.positive.asMin)),
       b.positive.bars,
-      `${b.negLeft ? fmt(b.negLeft.md, 1) : '—'} / ${b.negRight ? fmt(b.negRight.md, 1) : '—'}`,
-      `${b.negLeft ? cm2(b.negLeft.as) : '—'} / ${b.negRight ? cm2(b.negRight.as) : '—'}`,
-      `${b.negLeft?.bars ?? '—'} / ${b.negRight?.bars ?? '—'}`,
+      b.negLeft ? fmt(b.negLeft.md, 1) : '—',
+      b.negLeft ? cm2(b.negLeft.as) : '—',
+      b.negLeft?.bars ?? '—',
+      b.negRight ? fmt(b.negRight.md, 1) : '—',
+      b.negRight ? cm2(b.negRight.as) : '—',
+      b.negRight?.bars ?? '—',
+    ]),
+    6.8,
+  )
+  L.h2('Força cortante, torção e armadura de pele')
+  L.table(
+    [
+      { t: 'Viga/vão', w: 14 },
+      { t: 'Seção', w: 11, align: 'c' },
+      { t: 'L (m)', w: 9, align: 'r' },
+      { t: 'Vd (kN)', w: 11, align: 'r' },
+      { t: 'VRd2 (kN)', w: 12, align: 'r' },
+      { t: 'Estribo', w: 15 },
+      { t: 'Td (kN·m)', w: 12, align: 'r' },
+      { t: 'Armadura de pele', w: 20 },
+      { t: 'Status', w: 11, align: 'c' },
+    ],
+    results.beamDesign.map((b) => [
+      `${b.beamName} v${b.spanIndex + 1}`,
+      `${cmDim(b.section.bw)}×${cmDim(b.section.h)}`,
+      fmt(b.length, 2),
       fmt(b.shear.vd, 1),
+      fmt(b.shear.vrd2, 0),
       b.shear.spec,
       b.torsion.negligible ? '—' : fmt(b.torsion.td, 1),
+      b.skin.required ? b.skin.spec : 'dispensada',
       STATUS_TXT[b.status],
     ]),
     6.8,
   )
   L.para(
-    'Momentos em kN·m (envoltória ELU). Barras− por apoio (esquerdo/direito); bitolas, quantidades e ' +
-      'comprimentos de corte das negativas na tabela de aço por posição (§14). Estribos somam cisalhamento (modelo I, §17.4.2) e torção ' +
-      '(§17.5, seção vazada equivalente). Vigas com h > 60 cm recebem armadura de pele de 0,10%·Ac por face (§17.3.5.2.3).',
+    'Momentos em kN·m e áreas de aço em cm² (envoltória ELU). Negativos por apoio: esq = apoio ' +
+      'inicial do vão, dir = apoio final. Bitolas, quantidades e comprimentos de corte de todas ' +
+      'as posições na tabela de aço (§14). Estribos somam cisalhamento (modelo I, §17.4.2) e torção ' +
+      '(§17.5, seção vazada equivalente).',
     7.8,
     'I',
     0.3,
   )
+  const skinBeams = results.beamDesign.filter((b) => b.skin.required)
+  if (skinBeams.length > 0) {
+    L.h2('Armadura de pele (§17.3.5.2.3 — vigas com h > 60 cm)')
+    L.table(
+      [
+        { t: 'Viga/vão', w: 14 },
+        { t: 'Seção', w: 11, align: 'c' },
+        { t: 'As/face nec. (cm²)', w: 17, align: 'r' },
+        { t: 'Barras por face', w: 16 },
+        { t: 'As/face ef. (cm²)', w: 16, align: 'r' },
+        { t: 'Espaç. vertical (cm)', w: 18, align: 'r' },
+        { t: 'Comprimento (m)', w: 16, align: 'r' },
+        { t: 'Total (barras)', w: 13, align: 'r' },
+      ],
+      skinBeams.map((b) => {
+        const n = b.skin.n ?? 0
+        const phi = b.skin.phi ?? 0.008
+        return [
+          `${b.beamName} v${b.spanIndex + 1}`,
+          `${cmDim(b.section.bw)}×${cmDim(b.section.h)}`,
+          cm2(b.skin.asPerFace),
+          `${n} φ ${fmt(phi * 1000, 0)}`,
+          cm2((n * Math.PI * phi * phi) / 4),
+          fmt((b.skin.spacing ?? 0) * 100, 1),
+          fmt(b.length, 2),
+          String(2 * n),
+        ]
+      }),
+      7.0,
+    )
+    L.para(
+      '0,10 %·Ac,alma por face (limitado a 5 cm²/m), em barras de alta aderência distribuídas ' +
+        'na altura da alma entre as armaduras principais, com espaçamento ≤ 20 cm e ancoradas ' +
+        'nos apoios. Comprimento = vão teórico (acrescentar a ancoragem nos apoios).',
+      7.8,
+      'I',
+      0.3,
+    )
+  }
 
   // ------------------------------------------------- 6.1 furos em vigas
   if (results.beamOpenings.length > 0) {
@@ -729,6 +854,70 @@ export function buildMemorialPdf(
         ]
       }),
       7.0,
+    )
+    const negTxt = (e: LatticeNegativeEnd): string =>
+      `${e.spec}${e.phi ? ` · ${e.count !== null ? `${e.count} barras de ` : ''}${fmt(e.length, 2)} m` : ''} (${e.kind}, ${fmt(e.reach, 2)} m no vão)`
+    L.table(
+      [
+        { t: 'Laje', w: 9 },
+        { t: 'Vigotas', w: 16 },
+        { t: 'Adicional + (por vigota · total)', w: 30 },
+        { t: 'Negativa — apoio inicial', w: 40 },
+        { t: 'Negativa — apoio final', w: 40 },
+        { t: 'Tela (m²)', w: 10, align: 'r' },
+      ],
+      lattices.map((s) => {
+        const d = s.latticeDesign!
+        const dt = d.detail
+        return [
+          s.name,
+          `${dt.joists !== null ? `${dt.joists} × ` : ''}${fmt(dt.joistLength, 2)} m`,
+          dt.extra
+            ? `${dt.extra.n} φ${fmt(dt.extra.phi * 1000, dt.extra.phi * 1000 % 1 === 0 ? 0 : 1)} × ${fmt(dt.extra.length, 2)} m${dt.extra.total !== null ? ` · ${dt.extra.total} barras` : ''}`
+            : 'treliça basta',
+          negTxt(dt.negStart),
+          negTxt(dt.negEnd),
+          dt.meshArea !== null ? fmt(dt.meshArea, 1) : '—',
+        ]
+      }),
+      6.6,
+    )
+    L.table(
+      [
+        { t: 'Laje', w: 9 },
+        { t: 'Nervuras de travamento', w: 22 },
+        { t: 'Seção (cm)', w: 12, align: 'c' },
+        { t: 'Posição a partir do apoio (m)', w: 28 },
+        { t: 'Armadura por nervura', w: 30 },
+        { t: 'Comprimento (m)', w: 15, align: 'r' },
+      ],
+      lattices.map((s) => {
+        const b = s.latticeDesign!.bracing
+        return [
+          s.name,
+          b.count === 0
+            ? b.recommended > 0
+              ? `0 (recomendado ${b.recommended})`
+              : 'dispensadas (vão ≤ 4 m)'
+            : `${b.count}${b.auto ? ' (automático)' : ''}`,
+          b.count > 0 ? `${cmDim(b.width)}×${cmDim(b.height)}` : '—',
+          b.count > 0 ? b.positions.map((x) => fmt(x, 2)).join(' · ') : '—',
+          b.count > 0 ? b.bars : '—',
+          b.count > 0 && b.length !== null ? fmt(b.length, 2) : '—',
+        ]
+      }),
+      7.0,
+    )
+    L.para(
+      'Detalhamento p/ montagem: vigotas e barras adicionais com o comprimento do vão teórico ' +
+        '(penetrar ≥ 5 cm em cada apoio). Negativas: por continuidade alcançam 0,25·ℓ + 1,5·d ' +
+        '(§19.4.1) p/ dentro do vão; construtivas e de borda, 0,15·ℓ (§20.1); o comprimento da ' +
+        'barra sobre apoio com laje vizinha é o dobro do alcance (ajustar se o vão vizinho ' +
+        'for diferente). Nervuras transversais de travamento pelo critério usual (vão > 4 m: 1; ' +
+        '> 6 m: 2), com armadura mínima da tab. 17.3 — obrigatórias sob cargas concentradas.',
+      7.8,
+      'I',
+      0.3,
     )
     L.para(
       'Treliçadas: cada vigota é dimensionada como viga T (mesa = intereixo × capa) vencendo o vão ' +
