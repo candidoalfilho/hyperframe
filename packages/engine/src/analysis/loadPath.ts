@@ -84,7 +84,10 @@ export interface LoadPathColumnStep {
   /** nível do topo do tramo (o pavimento que descarrega nele) */
   levelIndex: number
   levelName: string
-  /** parcelas que chegam ao topo do tramo, kN */
+  /**
+   * parcelas que chegam ao topo do tramo, kN: normal do tramo de cima, soma das
+   * reações das vigas (negativa se as vigas seguram o nó) e lajes/cargas diretas
+   */
   fromAbove: number
   fromBeams: number
   fromSlabs: number
@@ -100,7 +103,10 @@ export interface LoadPathColumn {
   pos: Vec2
   /** de cima para baixo */
   steps: LoadPathColumnStep[]
-  /** reação vertical na fundação, kN (null = pilar sem apoio próprio) */
+  /**
+   * reação vertical na fundação, kN (null = pilar sem apoio próprio). Com
+   * baldrames, inclui o que eles descarregam direto no apoio
+   */
   foundation: number | null
 }
 
@@ -481,23 +487,6 @@ export function computeLoadPath(
     if (b) b.received += f.value
   }
 
-  /** o que o elemento `key` troca com cada vizinho no nó (+ = recebe), kN */
-  const sharesAt = (nodeId: number, key: string): { key: string; value: number }[] => {
-    const list = byNode[nodeId]
-    const me = list.find((x) => x.key === key)
-    if (!me || Math.abs(me.f) < 1e-9) return []
-    let src = 0
-    let snk = 0
-    for (const x of list) {
-      if (x.f > 0) src += x.f
-      else snk -= x.f
-    }
-    if (src < 1e-9 || snk < 1e-9) return []
-    return me.f < 0
-      ? list.filter((x) => x.f > 0).map((x) => ({ key: x.key, value: (x.f * -me.f) / snk }))
-      : list.filter((x) => x.f < 0).map((x) => ({ key: x.key, value: -(me.f * -x.f) / snk }))
-  }
-
   // ------------------------------------------------ descida nos pilares
   const columns: LoadPathColumn[] = []
   for (const col of project.columns) {
@@ -511,12 +500,14 @@ export function computeLoadPath(
       let fromAbove = 0
       let fromBeams = 0
       let fromSlabs = 0
-      // só o que o tramo troca pelo TOPO (a base conversa com o pavimento de baixo)
-      for (const sh of sharesAt(m.nj, key)) {
-        const other = elements.get(sh.key)?.kind
-        if (other === 'column') fromAbove += sh.value
-        else if (other === 'beam') fromBeams += sh.value
-        else if (other === 'slab' || other === 'direct') fromSlabs += sh.value
+      // equilíbrio do nó do TOPO: a força ↓ de cada vizinho sobre o nó, com sinal
+      // (viga que segura o nó em vez de descarregar entra negativa — vento, balanço)
+      for (const x of byNode[m.nj]) {
+        if (x.key === key) continue
+        const other = elements.get(x.key)?.kind
+        if (other === 'column') fromAbove += x.f
+        else if (other === 'beam') fromBeams += x.f
+        else if (other === 'slab' || other === 'direct') fromSlabs += x.f
       }
       const nBase = downI[mi]
       return {

@@ -133,7 +133,12 @@ export function LoadPathView({
   // ---- elemento escolhido: segue a seleção do editor (laje, viga, pilar) ----
   const [picked, setPicked] = useState<string | null>(null)
   const ownSelect = useRef(false)
+  const seen = useRef<{ selection: ElementRef | null; li: number } | null>(null)
   useEffect(() => {
+    // só reage à troca de seleção ou de pavimento (não a trocar de combinação)
+    const changed = !seen.current || seen.current.selection !== selection || seen.current.li !== li
+    seen.current = { selection, li }
+    if (!changed) return
     if (ownSelect.current) {
       ownSelect.current = false
       return
@@ -153,14 +158,14 @@ export function LoadPathView({
   const pick = (key: string | null) => {
     const e = key ? byKey.get(key) : undefined
     setPicked(e ? e.key : null)
-    ownSelect.current = true
-    if (e && (e.kind === 'slab' || e.kind === 'beam' || e.kind === 'column')) {
-      select({ kind: e.kind, id: e.id })
-    } else {
-      select(null)
-    }
+    const target: ElementRef | null =
+      e && (e.kind === 'slab' || e.kind === 'beam' || e.kind === 'column') ? { kind: e.kind, id: e.id } : null
     // o elemento pode estar em outro pavimento (tramo de cima, fundação…)
-    if (e && e.levelIndex !== li && levels[e.levelIndex]) setActiveLevel(levels[e.levelIndex].id)
+    const otherLevel = !!e && e.levelIndex !== li && !!levels[e.levelIndex]
+    // a troca abaixo é nossa: o efeito acima não deve sobrescrever a escolha
+    ownSelect.current = !(selection === null && target === null) || otherLevel
+    select(target)
+    if (otherLevel) setActiveLevel(levels[e!.levelIndex].id)
   }
 
   const sel = picked ? (byKey.get(picked) ?? null) : null
@@ -447,24 +452,27 @@ function PlanView({
     [lp, li, byKey],
   )
 
-  /** texto da 2ª linha do pilar (o que chega no pavimento e o acumulado) */
-  const columnInfo = (c: Project['columns'][number]) => {
-    const key = columnKeyAt(c.id, li)
-    const e = key ? byKey.get(key) : undefined
-    const arriving = e
-      ? lp.flows
-          .filter((f) => f.to === e.key && byKey.get(f.from)?.kind !== 'column')
-          .reduce((acc, f) => acc + f.value, 0)
-      : 0
-    const line2 = !e
-      ? ''
-      : e.kind === 'foundation'
-        ? `R ${fmt(e.received - e.delivered, 0)}`
-        : e.levelIndex === li
-          ? `+${fmt(arriving, 0)} · N ${fmt(e.nBase ?? 0, 0)}`
-          : 'nasce aqui'
-    return { key, line2 }
-  }
+  /** por pilar: elemento que o representa e a 2ª linha do rótulo (o que chega e o acumulado) */
+  const columnInfos = useMemo(() => {
+    // o que o pavimento acrescenta ao tramo: a mesma conta da tabela de descida
+    const arriving = new Map<string, number>()
+    for (const c of lp.columns) for (const st of c.steps) arriving.set(st.key, st.fromBeams + st.fromSlabs)
+    return new Map(
+      columns.map((c) => {
+        const key = columnKeyAt(c.id, li)
+        const e = key ? byKey.get(key) : undefined
+        const line2 = !e
+          ? ''
+          : e.kind === 'foundation'
+            ? `R ${fmt(e.received - e.delivered, 0)}`
+            : e.levelIndex === li
+              ? `${(arriving.get(e.key) ?? 0) >= 0 ? '+' : ''}${fmt(arriving.get(e.key) ?? 0, 0)} · N ${fmt(e.nBase ?? 0, 0)}`
+              : 'nasce aqui'
+        return [c.id, { key, line2 }]
+      }),
+    )
+  }, [lp, byKey, columns, columnKeyAt, li])
+  const columnInfo = (c: Project['columns'][number]) => columnInfos.get(c.id) ?? { key: null, line2: '' }
 
   // posição dos números das reações: junto ao apoio, sem cair sobre o pilar,
   // o rótulo dele ou outro número (tenta as posições em ordem e fica com a 1ª livre)
@@ -536,7 +544,7 @@ function PlanView({
     }
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [beamFlows, columns, k, byKey, beamById])
+  }, [beamFlows, columns, columnInfos, k, byKey, beamById])
 
   const zoomBy = (factor: number) =>
     setVp((v) => zoomAt(v, { x: size.w / 2, y: size.h / 2 }, factor))
@@ -1082,7 +1090,7 @@ function Descent({
   }, [lp])
   if (lp.columns.length === 0) return null
   const totals = levelIdx.map((L) =>
-    lp.columns.reduce((s, c) => s + (c.steps.find((x) => x.levelIndex === L && !x.key.endsWith('|-1'))?.nBase ?? 0), 0),
+    lp.columns.reduce((s, c) => s + (c.steps.find((x) => x.levelIndex === L)?.nBase ?? 0), 0),
   )
   const totalFdn = lp.columns.reduce((s, c) => s + (c.foundation ?? 0), 0)
   const num: CSSProperties = { textAlign: 'right' }
@@ -1094,6 +1102,8 @@ function Descent({
       <div className="faint" style={{ fontSize: 11, margin: '-4px 0 8px' }}>
         Normal na base de cada tramo, em kN (acumulado de cima para baixo). Entre parênteses, o que o
         pavimento acrescenta: reações das vigas e lajes apoiadas direto no pilar. Clique para ver o tramo.
+        {lp.columns.some((c) => c.foundation !== null && Math.abs(c.foundation - (c.steps[c.steps.length - 1]?.nBase ?? 0)) > 0.05) &&
+          ' * Fundação que também recebe carga dos baldrames.'}
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table className="table" data-testid="load-path-descent">
@@ -1115,7 +1125,7 @@ function Descent({
                   <b>{c.name}</b>
                 </td>
                 {levelIdx.map((L) => {
-                  const s = c.steps.find((x) => x.levelIndex === L && !x.key.endsWith('|-1'))
+                  const s = c.steps.find((x) => x.levelIndex === L)
                   if (!s) return <td key={L} style={num} className="faint">—</td>
                   const add = s.fromBeams + s.fromSlabs
                   return (
@@ -1133,7 +1143,23 @@ function Descent({
                     </td>
                   )
                 })}
-                <td style={num}>{c.foundation === null ? '—' : fmt(c.foundation, 1)}</td>
+                {(() => {
+                  // com baldrames, o apoio recebe também o que eles descarregam nele
+                  const extra = c.foundation === null ? 0 : c.foundation - (c.steps[c.steps.length - 1]?.nBase ?? 0)
+                  return (
+                    <td
+                      style={num}
+                      title={
+                        Math.abs(extra) > 0.05
+                          ? `pilar ${fmt(c.foundation! - extra, 1)} + baldrames ${fmt(extra, 1)} = ${fmt(c.foundation!, 1)} kN`
+                          : undefined
+                      }
+                    >
+                      {c.foundation === null ? '—' : fmt(c.foundation, 1)}
+                      {Math.abs(extra) > 0.05 ? ' *' : ''}
+                    </td>
+                  )
+                })()}
               </tr>
             ))}
             <tr>

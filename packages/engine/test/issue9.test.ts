@@ -100,8 +100,9 @@ const expectConsistent = (lp: LoadPath, tol = 1e-6) => {
       expect(Math.abs(s.fromAbove + s.fromBeams + s.fromSlabs + s.own - s.nBase)).toBeLessThan(tol * scale)
       if (i > 0) expect(Math.abs(s.fromAbove - c.steps[i - 1].nBase)).toBeLessThan(tol * scale)
     })
-    if (c.foundation !== null)
-      expect(Math.abs(c.foundation - c.steps[c.steps.length - 1].nBase)).toBeLessThan(tol * scale)
+    // a fundação recebe o pilar e, se houver, os baldrames que chegam ao apoio
+    const f = lp.elements.find((e) => e.key === foundationKey(c.columnId))
+    if (c.foundation !== null && f) expect(Math.abs(c.foundation - (f.received - f.delivered))).toBeLessThan(tol * scale)
   }
 }
 
@@ -428,6 +429,94 @@ describe('edifício de exemplo — todos os casos e combinações', () => {
       expect(edges.reduce((acc, e) => acc + e.value, 0)).toBeCloseTo(s.own, 6)
       expect(s.delivered).toBeCloseTo(s.own, 6)
     }
+  })
+})
+
+describe('fundação em desnível, baldrames e molas', () => {
+  it('sapata rebaixada: o tramo de arranque entra na descida e a fundação fecha', () => {
+    const p = createSampleProject()
+    const col = p.columns[0]
+    p.foundationOverrides = [{ columnId: col.id, depth: 1.5 }]
+    const r = analyze(p)
+    const lp = computeLoadPath(p, r, GQ)
+    expectConsistent(lp)
+    const c = lp.columns.find((x) => x.columnId === col.id)!
+    const plain = lp.columns.find((x) => x.columnId === p.columns[1].id)!
+    expect(c.steps).toHaveLength(plain.steps.length + 1)
+    const arranque = c.steps[c.steps.length - 1]
+    expect(arranque.key).toBe(columnKey(col.id, -1))
+    expect(arranque.levelIndex).toBe(0)
+    // 1,5 m de pilar a mais: peso próprio do arranque
+    const sec = col.section as { bw: number; h: number }
+    expect(arranque.own).toBeCloseTo(sec.bw * sec.h * 1.5 * p.settings.concreteUnitWeight, 6)
+    expect(c.foundation).toBeCloseTo(arranque.nBase, 6)
+    expect(flow(lp, columnKey(col.id, -1), foundationKey(col.id))).toBeCloseTo(arranque.nBase, 6)
+  })
+
+  it('baldrames sobre o solo: parte da carga vai direto ao terreno', () => {
+    const p = createSampleProject()
+    const lv0 = [...p.levels].sort((a, b) => a.elevation - b.elevation)[0]
+    const xs = [...new Set(p.columns.map((c) => c.pos.x))].sort((a, b) => a - b)
+    const y0 = Math.min(...p.columns.map((c) => c.pos.y))
+    p.plans.push({
+      id: 'fund',
+      name: 'Fundação',
+      beams: [
+        {
+          id: 'vb',
+          name: 'VB1',
+          path: [
+            { x: xs[0], y: y0 },
+            { x: xs[xs.length - 1], y: y0 },
+          ],
+          section: { bw: 0.2, h: 0.5 },
+        },
+      ],
+      slabs: [],
+      wallLoads: [{ id: 'wb', beamId: 'vb', w: 8 }],
+      loadRegions: [],
+    })
+    lv0.planId = 'fund'
+    p.settings.groundBeamKs = 20000
+    const r = analyze(p)
+    expect(r.model.winkler).not.toBeNull()
+    const lp = computeLoadPath(p, r, G)
+    expectConsistent(lp)
+    const soil = lp.elements.find((e) => e.kind === 'soil')!
+    const vb = el(lp, beamKey(0, 'vb'))
+    const len = xs[xs.length - 1] - xs[0]
+    expect(vb.parts).toEqual([
+      { label: 'Peso próprio', value: expect.closeTo(0.2 * 0.5 * len * p.settings.concreteUnitWeight, 6) },
+      { label: 'Paredes', value: expect.closeTo(8 * len, 6) },
+    ])
+    expect(soil.received).toBeGreaterThan(0)
+    // a reação do apoio soma o pilar e o baldrame que chega nele
+    const c0 = lp.columns.find((c) => Math.abs(c.pos.y - y0) < 1e-6)!
+    expect(c0.foundation!).toBeCloseTo(
+      c0.steps[c0.steps.length - 1].nBase + flow(lp, beamKey(0, 'vb'), foundationKey(c0.columnId)),
+      6,
+    )
+    // o baldrame entrega ao solo e às fundações dos pilares em que se apoia
+    expect(flow(lp, beamKey(0, 'vb'), soil.key)).toBeGreaterThan(0)
+    expect(traceLoadPath(lp, beamKey(0, 'vb')).down.some((k) => k.startsWith('f|'))).toBe(true)
+  })
+
+  it('interação solo–estrutura (apoios sobre molas): equilíbrio continua fechando', () => {
+    const p = createSampleProject()
+    p.settings.soilInteraction.enabled = true
+    const r = analyze(p)
+    for (const o of loadPathOptions(r).slice(0, 4)) expectConsistent(computeLoadPath(p, r, o))
+  })
+
+  it('vento puro: pilares de barlavento tracionam, a descida continua fechando com sinal', () => {
+    const p = createSampleProject()
+    const r = analyze(p)
+    const lp = computeLoadPath(p, r, loadPathOptions(r).find((o) => o.id === 'case:WXP')!)
+    expectConsistent(lp)
+    const fz = lp.columns.map((c) => c.foundation ?? 0)
+    expect(Math.min(...fz)).toBeLessThan(-1)
+    expect(Math.max(...fz)).toBeGreaterThan(1)
+    expect(fz.reduce((a, b) => a + b, 0)).toBeCloseTo(0, 6)
   })
 })
 
