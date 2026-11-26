@@ -805,6 +805,46 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.58 — Issue #8: cargas concentradas e lineares sobre lajes
+
+> Equipamento, pé de reservatório ou parede apoiada direto na laje. Antes só
+> havia carga distribuída e a "região de carga" em kN/m².
+
+**Modelo e editor**
+- [x] **Carga na laje (C)**: pontual em kN (1 clique) ou linear em kN/m (2
+  cliques), com g e q separados; a linear aceita a composição da parede (mesma
+  tela das cargas de parede sobre viga). Selecionar, arrastar, mover em grupo,
+  alinhar, janela de seleção, excluir, desfazer
+- [x] Painel da carga: posição, valores, área carregada (pontual), laje sob a
+  carga e, depois da análise, as notas da verificação
+
+**Análise — caminho de carga**
+- [x] As reações da laje vêm da **analogia de grelha** da própria laje (malha de
+  25 cm) e descem para a viga **na posição em que ocorrem**: uma parede perto
+  de uma viga carrega essa viga, não as quatro por igual. As vigas sob lajes
+  carregadas são subdivididas (≤ 50 cm) sem alterar a mesa colaborante
+- [x] Lajes **unidirecionais** (treliçadas e nervuradas em uma direção): regra
+  da alavanca entre os dois apoios da vigota
+- [x] Laje lisa (método da grelha): a carga também desce pelos pilares internos
+- [x] Avisos: carga fora de laje ou sobre abertura, e carga sem apoio que a receba
+
+**Verificação da laje**
+- [x] Bidirecional: razão entre os momentos (e a flecha) da grelha com e sem as
+  cargas. Grelha amplifica por direção; Marcus e nervuradas usam a maior razão
+  como carga uniforme equivalente nos momentos e a razão própria na flecha
+- [x] **Punção** sob cargas pontuais em laje maciça (§19.5, contornos C e C′)
+- [x] Treliçadas: esforços na vigota crítica; parede atravessando as vigotas
+  redimensiona o painel; carga localizada pede **vigotas justapostas**, contadas
+  com a folga real da vigota dimensionada
+- [x] Resultados › Lajes e memorial com as tabelas das cargas e da verificação
+
+659 testes (583 motor + 76 app), incluindo um teste de robustez com cargas ao acaso
+nos dois métodos de laje (equilíbrio vertical exato).
+
+**Ficou p/ depois** (issue #8): cisalhamento da laje maciça sob carga linear,
+punção da capa em lajes nervuradas/treliçadas, reforço local em vez de armar a
+laje inteira pelo pico, e desenhar as cargas nas pranchas e no 3D.
+
 ## v0.2.57 — Issues #13 e #14: ligação viga–pilar com braço rígido, níveis independentes, alinhar
 
 > Primeiro lote das issues abertas a partir da #6 (Eng-Carlos, razielazureskys).

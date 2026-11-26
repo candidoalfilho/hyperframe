@@ -340,3 +340,78 @@ describe('memorial', () => {
     expect(sem).not.toContain('Lajes com cargas concentradas')
   })
 })
+
+describe('flecha com cargas concentradas (Marcus)', () => {
+  it('a flecha usa a razão das flechas, não a dos momentos', () => {
+    const ref = analyze(panel(4, 4, [])).slabDesign[0]
+    const r = analyze(panel(4, 4, [pt(2, 2, 15, 5)])).slabDesign[0]
+    const c = r.concentrated!
+    expect(c.kw!).toBeGreaterThan(1)
+    expect(c.kw!).toBeLessThan(c.factor) // a flecha cresce menos que o pico de momento
+    // sem mudança de estádio, a flecha escala com kw; com fissuração nova, cresce mais
+    expect(r.design!.deflection / ref.design!.deflection).toBeGreaterThanOrEqual(c.kw! - 1e-6)
+    // se usasse a razão dos momentos sem fissurar, daria ref × factor
+    const cracked = r.design!.notes.some((n) => n.includes('fissura em serviço'))
+    if (!cracked) expect(r.design!.deflection / ref.design!.deflection).toBeCloseTo(c.kw!, 4)
+    // a resistência continua com a razão dos momentos
+    expect(r.design!.dirA.mSpanD / ref.design!.dirA.mSpanD).toBeCloseTo(c.factor, 3)
+  })
+})
+
+describe('robustez: cargas ao acaso no edifício exemplo', () => {
+  const rng = (seed: number) => () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296
+    return seed / 4294967296
+  }
+  for (const seed of [3, 11, 29]) {
+    for (const method of ['marcus', 'grelha'] as const) {
+      it(`semente ${seed}, lajes por ${method}: equilíbrio exato e sem NaN`, () => {
+        const p = createSampleProject()
+        p.settings.slabMethod = method
+        const rnd = rng(seed)
+        // caixa da planta + margem: algumas cargas caem em borda, viga ou fora
+        const xs = p.columns.map((c) => c.pos.x)
+        const ys = p.columns.map((c) => c.pos.y)
+        const x0 = Math.min(...xs) - 0.5
+        const y0 = Math.min(...ys) - 0.5
+        const w = Math.max(...xs) - x0 + 0.5
+        const h = Math.max(...ys) - y0 + 0.5
+        const P = () => ({ x: x0 + rnd() * w, y: y0 + rnd() * h })
+        const loads: SlabLoad[] = []
+        for (let i = 0; i < 6; i++)
+          loads.push({ id: `p${i}`, name: `CP${i + 1}`, kind: 'point', a: P(), g: 5 + rnd() * 30, q: rnd() * 10 })
+        for (let i = 0; i < 4; i++)
+          loads.push({ id: `l${i}`, name: `CL${i + 1}`, kind: 'line', a: P(), b: P(), g: 2 + rnd() * 6, q: rnd() * 2 })
+        p.plans[0].slabLoads = loads
+        const r = analyze(p)
+        for (const k of ['G', 'Q'] as const) expect(fz(r, k)).toBeCloseTo(weight(r, k), 3)
+        for (const c of Object.values(r.cases.elu))
+          for (const d of c.displacements) for (const v of d) expect(Number.isFinite(v)).toBe(true)
+        // toda carga ou entrou numa laje ou foi avisada como fora
+        const nLevels = p.levels.filter((l) => l.planId === p.plans[0].id).length
+        const applied = r.slabDesign
+          .filter((s) => s.concentrated)
+          .reduce((s, x) => s + x.concentrated!.totalG + x.concentrated!.totalQ, 0)
+        expect(applied).toBeGreaterThan(0)
+        const base = analyze({ ...p, plans: p.plans.map((pl) => ({ ...pl, slabLoads: [] })) })
+        // acréscimo de reação = cargas aplicadas (por pavimento que usa a planta)
+        const dG = fz(r, 'G') + fz(r, 'Q') - fz(base, 'G') - fz(base, 'Q')
+        const perLevel = r.slabDesign
+          .filter((s) => s.concentrated && s.levelName === r.slabDesign.find((x) => x.concentrated)!.levelName)
+          .reduce((s, x) => s + x.concentrated!.totalG + x.concentrated!.totalQ, 0)
+        expect(dG / (perLevel * nLevels)).toBeGreaterThan(0.995)
+        expect(dG / (perLevel * nLevels)).toBeLessThan(1.005)
+        // dimensionamento finito
+        for (const s of r.slabDesign) {
+          const c = s.concentrated
+          if (!c) continue
+          for (const v of [c.factor, c.kx ?? 1, c.ky ?? 1, c.kw ?? 1]) {
+            expect(Number.isFinite(v)).toBe(true)
+            expect(v).toBeGreaterThanOrEqual(1)
+          }
+        }
+        expect(r.beamDesign.every((b) => Number.isFinite(b.positive.md))).toBe(true)
+      })
+    }
+  }
+})

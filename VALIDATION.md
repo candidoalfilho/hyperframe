@@ -108,6 +108,13 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
   τRd1 = 794 kPa < τSd1 = 1384 kPa ⇒ exige armadura)
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
+- Cargas concentradas e lineares sobre lajes (v0.2.58): grelha com força central em
+  placa quadrada apoiada — Σ reações = P e flecha 0,0116·P·a²/D (Timoshenko, ±12% da
+  analogia); faixa unidirecional com linha a 1/4 do vão — reações 3/4 e 1/4 (estática,
+  exato); pórtico de 1 painel — a força chega inteira aos pilares, 1/4 em cada um com a
+  carga no centro; treliçada — alavanca 18/6 kN p/ 24 kN a 1 m do apoio em vão de 4 m;
+  punção sob carga pontual: u1 = 2(bx+by) + 4πd e τSd = FSd/(u1·d) fechados à mão;
+  vigota com parede de 6 kN/m em 3,6 m: M = 10,8·2 − 6·1,8·0,9 = 11,88 kN·m
 - Ligação viga–pilar com braço rígido (§14.6.2.1, v0.2.57): movimento de corpo rígido
   dos nós não gera esforço no elemento com offsets (transformação H correta); pórtico
   de 1 vão com viga a 15 cm do eixo dos pilares — parede 10 kN/m × 5 m ⇒ 25 kN por

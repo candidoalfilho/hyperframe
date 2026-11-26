@@ -78,6 +78,22 @@ function supportedEdgesOf(plan: FloorPlan, polygon: Vec2[]): number[] {
 
 const fmtN = (v: number, d = 1) => v.toFixed(d).replace('.', ',')
 
+/**
+ * Junta dois dimensionamentos da mesma laje: resistência com a carga
+ * equivalente dos MOMENTOS e serviço (flecha) com a carga equivalente da FLECHA.
+ */
+function withServiceDeflection<
+  T extends { deflection: number; deflectionOk: boolean; notes: string[] },
+>(strength: T, service: T): T {
+  const cracks = (n: string) => /fissura em serviço/.test(n)
+  return {
+    ...strength,
+    deflection: service.deflection,
+    deflectionOk: service.deflectionOk,
+    notes: [...strength.notes.filter((n) => !cracks(n)), ...service.notes.filter(cracks)],
+  }
+}
+
 /** resumo das cargas concentradas que atuam na laje (parcelas por carga) */
 function concentratedBase(plan: FloorPlan, samples: SlabLoadSample[]): SlabConcentratedCheck {
   const by = new Map<string, { g: number; q: number }>()
@@ -594,21 +610,24 @@ export function runSlabDesign(
           cc = twoWayConcentrated(project, plan, slab, samples, ccNotes)
           if (cc.factor > 1 + 1e-9) {
             ccNotes.push(
-              `Dimensionamento com carga uniforme equivalente ×${fmtN(cc.factor, 2)} (maior das duas direções) — a favor da segurança p/ a flecha.`,
+              `Dimensionamento com carga uniforme equivalente: ×${fmtN(cc.factor, 2)} p/ os momentos (maior das duas direções — a armadura de toda a laje atende ao pico sob a carga; a alternativa é reforço local) e ×${fmtN(cc.kw ?? 1, 2)} p/ a flecha.`,
             )
           }
         }
       }
       const kCc = cc?.factor ?? 1
+      // bidirecional: a flecha usa a sua própria razão (menor que a dos momentos)
+      const kSvc = cc && !cc.joist && cc.kw !== undefined ? cc.kw : kCc
 
       if (slab.ribbed) {
-        const ribbedDesign = designRibbedSlab({
+        const ribbedAt = (k: number) =>
+          designRibbedSlab({
           a: { span: spanA, fixedEnds: fixedA },
           b: { span: spanB, fixedEnds: fixedB },
           h: slab.thickness,
-          ribbed: slab.ribbed,
-          g: gMar * kCc,
-          q: qMar * kCc,
+          ribbed: slab.ribbed!,
+          g: gMar * k,
+          q: qMar * k,
           psi2: project.settings.psiLive.psi2,
           cover,
           fcd: cp.fcd,
@@ -621,6 +640,10 @@ export function runSlabDesign(
           gammaC: project.settings.concreteUnitWeight,
           ribsAlongA,
         })
+        const ribbedDesign =
+          Math.abs(kSvc - kCc) > 1e-9
+            ? withServiceDeflection(ribbedAt(kCc), ribbedAt(kSvc))
+            : ribbedAt(kCc)
         const geomOk = ribbedDesign.geometry.checks.every((c) => c.ok)
         let status: SlabDesignResultItem['status'] = 'ok'
         if (!ribbedDesign.dirA.ok || !ribbedDesign.dirB.ok || !geomOk) status = 'falha'
@@ -652,12 +675,13 @@ export function runSlabDesign(
         continue
       }
 
-      const design = designSlab({
+      const solidAt = (k: number) =>
+        designSlab({
         a: { span: spanA, fixedEnds: fixedA },
         b: { span: spanB, fixedEnds: fixedB },
         thickness: slab.thickness,
-        g: gMar * kCc,
-        q: qMar * kCc,
+        g: gMar * k,
+        q: qMar * k,
         psi2: project.settings.psiLive.psi2,
         cover,
         fcd: cp.fcd,
@@ -666,6 +690,10 @@ export function runSlabDesign(
         fctm: cp.fctm,
         ecs: cp.ecs,
       })
+      const design =
+        Math.abs(kSvc - kCc) > 1e-9
+          ? withServiceDeflection(solidAt(kCc), solidAt(kSvc))
+          : solidAt(kCc)
 
       let status: SlabDesignResultItem['status'] = 'ok'
       if (!design.dirA.ok || !design.dirB.ok || !design.minThicknessOk) status = 'falha'
