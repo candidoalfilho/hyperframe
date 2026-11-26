@@ -278,17 +278,31 @@ export interface HFState {
   setStoryHeight: (levelId: string, height: number) => void
   renameLevel: (levelId: string, name: string) => void
   /**
-   * insere um nível novo em projeto existente: acima do nível indicado
-   * (desloca os superiores pelo pé-direito) ou, com aboveLevelId null,
-   * abaixo do nível mais baixo (ex.: subsolo). extendColumns estende até o
-   * novo topo os pilares que terminavam no antigo topo.
+   * insere um nível novo em projeto existente.
+   * - sucessivo (padrão): acima do nível indicado, deslocando os superiores
+   *   pelo pé-direito; com aboveLevelId null, abaixo do nível mais baixo.
+   * - independente (`independent: true`): cota = cota do nível de referência
+   *   (aboveLevelId) + height (pode ser negativo), SEM deslocar nenhum outro
+   *   nível; exige ≥ MIN_LEVEL_GAP de distância a qualquer nível existente.
+   * extendColumns estende até o novo topo os pilares que terminavam no antigo.
    */
-  addLevel: (opts: { aboveLevelId: string | null; height: number; extendColumns?: boolean }) => void
+  addLevel: (opts: {
+    aboveLevelId: string | null
+    height: number
+    extendColumns?: boolean
+    independent?: boolean
+  }) => 'ok' | 'invalid'
   /**
-   * remove um nível sem pilares/consolos ancorados nele (os superiores descem
-   * pelo pé-direito removido); exige ≥ 2 níveis restantes
+   * move só este nível para a cota indicada (os demais ficam onde estão);
+   * precisa continuar entre os vizinhos, a ≥ MIN_LEVEL_GAP de cada um
    */
-  deleteLevel: (levelId: string) => void
+  setLevelElevation: (levelId: string, elevation: number) => void
+  /**
+   * remove um nível sem pilares/consolos ancorados nele; exige ≥ 2 níveis
+   * restantes. Por padrão os superiores descem pelo pé-direito removido;
+   * com keepElevations os demais níveis mantêm a cota.
+   */
+  deleteLevel: (levelId: string, opts?: { keepElevations?: boolean }) => void
 
   // ---- arquivo ----
   /** registra salvamento bem-sucedido (caminho/nome) e limpa dirty */
@@ -325,6 +339,9 @@ function firstEditableLevel(p: Project): string {
 }
 
 let worker: Worker | null = null
+
+/** distância mínima entre dois níveis (m) — abaixo disso o tramo de pilar degenera */
+export const MIN_LEVEL_GAP = 0.5
 
 const initialProject = createSampleProject()
 
@@ -1184,29 +1201,43 @@ export const useStore = create<HFState>()(
           },
           dirty: true,
         })),
-      addLevel: ({ aboveLevelId, height, extendColumns }) => {
-        if (!(height >= 1) || height > 10) return
+      addLevel: ({ aboveLevelId, height, extendColumns, independent }) => {
+        if (independent) {
+          if (!Number.isFinite(height) || Math.abs(height) > 60) return 'invalid'
+        } else if (!(height >= 1) || height > 10) return 'invalid'
+        let outcome: 'ok' | 'invalid' = 'invalid'
         set((s) => {
           const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
           const below = aboveLevelId ? sorted.find((l) => l.id === aboveLevelId) : null
           if (aboveLevelId && !below) return {}
-          const topId = sorted[sorted.length - 1].id
+          if (independent && !below) return {}
+          const top = sorted[sorted.length - 1]
           const elevation = below ? below.elevation + height : sorted[0].elevation - height
-          const newLevel = { id: uid('lv'), name: 'Novo nível', elevation, planId: null }
-          // inserção intermediária desloca os níveis acima pelo pé-direito novo
-          const shifted = s.project.levels.map((l) =>
-            below && l.elevation > below.elevation + 1e-9
-              ? { ...l, elevation: l.elevation + height }
-              : l,
+          // nível independente: não pode coincidir (nem quase) com um existente
+          if (
+            independent &&
+            sorted.some((l) => Math.abs(l.elevation - elevation) < MIN_LEVEL_GAP - 1e-9)
           )
+            return {}
+          const newLevel = { id: uid('lv'), name: 'Novo nível', elevation, planId: null }
+          // inserção sucessiva intermediária desloca os níveis acima pelo pé-direito novo
+          const shifted = independent
+            ? s.project.levels
+            : s.project.levels.map((l) =>
+                below && l.elevation > below.elevation + 1e-9
+                  ? { ...l, elevation: l.elevation + height }
+                  : l,
+              )
           // o array de níveis é mantido ordenado por cota (invariante do modelo)
           const levels = [...shifted, newLevel].sort((a, b) => a.elevation - b.elevation)
+          const becomesTop = independent ? elevation > top.elevation : below?.id === top.id
           let columns = s.project.columns
-          if (extendColumns && below && below.id === topId) {
+          if (extendColumns && becomesTop) {
             columns = columns.map((c) =>
-              c.topLevelId === topId ? { ...c, topLevelId: newLevel.id } : c,
+              c.topLevelId === top.id ? { ...c, topLevelId: newLevel.id } : c,
             )
           }
+          outcome = 'ok'
           return {
             project: { ...s.project, levels, columns },
             activeLevelId: newLevel.id,
@@ -1215,8 +1246,31 @@ export const useStore = create<HFState>()(
             analysisStatus: 'idle',
           }
         })
+        return outcome
       },
-      deleteLevel: (levelId) =>
+      setLevelElevation: (levelId, elevation) => {
+        if (!Number.isFinite(elevation)) return
+        set((s) => {
+          const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
+          const idx = sorted.findIndex((l) => l.id === levelId)
+          if (idx < 0) return {}
+          if (Math.abs(sorted[idx].elevation - elevation) < 1e-9) return {}
+          // continua entre os vizinhos: a ordem dos níveis não muda
+          const lo = idx > 0 ? sorted[idx - 1].elevation + MIN_LEVEL_GAP : -Infinity
+          const hi = idx < sorted.length - 1 ? sorted[idx + 1].elevation - MIN_LEVEL_GAP : Infinity
+          if (elevation < lo - 1e-9 || elevation > hi + 1e-9) return {}
+          return {
+            project: {
+              ...s.project,
+              levels: s.project.levels.map((l) => (l.id === levelId ? { ...l, elevation } : l)),
+            },
+            dirty: true,
+            results: null,
+            analysisStatus: 'idle',
+          }
+        })
+      },
+      deleteLevel: (levelId, opts) =>
         set((s) => {
           const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
           if (sorted.length <= 2) return {}
@@ -1229,7 +1283,8 @@ export const useStore = create<HFState>()(
               c.corbels?.some((cb) => cb.levelId === levelId),
           )
           if (referenced) return {}
-          const drop = idx > 0 ? sorted[idx].elevation - sorted[idx - 1].elevation : 0
+          const drop =
+            idx > 0 && !opts?.keepElevations ? sorted[idx].elevation - sorted[idx - 1].elevation : 0
           const removedElev = sorted[idx].elevation
           const levels = sorted
             .filter((l) => l.id !== levelId)

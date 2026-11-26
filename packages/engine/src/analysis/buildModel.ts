@@ -66,6 +66,12 @@ interface Piece {
   /** eixo geométrico original, quando um extremo foi capturado por um pilar */
   ga?: Vec2
   gb?: Vec2
+  /**
+   * extremos do trecho FLEXÍVEL quando diferem dos nós: ponto sobre o eixo real
+   * da viga, ligado ao nó do pilar por braço rígido (§14.6.2.1)
+   */
+  ea?: Vec2
+  eb?: Vec2
 }
 
 const CASES: CaseId[] = ['G', 'Q', 'WXP', 'WXN', 'WYP', 'WYN', 'EQXP', 'EQXN', 'EQYP', 'EQYN']
@@ -114,7 +120,9 @@ export function buildAnalysisModel(project: Project): {
   // REGIÃO NODAL do pilar: ponto de viga dentro da projeção da seção (+2 cm)
   // pertence ao nó do pilar. A viga que chega na face — ou cruza o pilar fora
   // do centro — fica ligada a ele, e o trecho contido na seção não vira vão
-  // (trecho rígido, §14.6.2.1). A excentricidade em planta não gera momento.
+  // (trecho rígido, §14.6.2.1). O extremo flexível da barra fica sobre o eixo
+  // REAL da viga (projeção do centro do pilar nesse eixo) e é ligado ao nó por
+  // um braço rígido: a reação da viga chega ao pilar com o momento V·e.
   const footprintsAt = (li: number) =>
     project.columns
       .filter((c) => {
@@ -125,7 +133,14 @@ export function buildAnalysisModel(project: Project): {
       .map((c) => ({ pos: c.pos, name: c.name, he: columnHalfExtents(c) }))
   let nCaptured = 0
   let nStubs = 0
+  let nRigidZones = 0
+  const rigidZones = project.settings.rigidEndZones === true
+  /** maior excentricidade transversal por ligação viga–pilar (m) */
   const eccentric = new Map<string, number>()
+  /** ligações em que o braço rígido não pôde ser montado (barra degenerada) */
+  const noArm = new Set<string>()
+  /** ligações em que a alma da viga passa da face do pilar: sobra em m */
+  const overhang = new Map<string, number>()
   /** pieces por índice de nível */
   const piecesByLevel = new Map<number, Piece[]>()
 
@@ -252,17 +267,64 @@ export function buildAnalysisModel(project: Project): {
             if (sectionChanges) pendingBreak = true
             continue
           }
-          for (const [c, g] of [
-            [ca, ga],
-            [cb, gb],
+          // extremo FLEXÍVEL em pilar: projeção do centro do pilar no eixo da
+          // viga (excentricidade transversal pura) e, com trechos rígidos
+          // ativos, avançado para dentro do vão de t/2 − 0,3·h (fig. 14.1)
+          const ux = (b.x - a.x) / L
+          const uy = (b.y - a.y) / L
+          const flexEnd = (c: NonNullable<typeof ca>, toSpan: 1 | -1, zone: boolean): Vec2 => {
+            const sC = (c.pos.x - a.x) * ux + (c.pos.y - a.y) * uy
+            let adv = 0
+            if (zone) {
+              // meia dimensão do apoio na direção da viga (corda pelo centro)
+              const tHalf = Math.min(
+                Math.abs(ux) > 1e-6 ? c.he.dx / Math.abs(ux) : Infinity,
+                Math.abs(uy) > 1e-6 ? c.he.dy / Math.abs(uy) : Infinity,
+              )
+              adv = Math.max(0, tHalf - 0.3 * section.h)
+            }
+            const sE = sC + toSpan * adv
+            return { x: a.x + ux * sE, y: a.y + uy * sE }
+          }
+          const flexLen = (p: Vec2, q: Vec2) => (q.x - p.x) * ux + (q.y - p.y) * uy
+          const minFlex = Math.max(0.05, 0.2 * dist(pa, pb))
+          let ea = ca ? flexEnd(ca, 1, rigidZones) : ga
+          let eb = cb ? flexEnd(cb, -1, rigidZones) : gb
+          let zoned = rigidZones
+          if (rigidZones && flexLen(ea, eb) < minFlex) {
+            // apoios largos demais p/ o vão: sem trecho rígido longitudinal
+            ea = ca ? flexEnd(ca, 1, false) : ga
+            eb = cb ? flexEnd(cb, -1, false) : gb
+            zoned = false
+          }
+          const armOk = flexLen(ea, eb) >= minFlex
+          if (!armOk) {
+            // barra degenerada (pilares quase encostados): barra nó a nó
+            ea = pa
+            eb = pb
+          }
+          for (const [c, g, e] of [
+            [ca, ga, ea],
+            [cb, gb, eb],
           ] as const) {
             if (!c) continue
-            const ecc = dist(c.pos, g)
-            if (ecc <= TOL * 2) continue
-            nCaptured++
-            if (ecc > 0.25) eccentric.set(`${beam.name}–${c.name}`, ecc)
+            if (dist(c.pos, g) > TOL * 2) nCaptured++
+            // excentricidade transversal: distância do centro do pilar ao eixo da viga
+            const ecc = Math.abs((c.pos.x - a.x) * uy - (c.pos.y - a.y) * ux)
+            const key = `${beam.name}–${c.name}`
+            if (ecc > TOL * 2) {
+              if (armOk) eccentric.set(key, Math.max(eccentric.get(key) ?? 0, ecc))
+              else noArm.add(key)
+            }
+            if (armOk && zoned && dist(e, c.pos) > ecc + TOL) nRigidZones++
+            // largura da viga além da face do pilar (meia largura do apoio na normal)
+            const hn = c.he.dx * Math.abs(uy) + c.he.dy * Math.abs(ux)
+            const over = ecc + section.bw / 2 - hn
+            if (over > 0.005) overhang.set(key, Math.max(overhang.get(key) ?? 0, over))
           }
           const moved = dist(pa, ga) > TOL || dist(pb, gb) > TOL
+          const armA = dist(ea, pa) > TOL
+          const armB = dist(eb, pb) > TOL
           // novo vão de dimensionamento: apoio em pilar ou mudança de seção
           if (pendingBreak) {
             spanIndex++
@@ -277,7 +339,9 @@ export function buildAnalysisModel(project: Project): {
             section,
             s0: sAcc + t0 * L,
             s1: sAcc + t1 * L,
-            ...(moved ? { ga, gb } : {}),
+            ...(moved || armA || armB ? { ga, gb } : {}),
+            ...(armA ? { ea } : {}),
+            ...(armB ? { eb } : {}),
           })
           const endsOnColumn = colPoints.some((cp) => dist(cp, pb) <= TOL * 2)
           if (endsOnColumn || sectionChanges) pendingBreak = true
@@ -291,14 +355,35 @@ export function buildAnalysisModel(project: Project): {
     warnings.push(
       `Ligação viga–pilar: ${nCaptured} extremo(s) de viga dentro da seção de pilar ligado(s) ao nó do pilar` +
         (nStubs > 0 ? ` e ${nStubs} trecho(s) contido(s) na seção tratado(s) como rígido(s) (não viram vão)` : '') +
-        ' — a excentricidade em planta não é considerada.',
+        ' (§14.6.2.1).',
     )
   }
   if (eccentric.size > 0) {
+    const list = [...eccentric].sort((x, y) => y[1] - x[1])
     warnings.push(
-      `Excentricidade viga–pilar acima de 25 cm não considerada (${[...eccentric]
+      `Excentricidade viga–pilar considerada por braço rígido em ${list.length} ligação(ões) — a reação da viga gera momento no pilar (maiores: ${list
+        .slice(0, 6)
         .map(([k, e]) => `${k}: ${(e * 100).toFixed(0)} cm`)
-        .join('; ')}) — em pilar-parede, verifique o momento adicional no pilar.`,
+        .join('; ')}).`,
+    )
+  }
+  if (nRigidZones > 0) {
+    warnings.push(
+      `Trechos rígidos longitudinais em ${nRigidZones} extremo(s) de viga: vão de cálculo ℓ0 + a1 + a2, a = min(t/2; 0,3·h) (§14.6.2.4).`,
+    )
+  }
+  if (overhang.size > 0) {
+    const list = [...overhang].sort((x, y) => y[1] - x[1])
+    warnings.push(
+      `Viga parcialmente fora da seção do pilar em ${list.length} ligação(ões) (${list
+        .slice(0, 6)
+        .map(([k, e]) => `${k}: ${(e * 100).toFixed(0)} cm além da face`)
+        .join('; ')}) — confira a ancoragem das barras e o detalhe da ligação.`,
+    )
+  }
+  if (noArm.size > 0) {
+    warnings.push(
+      `Excentricidade viga–pilar NÃO considerada em ${[...noArm].join('; ')}: pilares próximos demais para o trecho flexível da viga — verifique o momento adicional no pilar.`,
     )
   }
 
@@ -448,8 +533,11 @@ export function buildAnalysisModel(project: Project): {
     for (const pc of pieces) {
       const ni = getNode(li, pc.a)
       const nj = getNode(li, pc.b)
-      const dx = pc.b.x - pc.a.x
-      const dy = pc.b.y - pc.a.y
+      // trecho flexível: extremos sobre o eixo real (braço rígido até o nó)
+      const fa = pc.ea ?? pc.a
+      const fb = pc.eb ?? pc.b
+      const dx = fb.x - fa.x
+      const dy = fb.y - fa.y
       const L = Math.hypot(dx, dy)
       const xL: Vec3 = [dx / L, dy / L, 0]
       const yL: Vec3 = [0, 0, 1]
@@ -486,6 +574,11 @@ export function buildAnalysisModel(project: Project): {
         propsT,
       )
       if (pc.ga && pc.gb) m.axis = { a: pc.ga, b: pc.gb }
+      if (pc.ea || pc.eb) {
+        m.length = L
+        if (pc.ea) m.offI = [pc.ea.x - pc.a.x, pc.ea.y - pc.a.y, 0]
+        if (pc.eb) m.offJ = [pc.eb.x - pc.b.x, pc.eb.y - pc.b.y, 0]
+      }
       memberArc.set(m.id, { s0: pc.s0, s1: pc.s1 })
     }
   }
@@ -603,8 +696,13 @@ export function buildAnalysisModel(project: Project): {
         memberLoads.G[m.id].wx -= w // x local aponta p/ cima
         levelG[nodes[m.nj].levelIndex] += w * m.length
       } else {
-        memberLoads.G[m.id].wy -= w // y local = vertical p/ cima
-        levelG[nodes[m.ni].levelIndex] += w * m.length
+        // trechos rígidos longitudinais: o peso do trecho dentro do apoio é
+        // mantido (rateado no trecho flexível — conserva a força vertical)
+        const along = (o?: Vec3) =>
+          o ? Math.abs(o[0] * m.xLocal[0] + o[1] * m.xLocal[1] + o[2] * m.xLocal[2]) : 0
+        const full = m.length + along(m.offI) + along(m.offJ)
+        memberLoads.G[m.id].wy -= (w * full) / m.length // y local = vertical p/ cima
+        levelG[nodes[m.ni].levelIndex] += w * full
       }
     }
   }

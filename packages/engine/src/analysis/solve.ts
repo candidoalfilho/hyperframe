@@ -5,6 +5,9 @@ import {
   equivalentNodalLoads,
   globalStiffness,
   localStiffness,
+  offsetDisplacements,
+  offsetForces,
+  offsetStiffness,
   rectSectionProps,
   rotationMatrix,
   sampleDiagrams,
@@ -133,7 +136,8 @@ export function assembleElasticSystem(
     const GJ = cp.gc * J * (isBeam ? project.settings.torsionFactor : 1)
     const kl = localStiffness({ L: m.length, EA, EIy, EIz, GJ })
     const r = rotationMatrix(m.xLocal, m.yLocal, m.zLocal)
-    const kg = globalStiffness(r, kl)
+    // braços rígidos viga–pilar: rigidez levada dos extremos aos nós (Hᵀ·K·H)
+    const kg = offsetStiffness(globalStiffness(r, kl), m.offI, m.offJ)
     // termos globais dos 12 gdl do elemento
     const terms: DofTerm[][] = []
     for (const nodeId of [m.ni, m.nj]) {
@@ -238,7 +242,7 @@ export function solvePass(
       const { wx, wy, wz } = loads[mi]
       if (wx === 0 && wy === 0 && wz === 0) return
       const feq = equivalentNodalLoads(m.length, wx, wy, wz)
-      const fg = toGlobal(memberData[mi].r, feq)
+      const fg = offsetForces(toGlobal(memberData[mi].r, feq), m.offI, m.offJ)
       const terms = memberData[mi].terms
       for (let k = 0; k < 12; k++) {
         for (const t of terms[k]) F[t.g] += t.f * fg[k]
@@ -272,7 +276,7 @@ export function solvePass(
         ug[6 + d] = uj[d]
       }
       const { kl, r } = memberData[mi]
-      const ul = toLocal(r, ug)
+      const ul = toLocal(r, offsetDisplacements(ug, m.offI, m.offJ))
       const { wx, wy, wz } = loads[mi]
       const feq = equivalentNodalLoads(m.length, wx, wy, wz)
       // f local = k·u − f_eq
@@ -288,7 +292,7 @@ export function solvePass(
         [6, m.nj],
       ] as const) {
         if (!model.nodes[nodeId].support) continue
-        const fg = toGlobal(r, fl)
+        const fg = offsetForces(toGlobal(r, fl), m.offI, m.offJ)
         const rx = reactionsByNode.get(nodeId) ?? {
           nodeId,
           fx: 0,

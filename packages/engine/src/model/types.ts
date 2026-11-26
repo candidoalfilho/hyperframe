@@ -562,6 +562,14 @@ export interface ProjectSettings {
   /** redutor de rigidez à torção das vigas (torção de compatibilidade) */
   torsionFactor: number
   /**
+   * Trechos rígidos longitudinais nos nós viga–pilar (§14.6.2.1, fig. 14.1): o
+   * trecho flexível da viga começa a 0,3·h da face do apoio, i.e. o vão de
+   * cálculo é ℓ0 + a1 + a2 com a = min(t/2; 0,3·h) (§14.6.2.4). Ausente/false =
+   * vão eixo a eixo. A excentricidade TRANSVERSAL viga–pilar é sempre
+   * considerada (braço rígido), independente desta opção.
+   */
+  rigidEndZones?: boolean
+  /**
    * redistribuição de momentos negativos das vigas (§14.6.4.3): δ ∈ [0,75; 1].
    * 1 (ou ausente) = sem redistribuição. Nós móveis: usar δ ≥ 0,90.
    */
