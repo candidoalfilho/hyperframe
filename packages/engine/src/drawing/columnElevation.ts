@@ -5,6 +5,7 @@ import { boundsOfPrimitives } from './formwork'
 import { columnSectionInfo } from '../model/columnSection'
 import { concreteProps, fyd as fydOf } from '../nbr/nbr6118/materials'
 import { designCorbel } from '../nbr/nbr6118/deepBeam'
+import { columnStirrupOffsets } from '../design/detailing'
 
 /**
  * PILAR EXECUTIVO — ELEVAÇÃO: arranques da fundação, emendas por TRASPASSE em
@@ -155,17 +156,30 @@ export function buildColumnElevationDrawing(
 
     // estribos do tramo
     const s = det.stirrupSpacing
-    const nSt = Math.max(2, Math.ceil(det.storyHeights[i] / s))
-    for (let k = 0; k <= nSt; k++) {
-      const y = Math.min(zb + 0.05 + k * s, zt - 0.05)
-      prims.push({ kind: 'line', x1: -barX, y1: y, x2: barX, y2: y, layer: 'ESTRIBOS' })
-      if (y >= zt - 0.05) break
+    const hasJoint = det.jointLength !== undefined && det.jointSpacing !== undefined
+    let nSt = Math.max(2, Math.ceil(det.storyHeights[i] / s))
+    if (hasJoint) {
+      // trecho junto aos nós com passo menor: desenha as posições reais
+      const offs = columnStirrupOffsets(det.storyHeights[i], s, det.jointLength, det.jointSpacing)
+      nSt = offs.length
+      for (const o of offs) {
+        prims.push({ kind: 'line', x1: -barX, y1: zb + o, x2: barX, y2: zb + o, layer: 'ESTRIBOS' })
+      }
+    } else {
+      for (let k = 0; k <= nSt; k++) {
+        const y = Math.min(zb + 0.05 + k * s, zt - 0.05)
+        prims.push({ kind: 'line', x1: -barX, y1: y, x2: barX, y2: y, layer: 'ESTRIBOS' })
+        if (y >= zt - 0.05) break
+      }
     }
+    const jointTxt = hasJoint
+      ? ` · c/ ${Math.round(det.jointSpacing! * 100)} em ${Math.round(det.jointLength! * 100)} cm junto aos nós`
+      : ''
     prims.push({
       kind: 'text',
       x: half + 0.1,
       y: (zb + zt) / 2,
-      text: `TRAMO ${i + 1}: ${det.barsN} φ ${phiTxt} · estr. φ ${stirrupPhiTxt} c/ ${Math.round(s * 100)} (${nSt} un.)`,
+      text: `TRAMO ${i + 1}: ${det.barsN} φ ${phiTxt} · estr. φ ${stirrupPhiTxt} c/ ${Math.round(s * 100)}${jointTxt} (${nSt} un.)`,
       height: 0.13,
       layer: 'TEXTOS',
     })
@@ -271,7 +285,10 @@ export function buildColumnElevationDrawing(
   for (let i = 0; i < nT; i++) {
     const len = det.storyHeights[i] + (i === nT - 1 ? 0 : lap)
     const kgL = det.barsN * len * aBar * rho
-    const nSt = Math.max(2, Math.ceil(det.storyHeights[i] / det.stirrupSpacing))
+    const nSt =
+      det.jointLength !== undefined && det.jointSpacing !== undefined
+        ? columnStirrupOffsets(det.storyHeights[i], det.stirrupSpacing, det.jointLength, det.jointSpacing).length
+        : Math.max(2, Math.ceil(det.storyHeights[i] / det.stirrupSpacing))
     const su = stirrupPerimTxt()
     const kgS = nSt * su * aSt * rho
     totalKg += kgL + kgS

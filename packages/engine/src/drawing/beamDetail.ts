@@ -183,21 +183,36 @@ export function buildBeamDetailDrawing(
       negDraw(s.negRight, x1, shared ? h - 0.16 : h - 0.08, shared ? h + 0.3 : h + 0.1, 'right')
     }
 
-    // ---- estribos: distribuição REAL (todos os traços, passo s) ----
+    // ---- estribos: distribuição REAL (todos os traços), trecho a trecho ----
     const st = s.stirrup
-    const step = Math.max(st.spacing, 0.03)
     const xs0 = x0 + 0.05
     const xs1 = x1 - 0.05
-    const nDraw = Math.max(2, Math.min(st.count, Math.floor((xs1 - xs0) / step) + 1))
-    for (let j = 0; j < nDraw; j++) {
-      const x = Math.min(xs0 + j * step, xs1)
-      prims.push({ kind: 'line', x1: x, y1: 0.05, x2: x, y2: h - 0.05, layer: 'ESTRIBOS' })
-    }
+    const stZones = st.zones ?? [{ length: s.length, spacing: st.spacing, count: st.count }]
+    let zx = x0
+    stZones.forEach((z, zi) => {
+      const step = Math.max(z.spacing, 0.03)
+      const za = Math.max(zx, xs0)
+      const zb = Math.min(zx + z.length, xs1)
+      for (let x = za; x <= zb + 1e-9; x += step) {
+        prims.push({ kind: 'line', x1: x, y1: 0.05, x2: x, y2: h - 0.05, layer: 'ESTRIBOS' })
+      }
+      // divisa entre trechos de passo diferente
+      if (zi > 0) {
+        prims.push({ kind: 'line', x1: zx, y1: -0.08, x2: zx, y2: h + 0.08, layer: 'COTAS', dashed: true })
+      }
+      zx += z.length
+    })
+    const legsTxt = st.legs && st.legs !== 2 ? ` (${st.legs} ramos)` : ''
+    const stTxt =
+      stZones.length > 1
+        ? `${st.pos ? `N${st.pos} ` : ''}φ${mmTxt(st.phi)}${legsTxt}: ` +
+          stZones.map((z) => `${z.count} c/${Math.round(z.spacing * 100)}`).join(' + ')
+        : `${st.pos ? `N${st.pos} ` : ''}${st.count}×φ${mmTxt(st.phi)} c/${Math.round(st.spacing * 100)}${legsTxt}`
     prims.push({
       kind: 'text',
       x: mid,
       y: h + 0.5,
-      text: `${st.pos ? `N${st.pos} ` : ''}${st.count}×φ${mmTxt(st.phi)} c/${Math.round(st.spacing * 100)}`,
+      text: stTxt,
       height: 0.12,
       layer: 'ESTRIBOS',
       align: 'center',

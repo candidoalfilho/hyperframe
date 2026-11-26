@@ -404,6 +404,37 @@ export function minimumMoment(nd: number, hDir: number): number {
 // laço de dimensionamento
 // ---------------------------------------------------------------------------
 
+/**
+ * Aproveitamento de um arranjo de barras frente às solicitações: maior razão
+ * radial na curva de interação (≤ 1 atende). `feasible` = false quando algum
+ * Nd está fora da capacidade da seção com essas barras.
+ */
+export function evaluateArrangement(
+  sec: ColumnSectionDef,
+  bars: BarArrangement,
+  demands: ColumnDemandPoint[],
+): { utilization: number; governing: string; feasible: boolean } {
+  let worst = 0
+  let governing = ''
+  const cache = new Map<number, Vec2[] | null>()
+  for (const d of demands) {
+    // mesmos degraus de 25 kN do dimensionamento (reaproveita curvas)
+    const key = Math.round(d.nd / 25) * 25
+    let curve = cache.get(key)
+    if (curve === undefined) {
+      curve = interactionCurve(sec, bars, key)
+      cache.set(key, curve)
+    }
+    if (!curve) return { utilization: Infinity, governing: `${d.label} (Nd fora da capacidade)`, feasible: false }
+    const u = radialUtilization(curve, d.mu, d.mv)
+    if (u > worst) {
+      worst = u
+      governing = d.label
+    }
+  }
+  return { utilization: worst, governing, feasible: true }
+}
+
 export interface ColumnDesignOutput {
   arrangement: BarArrangement | null
   utilization: number

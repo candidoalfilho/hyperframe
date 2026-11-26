@@ -235,7 +235,22 @@ export function analyze(project: Project): AnalysisResults {
   const stairDesign = runStairDesign(project)
   const tankDesign = runTankDesign(project)
   const fire = runFireCheck(project, beamDesign, columnDesign, slabDesign)
-  const detailing = runDetailing(project, beamDesign, columnDesign)
+  const detailing = runDetailing(project, beamDesign, columnDesign, beamService)
+  // armadura EDITADA que deixou de atender com os esforços desta análise
+  for (const c of detailing.checks?.beams ?? []) {
+    if (!c.manual || c.status === 'ok') continue
+    const bad = c.items.filter((i) => !i.ok)
+    model.warnings.push(
+      `Armadura editada da viga ${c.beamName} (vão ${c.spanIndex + 1}) ${c.status === 'falha' ? 'NÃO ATENDE' : 'pede atenção'}: ${bad.map((i) => `${i.label} — ${i.detail}`).join('; ')}.`,
+    )
+  }
+  for (const c of detailing.checks?.columns ?? []) {
+    if (!c.manual || c.status === 'ok') continue
+    const bad = c.items.filter((i) => !i.ok)
+    model.warnings.push(
+      `Armadura editada do pilar ${c.name} ${c.status === 'falha' ? 'NÃO ATENDE' : 'pede atenção'}: ${bad.map((i) => `${i.label} — ${i.detail}`).join('; ')}.`,
+    )
+  }
 
   // ------------------------------------------------- furos de viga (§13.2.5)
   const beamOpenings = runOpeningChecks(project)
@@ -944,6 +959,21 @@ function designBeams(
         xBase += len
       }
     }
+    // envoltória de |V| ao longo do vão — p/ verificar estribos por trecho
+    const shearEnv = { x: [] as number[], v: [] as number[] }
+    {
+      let xBase = 0
+      for (const mi of memberIds) {
+        const e = env.Vy[mi]
+        const len = model.members[mi].length
+        const nS = e.max.length
+        for (let s = 0; s < nS; s++) {
+          shearEnv.x.push(xBase + (nS > 1 ? (len * s) / (nS - 1) : 0))
+          shearEnv.v.push(Math.max(Math.abs(e.max[s]), Math.abs(e.min[s])))
+        }
+        xBase += len
+      }
+    }
     const cutDist = (fromLeft: boolean, mdSup: number): { zero: number; half: number } => {
       let zero = 0
       let half = 0
@@ -1131,6 +1161,7 @@ function designBeams(
         spec: stirrupSpec,
         ok: shearR.ok,
       },
+      shearEnv,
       torsion: {
         td: torsionR.td,
         he: torsionR.he,

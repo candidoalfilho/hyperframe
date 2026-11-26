@@ -805,6 +805,51 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.62 — Issue #12: editor de armaduras de vigas e pilares, com reverificação
+
+> O editor só trocava quantidade e bitola das barras e o passo dos estribos
+> das vigas, e avisava quando a área ficava menor que a calculada.
+
+**Vigas**
+- [x] **Comprimento de corte** de cada posição (positivo e negativos)
+- [x] **Negativa prolongada** até o outro apoio (continuidade no vão)
+- [x] **Estribos**: bitola, número de ramos (2, 4 ou 6) e **trechos** junto a
+  cada apoio com passo próprio, desenhados e contados trecho a trecho
+
+**Pilares**
+- [x] Editor na prancha de elevação: quantidade e bitola das barras, bitola e
+  passo dos estribos, e **trecho junto aos nós** com passo menor. A seção e a
+  elevação redesenham as barras; o traspasse acompanha a bitola
+
+**Verificação com a armadura adotada** (não é comparação de áreas)
+- [x] Vigas: momento resistente com a altura útil real (barras em camadas,
+  mesa colaborante no positivo), armadura mínima, dutilidade (x/d), barras
+  que cabem na largura, comprimento de corte, estribos **por trecho** (VRd3
+  contra o cortante do trecho, passo e bitola limites, distância entre
+  ramos) e fissuração
+- [x] Pilares: flexo-compressão oblíqua na curva de interação com as barras
+  adotadas, barras que cabem na seção, taxas mínima e máxima, bitolas e
+  estribos
+- [x] A solução do próprio programa passa por essas verificações em todo o
+  edifício de exemplo
+- [x] Cada posição mostra a **solução do programa ao lado** da adotada
+
+**Fluxo**
+- [x] **Ver a solução do programa** sem apagar os ajustes, e voltar à editada
+- [x] Depois de uma nova análise os ajustes são **reaplicados e reverificados**
+  com os esforços novos; o que deixa de atender vira aviso da análise
+- [x] Quadro de ferros, quantitativos e pranchas acompanham na hora; o memorial
+  lista as armaduras editadas com a situação de cada uma
+- [x] Editar armadura continua sem invalidar a análise
+
+**Fora desta versão (registrado na issue de continuação)**
+- [ ] Posição das barras em camadas editável; ganchos e dobras configuráveis
+- [ ] Posição e alternância das emendas; continuidade das barras do pilar
+  entre pavimentos (arranques)
+- [ ] Região nodal viga–pilar, blocos e transições de seção
+- [ ] Visualização das armaduras em planta e em 3D, com seleção de barra
+- [ ] Editor de armaduras de lajes e fundações
+
 ## v0.2.61 — Issue #11: memorial resumido ou detalhado, com diagramas
 
 > O memorial trazia só as tabelas de resultado; as contas e a origem das

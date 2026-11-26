@@ -138,7 +138,15 @@ export {
   type DesignSpectrum,
 } from './nbr/nbr15421/seismic'
 export { makeNodalSolver, assembleElasticSystem } from './analysis/solve'
-export { runDetailing, planSplices, STOCK_BAR_LENGTH } from './design/detailing'
+export { runDetailing, planSplices, columnStirrupOffsets, STOCK_BAR_LENGTH } from './design/detailing'
+export {
+  barLayers,
+  checkBeamSpan,
+  checkColumn,
+  flexureCapacity,
+  stirrupMaxSpacing,
+  stirrupRequired,
+} from './design/rebarCheck'
 export { buildDrawingPdf } from './drawing/drawingPdf'
 
 export * from './nbr/api'
