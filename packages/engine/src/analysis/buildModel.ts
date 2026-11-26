@@ -30,7 +30,7 @@ import { masonryWallStackLoads } from '../design/masonryRun'
 import { rectSectionProps } from './frame3d'
 import { notionalLoads, windNotionalRule } from '../nbr/nbr6118/imperfections'
 import type { WindGeometry } from '../nbr/api'
-import type { AMember, ANode, AnalysisModel, CaseId, Vec3 } from './types'
+import type { AMember, ANode, AnalysisModel, CaseId, LoadTransfers, SlabTransfer, Vec3 } from './types'
 import { assignSlabLoads, distributeSlabLoads, type SlabLoadAssignment } from './slabLoads'
 
 /** carga uniforme local por membro (kN/m nos eixos locais do membro) */
@@ -704,6 +704,15 @@ export function buildAnalysisModel(project: Project): {
   const levelG = new Array(levels.length).fill(0)
   const levelQ = new Array(levels.length).fill(0)
 
+  // CAMINHO DAS CARGAS (issue #9): registro, em kN característicos, do que foi
+  // aplicado em cada barra (peso próprio, paredes) e do que cada laje entrega a
+  // cada barra/pilar — a mesma conta que monta os vetores de carga, só anotada
+  const transfers: LoadTransfers = {
+    slabs: [],
+    members: members.map((m) => ({ memberId: m.id, self: 0, wallG: 0, wallQ: 0 })),
+    nodal: [],
+  }
+
   // consolos (§22.5): Fd é de CÁLCULO ⇒ característica G ≈ Fd/1,4 aplicada
   // no nó do pilar no nível do consolo, com o MOMENTO da excentricidade
   // (e = meia seção + a) — o consolo flete o pilar
@@ -729,6 +738,7 @@ export function buildAnalysisModel(project: Project): {
       nodalLoads.G.push({ node: nd.id, dof: 2, value: -fk })
       nodalLoads.G.push({ node: nd.id, dof: 3, value: -fk * e * uy })
       nodalLoads.G.push({ node: nd.id, dof: 4, value: fk * e * ux })
+      transfers.nodal.push({ nodeId: nd.id, levelIndex: li, columnId: col.id, name: `Consolo de ${col.name}`, g: fk, q: 0 })
       levelG[li] += fk
       nCorbelLoads++
     }
@@ -746,6 +756,7 @@ export function buildAnalysisModel(project: Project): {
       const w = A * γ
       if (m.ref.kind === 'column') {
         memberLoads.G[m.id].wx -= w // x local aponta p/ cima
+        transfers.members[m.id].self += w * m.length
         levelG[nodes[m.nj].levelIndex] += w * m.length
       } else {
         // trechos rígidos longitudinais: o peso do trecho dentro do apoio é
@@ -754,6 +765,7 @@ export function buildAnalysisModel(project: Project): {
           o ? Math.abs(o[0] * m.xLocal[0] + o[1] * m.xLocal[1] + o[2] * m.xLocal[2]) : 0
         const full = m.length + along(m.offI) + along(m.offJ)
         memberLoads.G[m.id].wy -= (w * full) / m.length // y local = vertical p/ cima
+        transfers.members[m.id].self += w * full
         levelG[nodes[m.ni].levelIndex] += w * full
       }
     }
@@ -823,6 +835,8 @@ export function buildAnalysisModel(project: Project): {
             const frac = Math.min(ov / (s1 - s0), 1) * loadScale(mid)
             memberLoads.G[mid].wy -= st.g * frac
             memberLoads.Q[mid].wy -= st.q * frac
+            transfers.members[mid].wallG += st.g * frac * members[mid].length
+            transfers.members[mid].wallQ += st.q * frac * members[mid].length
             levelG[liBelow] += st.g * ov
             levelQ[liBelow] += st.q * ov
           }
@@ -862,6 +876,7 @@ export function buildAnalysisModel(project: Project): {
         // carga uniforme equivalente no pedaço, conservando a força total
         const frac = Math.min(ov / (s1 - s0), 1) * loadScale(mid)
         memberLoads.G[mid].wy -= wl.w * frac
+        transfers.members[mid].wallG += wl.w * frac * members[mid].length
         levelG[li] += wl.w * ov
         applied += ov
       }
@@ -949,6 +964,46 @@ export function buildAnalysisModel(project: Project): {
       } else {
         edgeShares = tributaryAreas(poly)
       }
+      const slabT: SlabTransfer = {
+        levelIndex: li,
+        slabId: slab.id,
+        name: slab.name,
+        polygon: poly.map((p) => ({ x: p.x, y: p.y })),
+        method: oneWayAxis ? 'unidirecional' : 'charneiras',
+        ...(oneWayAxis ? { axis: oneWayAxis } : {}),
+        g: gArea * area,
+        q: qArea * area,
+        lostG: 0,
+        lostQ: 0,
+        edges: poly.map((_, e) => ({ edgeIndex: e, supported: false, trib: edgeShares[e] ?? 0, members: [] })),
+        columns: [],
+      }
+      transfers.slabs.push(slabT)
+      /** anota a força (kN) que a borda `e` entrega à barra `mid` */
+      const noteEdge = (e: number, mid: number, g: number, q: number) => {
+        const list = slabT.edges[e].members
+        const cur = list.find((x) => x.memberId === mid)
+        if (cur) {
+          cur.g += g
+          cur.q += q
+        } else list.push({ memberId: mid, g, q })
+      }
+      const noteColumn = (columnId: string, nodeId: number, g: number, q: number) => {
+        const cur = slabT.columns.find((x) => x.columnId === columnId)
+        if (cur) {
+          cur.g += g
+          cur.q += q
+        } else slabT.columns.push({ columnId, nodeId, g, q })
+      }
+      /** carga linear da borda nas barras (kN/m no eixo geométrico) + anotação */
+      const applyEdgeLine = (ed: { onEdge: number[]; edgeIndex: number }, wG: number, wQ: number) => {
+        for (const mid of ed.onEdge) {
+          const k = loadScale(mid)
+          memberLoads.G[mid].wy -= wG * k
+          memberLoads.Q[mid].wy -= wQ * k
+          noteEdge(ed.edgeIndex, mid, wG * k * members[mid].length, wQ * k * members[mid].length)
+        }
+      }
       // 1º passe: identifica bordas apoiadas e acumula quinhões de bordas livres
       interface EdgeSupport {
         aTrib: number
@@ -1011,6 +1066,7 @@ export function buildAnalysisModel(project: Project): {
           reach = t1
         }
         supported.push({ aTrib, onEdge, covered, edgeLen, edgeIndex: e })
+        slabT.edges[e].supported = true
         if (supportedLen < edgeLen - 10 * TOL) {
           warnings.push(
             `Laje ${slab.name} (${level.name}): borda parcialmente apoiada (${supportedLen.toFixed(
@@ -1049,6 +1105,8 @@ export function buildAnalysisModel(project: Project): {
       if (slabSamples && slabSamples.length > 0) {
         const totG = slabSamples.reduce((acc, x) => acc + x.g, 0)
         const totQ = slabSamples.reduce((acc, x) => acc + x.q, 0)
+        slabT.g += totG
+        slabT.q += totQ
         const interiorC = useGrid && !oneWayAxis ? interiorColumns() : []
         let appliedG = 0
         let appliedQ = 0
@@ -1072,27 +1130,29 @@ export function buildAnalysisModel(project: Project): {
               const node = getNode(li, col.pos)
               nodalLoads.G.push({ node, dof: 2, value: -r.g })
               nodalLoads.Q.push({ node, dof: 2, value: -r.q })
+              noteColumn(col.id, node, r.g, r.q)
               appliedG += r.g
               appliedQ += r.q
               continue
             }
             const ed = r.edgeIndex !== null ? byEdge.get(r.edgeIndex) : undefined
             if (!ed) continue
-            let best = -1
-            let bestD = Infinity
-            for (const mid of ed.onEdge) {
+            // barra(s) mais próxima(s): a reação que cai na divisa de duas barras é
+            // repartida entre elas (sem isso a carga puxaria sempre para um lado)
+            const ds = ed.onEdge.map((mid) => {
               const m = members[mid]
               const p1 = m.axis?.a ?? nodes[m.ni]
               const p2 = m.axis?.b ?? nodes[m.nj]
-              const d = projectOnSegment(r.pos, { x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }).d
-              if (d < bestD) {
-                bestD = d
-                best = mid
-              }
+              return projectOnSegment(r.pos, { x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }).d
+            })
+            const bestD = Math.min(...ds)
+            const near = ed.onEdge.filter((_, i) => ds[i] <= bestD + 1e-6)
+            if (near.length === 0) continue
+            for (const mid of near) {
+              fG.set(mid, (fG.get(mid) ?? 0) + r.g / near.length)
+              fQ.set(mid, (fQ.get(mid) ?? 0) + r.q / near.length)
+              noteEdge(ed.edgeIndex, mid, r.g / near.length, r.q / near.length)
             }
-            if (best < 0) continue
-            fG.set(best, (fG.get(best) ?? 0) + r.g)
-            fQ.set(best, (fQ.get(best) ?? 0) + r.q)
             appliedG += r.g
             appliedQ += r.q
           }
@@ -1107,6 +1167,8 @@ export function buildAnalysisModel(project: Project): {
         levelG[li] += appliedG
         levelQ[li] += appliedQ
         nSlabLoadSlabs++
+        slabT.lostG += Math.max(totG - appliedG, 0)
+        slabT.lostQ += Math.max(totQ - appliedQ, 0)
         const lost = totG + totQ - appliedG - appliedQ
         if (lost > 0.01) {
           warnings.push(
@@ -1144,15 +1206,13 @@ export function buildAnalysisModel(project: Project): {
             }
             const totalG = gArea * area
             const totalQ = qArea * area
+            slabT.method = 'grelha'
+            let fracApplied = 0
             for (const ed of supported) {
               const share = grid.edgeShares.get(ed.edgeIndex) ?? 0
               if (share <= 0) continue
-              const wLineG = (share * totalG) / ed.covered
-              const wLineQ = (share * totalQ) / ed.covered
-              for (const mid of ed.onEdge) {
-                memberLoads.G[mid].wy -= wLineG * loadScale(mid)
-                memberLoads.Q[mid].wy -= wLineQ * loadScale(mid)
-              }
+              fracApplied += share
+              applyEdgeLine(ed, (share * totalG) / ed.covered, (share * totalQ) / ed.covered)
             }
             for (const [colId, fUnit] of grid.columnLoads) {
               const col = project.columns.find((c) => c.id === colId)
@@ -1161,7 +1221,11 @@ export function buildAnalysisModel(project: Project): {
               const node = getNode(li, col.pos)
               nodalLoads.G.push({ node, dof: 2, value: -frac * totalG })
               nodalLoads.Q.push({ node, dof: 2, value: -frac * totalQ })
+              noteColumn(col.id, node, frac * totalG, frac * totalQ)
+              fracApplied += frac
             }
+            slabT.lostG += Math.max(1 - fracApplied, 0) * totalG
+            slabT.lostQ += Math.max(1 - fracApplied, 0) * totalQ
             if (interior.length > 0) {
               warnings.push(
                 `Laje ${slab.name} (${level.name}): grelha com ${interior.length} pilar(es) interno(s) — laje lisa; punção verificada no dimensionamento.`,
@@ -1193,15 +1257,14 @@ export function buildAnalysisModel(project: Project): {
           )
         }
       }
+      if (tribSupported <= 1e-9) {
+        slabT.lostG += gArea * area
+        slabT.lostQ += qArea * area
+      }
       for (const ed of supported) {
         // quinhão próprio + parcela redistribuída (proporcional ao quinhão)
         const share = tribSupported > 1e-9 ? ed.aTrib * (1 + freeTrib / tribSupported) : ed.aTrib
-        const wLineG = (share * gArea) / ed.covered
-        const wLineQ = (share * qArea) / ed.covered
-        for (const mid of ed.onEdge) {
-          memberLoads.G[mid].wy -= wLineG * loadScale(mid)
-          memberLoads.Q[mid].wy -= wLineQ * loadScale(mid)
-        }
+        applyEdgeLine(ed, (share * gArea) / ed.covered, (share * qArea) / ed.covered)
       }
     }
   }
@@ -1353,6 +1416,7 @@ export function buildAnalysisModel(project: Project): {
     levelWeights,
     winkler: winkler.length > 0 ? winkler : null,
     winklerKs: ksGround > 0 ? ksGround : null,
+    loadTransfers: transfers,
     warnings,
     stats: { nodes: nodes.length, members: members.length, dofs: 0 },
   }
