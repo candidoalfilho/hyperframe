@@ -29,6 +29,14 @@ export const IconRuler = (p: P) => (
   </svg>
 )
 
+/** carga sobre a laje: seta para baixo sobre uma placa */
+export const IconSlabLoad = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3v9M8.5 8.5L12 12l3.5-3.5" />
+    <path d="M3 16h18v4H3z" opacity={0.6} />
+  </svg>
+)
+
 export const IconColumn = (p: P) => (
   <svg {...base(p)}>
     <rect x="8" y="5" width="8" height="14" />

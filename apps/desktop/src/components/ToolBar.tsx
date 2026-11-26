@@ -10,6 +10,7 @@ import {
   IconWall,
   IconMasonry,
   IconRuler,
+  IconSlabLoad,
 } from './Icons'
 
 const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Element }[] = [
@@ -22,6 +23,12 @@ const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Elem
   { id: 'beam', title: 'Viga (B) — clique nos pontos, Enter/duplo-clique finaliza', icon: IconBeam },
   { id: 'slab', title: 'Laje (L) — clique dentro de um contorno fechado de vigas', icon: IconSlab },
   { id: 'wall', title: 'Carga de parede (W) — clique na viga', icon: IconWall },
+  {
+    id: 'slabload',
+    title:
+      'Carga na laje (C) — pontual: 1 clique · linear (parede sobre a laje): 2 cliques. Tipo e valores no painel',
+    icon: IconSlabLoad,
+  },
   {
     id: 'mwall',
     title: 'Alvenaria estrutural (M) — parede NBR 16868: clique nos pontos, Enter finaliza',

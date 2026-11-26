@@ -236,24 +236,74 @@ export function gridStiffness(EI: number, GJ: number, L: number): Float64Array {
   return k
 }
 
-export interface GridSolveInput {
+/** força concentrada sobre a laje, kN (positiva p/ BAIXO) */
+export interface GridPointLoad {
+  x: number
+  y: number
+  p: number
+}
+
+/** um caso de carga da grelha: pressão uniforme + forças concentradas */
+export interface GridLoadCase {
+  /** pressão uniforme, kN/m² (positivo p/ BAIXO) */
+  q: number
+  points?: GridPointLoad[]
+}
+
+export interface GridSolveInput extends GridLoadCase {
   model: GridModel
   /** espessura da laje, m (EI = E·t³/12·b por faixa; GJ = E·t³/6·b) */
   thickness: number
   /** módulo de elasticidade, kPa */
   e: number
-  /** pressão uniforme, kN/m² (positivo p/ BAIXO) */
-  q: number
 }
 
 /**
- * Resolve a grelha p/ pressão uniforme. GDL globais por nó: [w, θx, θy]
+ * Reparte uma força concentrada entre os nós da célula que a contém (pesos
+ * bilineares, normalizados sobre os nós existentes — bordas recortadas e
+ * furos). Devolve [] se não há nó a menos de um passo de malha.
+ */
+export function spreadPointLoad(
+  model: GridModel,
+  x: number,
+  y: number,
+): { node: number; weight: number }[] {
+  const out: { node: number; weight: number }[] = []
+  let sum = 0
+  for (const nd of model.nodes) {
+    const wx = 1 - Math.abs(nd.x - x) / model.dx
+    if (wx <= 1e-9) continue
+    const wy = 1 - Math.abs(nd.y - y) / model.dy
+    if (wy <= 1e-9) continue
+    out.push({ node: nd.id, weight: wx * wy })
+    sum += wx * wy
+  }
+  if (sum < 1e-9) return []
+  for (const o of out) o.weight /= sum
+  return out
+}
+
+/**
+ * Resolve a grelha p/ um caso de carga. GDL globais por nó: [w, θx, θy]
  * (θx = rotação em torno de X global; θy em torno de Y). Barras em x:
  * torção = θx, flexão = θy; barras em y: torção = θy, flexão = θx (com
  * troca de sinal implícita absorvida pela simetria do elemento).
  */
 export function solveGrid(inp: GridSolveInput): GridResult {
-  const { model, thickness: t, e: E, q } = inp
+  return solveGridCases(inp.model, inp.thickness, inp.e, [{ q: inp.q, points: inp.points }])[0]
+}
+
+/**
+ * Resolve VÁRIOS casos de carga na mesma grelha: K é montada e fatorada uma
+ * vez; cada caso é uma retro-substituição. Forças concentradas são repartidas
+ * entre os nós da célula (`spreadPointLoad`).
+ */
+export function solveGridCases(
+  model: GridModel,
+  t: number,
+  E: number,
+  cases: GridLoadCase[],
+): GridResult[] {
   const nodes = model.nodes
   const members = model.members
   if (!nodes.some((n) => n.support)) {
@@ -311,88 +361,94 @@ export function solveGrid(inp: GridSolveInput): GridResult {
   }
   K.factorize()
 
-  // cargas nodais: pressão × área tributária do nó (calculada na malha)
-  const F = new Float64Array(n)
-  for (const nd of nodes) {
-    const [w] = dofOf.get(nd.id)!
-    if (w >= 0) F[w] -= q * nd.trib // w positivo p/ cima
-  }
-
-  const U = K.solve(F)
-  const w = nodes.map((nd) => {
-    const [wd] = dofOf.get(nd.id)!
-    return wd >= 0 ? U[wd] : 0
-  })
-  const rot = (nd: GridNode): [number, number] => {
-    const [, rx, ry] = dofOf.get(nd.id)!
-    return [U[rx] ?? 0, U[ry] ?? 0]
-  }
-
-  // esforços por membro + reações nos apoios
-  const reactions = new Map<number, number>()
-  let mxSpanMax = 0
-  let mxSupportMax = 0
-  let mySpanMax = 0
-  let mySupportMax = 0
-  for (let mi = 0; mi < members.length; mi++) {
-    const m = members[mi]
-    const k = memberK[mi]
-    const na = nodes[m.ni]
-    const nb = nodes[m.nj]
-    const [rxa, rya] = rot(na)
-    const [rxb, ryb] = rot(nb)
-    const ul =
-      m.dir === 0
-        ? [w[m.ni], rxa, rya, w[m.nj], rxb, ryb]
-        : [w[m.ni], rya, rxa, w[m.nj], ryb, rxb]
-    const fl = new Float64Array(6)
-    for (let i = 0; i < 6; i++) {
-      let s = 0
-      for (let j = 0; j < 6; j++) s += k[i * 6 + j] * ul[j]
-      fl[i] = s
+  return cases.map((lc) => {
+    // cargas nodais (kN p/ baixo): pressão × área tributária + concentradas
+    const pNode = nodes.map((nd) => lc.q * nd.trib)
+    for (const pt of lc.points ?? []) {
+      for (const { node, weight } of spreadPointLoad(model, pt.x, pt.y)) pNode[node] += pt.p * weight
     }
-    // reações: cortantes das extremidades acumulados nos nós de apoio
-    if (na.support) reactions.set(m.ni, (reactions.get(m.ni) ?? 0) + fl[0])
-    if (nb.support) reactions.set(m.nj, (reactions.get(m.nj) ?? 0) + fl[3])
-    // momentos de flexão nas extremidades → por metro (÷ largura da faixa)
-    const mA = Math.abs(fl[2]) / m.width
-    const mB = Math.abs(fl[5]) / m.width
-    // sinal físico: momento no vão (sagging) vs sobre apoio (hogging).
-    // Aproximação robusta p/ malha: extremidade em nó de apoio ⇒ hogging.
-    const isX = m.dir === 0
-    const applyEnd = (mVal: number, atSupport: boolean) => {
-      if (atSupport) {
-        if (isX) mxSupportMax = Math.max(mxSupportMax, mVal)
-        else mySupportMax = Math.max(mySupportMax, mVal)
-      } else {
-        if (isX) mxSpanMax = Math.max(mxSpanMax, mVal)
-        else mySpanMax = Math.max(mySpanMax, mVal)
+    const F = new Float64Array(n)
+    for (const nd of nodes) {
+      const [w] = dofOf.get(nd.id)!
+      if (w >= 0) F[w] -= pNode[nd.id] // w positivo p/ cima
+    }
+
+    const U = K.solve(F)
+    const w = nodes.map((nd) => {
+      const [wd] = dofOf.get(nd.id)!
+      return wd >= 0 ? U[wd] : 0
+    })
+    const rot = (nd: GridNode): [number, number] => {
+      const [, rx, ry] = dofOf.get(nd.id)!
+      return [U[rx] ?? 0, U[ry] ?? 0]
+    }
+
+    // esforços por membro + reações nos apoios
+    const reactions = new Map<number, number>()
+    let mxSpanMax = 0
+    let mxSupportMax = 0
+    let mySpanMax = 0
+    let mySupportMax = 0
+    for (let mi = 0; mi < members.length; mi++) {
+      const m = members[mi]
+      const k = memberK[mi]
+      const na = nodes[m.ni]
+      const nb = nodes[m.nj]
+      const [rxa, rya] = rot(na)
+      const [rxb, ryb] = rot(nb)
+      const ul =
+        m.dir === 0
+          ? [w[m.ni], rxa, rya, w[m.nj], rxb, ryb]
+          : [w[m.ni], rya, rxa, w[m.nj], ryb, rxb]
+      const fl = new Float64Array(6)
+      for (let i = 0; i < 6; i++) {
+        let sv = 0
+        for (let j = 0; j < 6; j++) sv += k[i * 6 + j] * ul[j]
+        fl[i] = sv
       }
+      // reações: cortantes das extremidades acumulados nos nós de apoio
+      if (na.support) reactions.set(m.ni, (reactions.get(m.ni) ?? 0) + fl[0])
+      if (nb.support) reactions.set(m.nj, (reactions.get(m.nj) ?? 0) + fl[3])
+      // momentos de flexão nas extremidades → por metro (÷ largura da faixa)
+      const mA = Math.abs(fl[2]) / m.width
+      const mB = Math.abs(fl[5]) / m.width
+      // sinal físico: momento no vão (sagging) vs sobre apoio (hogging).
+      // Aproximação robusta p/ malha: extremidade em nó de apoio ⇒ hogging.
+      const isX = m.dir === 0
+      const applyEnd = (mVal: number, atSupport: boolean) => {
+        if (atSupport) {
+          if (isX) mxSupportMax = Math.max(mxSupportMax, mVal)
+          else mySupportMax = Math.max(mySupportMax, mVal)
+        } else {
+          if (isX) mxSpanMax = Math.max(mxSpanMax, mVal)
+          else mySpanMax = Math.max(mySpanMax, mVal)
+        }
+      }
+      applyEnd(mA, na.support)
+      applyEnd(mB, nb.support)
     }
-    applyEnd(mA, na.support)
-    applyEnd(mB, nb.support)
-  }
 
-  // cargas nos nós de apoio também vão direto p/ o apoio
-  for (const nd of nodes) {
-    if (!nd.support) continue
-    reactions.set(nd.id, (reactions.get(nd.id) ?? 0) + q * nd.trib)
-  }
+    // cargas nos nós de apoio também vão direto p/ o apoio
+    for (const nd of nodes) {
+      if (!nd.support) continue
+      reactions.set(nd.id, (reactions.get(nd.id) ?? 0) + pNode[nd.id])
+    }
 
-  let totalReaction = 0
-  for (const r of reactions.values()) totalReaction += r
-  const wMax = Math.max(0, ...w.map((v) => -v))
+    let totalReaction = 0
+    for (const r of reactions.values()) totalReaction += r
+    const wMax = Math.max(0, ...w.map((v) => -v))
 
-  return {
-    w,
-    reactions,
-    mxSpanMax,
-    mxSupportMax,
-    mySpanMax,
-    mySupportMax,
-    wMax,
-    totalReaction,
-  }
+    return {
+      w,
+      reactions,
+      mxSpanMax,
+      mxSupportMax,
+      mySpanMax,
+      mySupportMax,
+      wMax,
+      totalReaction,
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------

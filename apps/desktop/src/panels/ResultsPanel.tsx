@@ -16,6 +16,7 @@ import { useStore, type ResultsTab } from '../store'
 import { exportFile } from '../io/fileio'
 import { cm, cm2, fmt, fmtCmDim, ROMAN } from './format'
 import LatticeSlabsResults from './LatticeResults'
+import SlabLoadsResults from './SlabLoadsResults'
 import SteelSchedule from './SteelSchedule'
 import { IconClose, IconPrint } from '../components/Icons'
 import PranchasPanel from '../drawings/PranchasPanel'
@@ -1000,6 +1001,8 @@ function LajesTab({ results }: { results: AnalysisResults }) {
       )}
 
       <LatticeSlabsResults items={trelicadas} />
+
+      <SlabLoadsResults items={items} />
 
       {macicas.length > 0 && (
         <Footnote>

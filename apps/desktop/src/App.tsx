@@ -173,6 +173,10 @@ export default function App() {
         case 'W':
           s.setTool('wall')
           break
+        case 'c':
+        case 'C':
+          s.setTool('slabload')
+          break
         case 'r':
         case 'R':
           s.setTool('region')

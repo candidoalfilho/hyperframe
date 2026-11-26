@@ -6,6 +6,7 @@
  */
 
 import { wallLoadFromCalc } from '../model/wallLoad'
+import { slabLoadG, slabLoadLength, slabLoadTotal, SLAB_LOAD_SIZE_DEFAULT } from '../analysis/slabLoads'
 import type { LatticeNegativeEnd } from '../nbr/nbr6118/latticeSlab'
 import { A4, PdfDoc, textWidth, wrapText, type PdfFont } from './pdf'
 import type { Project } from '../model/types'
@@ -382,6 +383,44 @@ export function buildMemorialPdf(
           0.3,
         )
       }
+    }
+    if ((plan.slabLoads ?? []).length > 0) {
+      L.table(
+        [
+          { t: 'Carga na laje', w: 14 },
+          { t: 'Tipo', w: 10 },
+          { t: 'Posição (m)', w: 28 },
+          { t: 'g', w: 11, align: 'r' },
+          { t: 'q', w: 11, align: 'r' },
+          { t: 'Resultante (kN)', w: 14, align: 'r' },
+          { t: 'Descrição', w: 22 },
+        ],
+        plan.slabLoads!.map((l) => {
+          const tot = slabLoadTotal(l)
+          const unit = l.kind === 'line' ? ' kN/m' : ' kN'
+          const size = l.size ?? SLAB_LOAD_SIZE_DEFAULT
+          return [
+            l.name,
+            l.kind === 'line' ? 'linear' : 'pontual',
+            l.kind === 'line' && l.b
+              ? `(${fmt(l.a.x, 2)}; ${fmt(l.a.y, 2)}) – (${fmt(l.b.x, 2)}; ${fmt(l.b.y, 2)}) · ${fmt(slabLoadLength(l), 2)} m`
+              : `(${fmt(l.a.x, 2)}; ${fmt(l.a.y, 2)}) · ${fmt(size.bx * 100, 0)}×${fmt(size.by * 100, 0)} cm`,
+            fmt(slabLoadG(l), 2) + unit,
+            fmt(l.q, 2) + unit,
+            fmt(tot.g + tot.q, 1),
+            l.calc ? `${l.calc.block} (h = ${fmt(l.calc.height, 2)} m)` : (l.label ?? '—'),
+          ]
+        }),
+        7.4,
+      )
+      L.para(
+        'Cargas concentradas e lineares sobre lajes: a reação em cada viga vem da analogia de ' +
+          'grelha da própria laje (regra da alavanca nas lajes unidirecionais) e é aplicada na ' +
+          'posição em que ocorre.',
+        7.8,
+        'I',
+        0.3,
+      )
     }
     if ((plan.loadRegions ?? []).length > 0) {
       L.table(
@@ -978,6 +1017,83 @@ export function buildMemorialPdf(
         'torção) apoiada nas bordas com viga e nos pilares internos; momentos POR METRO ' +
         '(vão/apoio, X/Y) e reações reais substituem os quinhões a 45°; negativas nas bordas ' +
         'contínuas e sobre pilares; flecha com Branson + fluência (αf = 1,32).',
+      7.8,
+      'I',
+      0.3,
+    )
+  }
+  // cargas concentradas/lineares sobre lajes (issue #8)
+  const conc = results.slabDesign.filter((s) => s.concentrated)
+  if (conc.length > 0) {
+    L.h2('Lajes com cargas concentradas ou lineares')
+    L.table(
+      [
+        { t: 'Laje', w: 9 },
+        { t: 'Pav.', w: 16 },
+        { t: 'Cargas', w: 20 },
+        { t: 'G (kN)', w: 9, align: 'r' },
+        { t: 'Q (kN)', w: 9, align: 'r' },
+        { t: 'Efeito na laje', w: 37 },
+        { t: 'Sit.', w: 8, align: 'c' },
+      ],
+      conc.map((s) => {
+        const c = s.concentrated!
+        const j = c.joist
+        const effect = j
+          ? j.spread
+            ? `todas as vigotas: +${fmt(j.m, 2)} kN·m, +${fmt(j.v, 2)} kN · carga equiv. ×${fmt(c.factor, 2)}`
+            : `vigota crítica: +${fmt(j.m, 2)} kN·m, +${fmt(j.v, 2)} kN · ${j.juxtaposed > 1 ? `${j.juxtaposed} justapostas` : 'sem reforço'}`
+          : c.kx !== undefined
+            ? `M ×${fmt(c.kx, 2)} (X) · ×${fmt(c.ky ?? 1, 2)} (Y) · flecha ×${fmt(c.kw ?? 1, 2)}`
+            : 'não verificado (sem borda apoiada)'
+        return [
+          s.name,
+          s.levelName,
+          c.loads.map((l) => l.name).join(', '),
+          fmt(c.totalG, 1),
+          fmt(c.totalQ, 1),
+          effect,
+          s.status === 'ok' ? 'OK' : s.status === 'atencao' ? 'atenção' : 'FALHA',
+        ]
+      }),
+      7.4,
+    )
+    const punch = conc.flatMap((s) => s.concentrated!.punching.map((p) => ({ s, p })))
+    if (punch.length > 0) {
+      L.table(
+        [
+          { t: 'Laje', w: 9 },
+          { t: 'Carga', w: 12 },
+          { t: 'Área (cm)', w: 12, align: 'c' },
+          { t: 'FSd (kN)', w: 11, align: 'r' },
+          { t: 'u1 (m)', w: 9, align: 'r' },
+          { t: 'τSd (C′)', w: 11, align: 'r' },
+          { t: 'τRd1', w: 10, align: 'r' },
+          { t: 'τSd (C)', w: 11, align: 'r' },
+          { t: 'τRd2', w: 10, align: 'r' },
+          { t: 'Sit.', w: 13, align: 'c' },
+        ],
+        punch.map(({ s, p }) => [
+          s.name,
+          p.name,
+          `${fmt(p.bx * 100, 0)}×${fmt(p.by * 100, 0)}`,
+          fmt(p.fsd, 1),
+          fmt(p.check.u1, 2),
+          fmt(p.check.tauSd1, 0),
+          fmt(p.check.tauRd1, 0),
+          fmt(p.check.tauSd0, 0),
+          fmt(p.check.tauRd2, 0),
+          !p.check.okC ? 'FALHA' : p.check.needsShearReinf ? 'armar punção' : 'OK',
+        ]),
+        7.4,
+      )
+    }
+    L.para(
+      'Momentos e flecha: razão entre a grelha da laje com e sem as cargas concentradas (bordas ' +
+        'apoiadas nos dois casos; pico sob a carga tomado numa faixa de 25 cm). Lajes pelo ' +
+        'método de Marcus e nervuradas usam a maior razão como carga uniforme equivalente. ' +
+        'Punção sob cargas pontuais: §19.5, contorno C′ a 2d da área carregada, tensões em kPa. ' +
+        'Vigotas: esforços característicos adicionais na vigota sob a carga, biapoiada.',
       7.8,
       'I',
       0.3,

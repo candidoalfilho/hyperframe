@@ -7,7 +7,7 @@ import { columnHalfExtents, type Column, type Project, type Vec2 } from '@hyperf
  */
 
 export interface GeoRef {
-  kind: 'column' | 'beam' | 'slab' | 'wallLoad' | 'loadRegion' | 'mwall'
+  kind: 'column' | 'beam' | 'slab' | 'wallLoad' | 'loadRegion' | 'mwall' | 'slabLoad'
   id: string
 }
 
@@ -86,7 +86,7 @@ export function moveInProject(p: Project, refs: GeoRef[], delta: Vec2): Project 
       ...pl.slabs.filter((x) => has(refs, 'slab', x.id)).flatMap((x) => x.polygon),
       ...pl.loadRegions.filter((r) => has(refs, 'loadRegion', r.id)).flatMap((r) => r.polygon),
     ]
-    if (pts.length === 0) return pl
+    if (pts.length === 0 && !pl.slabLoads?.some((l) => has(refs, 'slabLoad', l.id))) return pl
     const near = (q: Vec2) => pts.some((m) => Math.hypot(q.x - m.x, q.y - m.y) < 0.02)
     const mv = (q: Vec2) => (near(q) ? shift(q) : q)
     return {
@@ -96,6 +96,16 @@ export function moveInProject(p: Project, refs: GeoRef[], delta: Vec2): Project 
       loadRegions: pl.loadRegions.map((r) => ({ ...r, polygon: r.polygon.map(mv) })),
       ...(pl.masonryWalls
         ? { masonryWalls: pl.masonryWalls.map((w) => ({ ...w, path: w.path.map(mv) })) }
+        : {}),
+      // cargas sobre laje: só as selecionadas se movem (não estão presas a vértices)
+      ...(pl.slabLoads
+        ? {
+            slabLoads: pl.slabLoads.map((l) =>
+              has(refs, 'slabLoad', l.id)
+                ? { ...l, a: shift(l.a), ...(l.b ? { b: shift(l.b) } : {}) }
+                : l,
+            ),
+          }
         : {}),
     }
   })
@@ -162,6 +172,10 @@ export function elementBounds(p: Project, ref: GeoRef): Box | null {
     if (ref.kind === 'loadRegion') {
       const r = pl.loadRegions.find((x) => x.id === ref.id)
       if (r) return boxOf(r.polygon)
+    }
+    if (ref.kind === 'slabLoad') {
+      const l = pl.slabLoads?.find((x) => x.id === ref.id)
+      if (l) return boxOf(l.b ? [l.a, l.b] : [l.a])
     }
   }
   return null

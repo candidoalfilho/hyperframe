@@ -12,6 +12,7 @@ import {
   type ElementRef,
   type FloorPlan,
   type Grid,
+  type SlabLoad,
   type Vec2,
 } from '@hyperframe/engine'
 import { selectedRefs, useActivePlan, useStore, type AiGhost } from '../store'
@@ -39,6 +40,7 @@ import GhostLayer from './layers/GhostLayer'
 import SelectionOverlay from './layers/SelectionOverlay'
 import MeasureLayer from './layers/MeasureLayer'
 import RigidArmsLayer from './layers/RigidArmsLayer'
+import SlabLoadsLayer from './layers/SlabLoadsLayer'
 
 const ORTHO_MAX_RAD = (15 * Math.PI) / 180
 /** tolerância de snap em px de tela */
@@ -101,10 +103,14 @@ function applyOrtho(last: Vec2, p: Vec2, strict = false): Vec2 {
 /** arredonda ao passo de 0,05 m */
 const r05 = (v: number) => Math.round(v / 0.05) * 0.05
 
+/** traço-fantasma de uma carga sobre laje (a pontual vira uma cruz curta) */
+const slabLoadGhost = (l: SlabLoad): Vec2[] =>
+  l.b ? [{ ...l.a }, { ...l.b }] : [{ x: l.a.x - 0.12, y: l.a.y }, { x: l.a.x + 0.12, y: l.a.y }]
+
 /** estado de um arrasto de elemento (ferramenta selecionar) */
 interface DragState {
   /** 'group' = conjunto selecionado · 'marquee' = janela de seleção no vazio */
-  kind: 'column' | 'beam' | 'loadRegion' | 'mwall' | 'group' | 'marquee'
+  kind: 'column' | 'beam' | 'loadRegion' | 'slabLoad' | 'mwall' | 'group' | 'marquee'
   id: string
   name: string
   /** ponto de mundo onde o arrasto começou */
@@ -291,6 +297,8 @@ export default function Editor2D() {
     } else if (t === 'measure') {
       if (c.length >= 2) setMeasureDone(true)
       else setChain([])
+    } else if (t === 'slabload') {
+      setChain([])
     } else if (t === 'region') {
       if (c.length < 3) {
         showToast('Região precisa de pelo menos 3 pontos')
@@ -304,7 +312,8 @@ export default function Editor2D() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = useStore.getState().tool
-      if (t !== 'beam' && t !== 'region' && t !== 'mwall' && t !== 'measure') return
+      if (t !== 'beam' && t !== 'region' && t !== 'mwall' && t !== 'measure' && t !== 'slabload')
+        return
       if (e.key === 'Escape' && chainRef.current.length > 0) {
         e.preventDefault()
         e.stopPropagation()
@@ -349,7 +358,13 @@ export default function Editor2D() {
       const snap = computeSnap(raw, snapData, tolW)
       return snap ?? { point: roundPoint05(raw), kind: null }
     }
-    if (tool === 'beam' || tool === 'region' || tool === 'mwall' || tool === 'measure') {
+    if (
+      tool === 'beam' ||
+      tool === 'region' ||
+      tool === 'mwall' ||
+      tool === 'measure' ||
+      tool === 'slabload'
+    ) {
       const snap = computeSnap(raw, snapData, tolW)
       if (snap) return snap
       let pt = roundPoint05(raw)
@@ -366,6 +381,7 @@ export default function Editor2D() {
     slabs: plan?.slabs ?? [],
     wallLoads: plan?.wallLoads ?? [],
     loadRegions: plan?.loadRegions ?? [],
+    slabLoads: plan?.slabLoads ?? [],
     showLoads: display.showLoads,
     showSlabs: display.showSlabs,
     k: vp.k,
@@ -421,6 +437,9 @@ export default function Editor2D() {
             } else if (r.kind === 'loadRegion') {
               const rg = plan?.loadRegions.find((x) => x.id === r.id)
               if (rg) ghosts.push({ kind: 'slab', pts: rg.polygon, mode: 'add', label: '' })
+            } else if (r.kind === 'slabLoad') {
+              const l = plan?.slabLoads?.find((x) => x.id === r.id)
+              if (l) ghosts.push({ kind: 'beam', pts: slabLoadGhost(l), bw: 0.06, mode: 'add', label: '' })
             }
           }
           if (ghosts[0]) ghosts[0] = { ...ghosts[0], label: `mover ${group.length} elementos` }
@@ -478,6 +497,25 @@ export default function Editor2D() {
               path: r.polygon.map((p) => ({ ...p })),
             })
           }
+        } else if (hit.kind === 'slabLoad') {
+          const l = plan?.slabLoads?.find((x) => x.id === hit.id)
+          if (l) startDrag({ kind: 'slabLoad', id: l.id, name: l.name, path: slabLoadGhost(l), bw: 0.06 })
+        }
+        break
+      }
+      case 'slabload': {
+        if (!plan) break
+        const pt = effectiveCursor(raw, e.altKey).point
+        if ((st.defaults.slabLoadKind ?? 'point') === 'point') {
+          st.addSlabLoad([pt])
+          break
+        }
+        // linear: 1º clique marca o início, 2º cria a carga
+        const c0 = chainRef.current[0]
+        if (!c0) setChain([pt])
+        else if (dist(c0, pt) > 0.05) {
+          st.addSlabLoad([c0, pt])
+          setChain([])
         }
         break
       }
@@ -673,6 +711,8 @@ export default function Editor2D() {
           st.moveBeam(drag.id, drag.proposal)
         } else if (drag.kind === 'loadRegion') {
           st.moveLoadRegion(drag.id, drag.proposal)
+        } else if (drag.kind === 'slabLoad') {
+          st.moveSlabLoad(drag.id, drag.proposal)
         }
       }
     }
@@ -821,6 +861,14 @@ export default function Editor2D() {
             selectedId={selColumn}
             hoveredId={hovColumn}
           />
+          {plan && display.showLoads && (plan.slabLoads?.length ?? 0) > 0 && (
+            <SlabLoadsLayer
+              loads={plan.slabLoads!}
+              k={vp.k}
+              selectedId={selection?.kind === 'slabLoad' ? selection.id : null}
+              hoveredId={hoverRef?.kind === 'slabLoad' ? hoverRef.id : null}
+            />
+          )}
           {analysisModel && activeLevelIndex >= 0 && (
             <RigidArmsLayer model={analysisModel} levelIndex={activeLevelIndex} k={vp.k} />
           )}

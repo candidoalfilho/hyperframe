@@ -31,6 +31,7 @@ import { rectSectionProps } from './frame3d'
 import { notionalLoads, windNotionalRule } from '../nbr/nbr6118/imperfections'
 import type { WindGeometry } from '../nbr/api'
 import type { AMember, ANode, AnalysisModel, CaseId, Vec3 } from './types'
+import { assignSlabLoads, distributeSlabLoads, type SlabLoadAssignment } from './slabLoads'
 
 /** carga uniforme local por membro (kN/m nos eixos locais do membro) */
 export interface MemberLoad {
@@ -72,6 +73,11 @@ interface Piece {
    */
   ea?: Vec2
   eb?: Vec2
+  /**
+   * comprimento do trecho ORIGINAL quando a barra foi subdividida só p/ receber
+   * reações de cargas concentradas de laje — a mesa colaborante usa este valor
+   */
+  flangeLen?: number
 }
 
 const CASES: CaseId[] = ['G', 'Q', 'WXP', 'WXN', 'WYP', 'WYN', 'EQXP', 'EQXN', 'EQYP', 'EQYN']
@@ -145,6 +151,24 @@ export function buildAnalysisModel(project: Project): {
   const piecesByLevel = new Map<number, Piece[]>()
   /** trechos de viga descartados por estarem dentro da seção de um pilar */
   const stubsByLevel = new Map<number, { a: Vec2; b: Vec2 }[]>()
+
+  // CARGAS CONCENTRADAS/LINEARES SOBRE LAJES (issue #8): atribuição por planta
+  // e bordas das lajes carregadas — as vigas sob essas bordas são subdivididas
+  // (≤ 50 cm) para receber as reações da laje na posição em que ocorrem.
+  const slabLoadsByPlan = new Map<string, SlabLoadAssignment>()
+  const loadedEdgesByPlan = new Map<string, { a: Vec2; b: Vec2 }[]>()
+  for (const plan of project.plans) {
+    if (!plan.slabLoads || plan.slabLoads.length === 0) continue
+    const asg = assignSlabLoads(plan, (sl) => slabOpeningPolygons(plan, sl))
+    slabLoadsByPlan.set(plan.id, asg)
+    const edges: { a: Vec2; b: Vec2 }[] = []
+    for (const sl of plan.slabs) {
+      if (!asg.bySlab.has(sl.id)) continue
+      const poly = simplifyPolygon(sl.polygon)
+      for (let e = 0; e < poly.length; e++) edges.push({ a: poly[e], b: poly[(e + 1) % poly.length] })
+    }
+    loadedEdgesByPlan.set(plan.id, edges)
+  }
 
   // ks p/ baldrames (vigas no nível 0) sobre apoio elástico de Winkler:
   // override manual > sondagem (Es médio, faixa B) > heurística 120·σadm
@@ -249,6 +273,28 @@ export function buildAnalysisModel(project: Project): {
           refined.push(ts[ts.length - 1])
           ts = refined
         }
+        // vigas sob lajes com carga concentrada: barras ≤ 0,5 m (li ≥ 1)
+        const parentLen = new Map<number, number>()
+        const loadedEdges = li > 0 ? (loadedEdgesByPlan.get(plan.id) ?? []) : []
+        if (loadedEdges.length > 0) {
+          const refined: number[] = []
+          for (let k = 0; k + 1 < ts.length; k++) {
+            refined.push(ts[k])
+            const segLen = (ts[k + 1] - ts[k]) * L
+            if (segLen <= 0.5 + 1e-9) continue
+            const tm = (ts[k] + ts[k + 1]) / 2
+            const mid = { x: a.x + (b.x - a.x) * tm, y: a.y + (b.y - a.y) * tm }
+            if (!loadedEdges.some((ed) => projectOnSegment(mid, ed.a, ed.b).d <= TOL * 3)) continue
+            const nSub = Math.ceil(segLen / 0.5)
+            parentLen.set(refined.length - 1, segLen)
+            for (let s2 = 1; s2 < nSub; s2++) {
+              parentLen.set(refined.length, segLen)
+              refined.push(ts[k] + ((ts[k + 1] - ts[k]) * s2) / nSub)
+            }
+          }
+          refined.push(ts[ts.length - 1])
+          ts = refined
+        }
         for (let k = 0; k + 1 < ts.length; k++) {
           const t0 = ts[k]
           const t1 = ts[k + 1]
@@ -347,6 +393,7 @@ export function buildAnalysisModel(project: Project): {
             ...(moved || armA || armB ? { ga, gb } : {}),
             ...(armA ? { ea } : {}),
             ...(armB ? { eb } : {}),
+            ...(parentLen.has(k) ? { flangeLen: parentLen.get(k)! } : {}),
           })
           const endsOnColumn = colPoints.some((cp) => dist(cp, pb) <= TOL * 2)
           if (endsOnColumn || sectionChanges) pendingBreak = true
@@ -551,7 +598,7 @@ export function buildAnalysisModel(project: Project): {
       if (planT) {
         const fl = flankingSlabs(planT, pc.ga ?? pc.a, pc.gb ?? pc.b, pc.section.bw)
         if (fl.hf !== null && fl.hf < pc.section.h) {
-          const a075 = 0.75 * L
+          const a075 = 0.75 * (pc.flangeLen ?? L)
           const sideB = (c: number | null): number =>
             c === null || c <= 0 ? 0 : Math.min(0.5 * c, 0.1 * a075)
           const bf = pc.section.bw + sideB(fl.clearLeft) + sideB(fl.clearRight)
@@ -828,6 +875,7 @@ export function buildAnalysisModel(project: Project): {
 
   // lajes: quinhões por área de influência (Marcus) ou reações da GRELHA
   const useGrid = project.settings.slabMethod === 'grelha'
+  let nSlabLoadSlabs = 0
   const gridCache = new Map<string, SlabGridOutput>()
   const levelIndexOfColumn = (colId: string): [number, number] => {
     const col = project.columns.find((c) => c.id === colId)
@@ -971,11 +1019,10 @@ export function buildAnalysisModel(project: Project): {
           )
         }
       }
-      // ---------------- método da GRELHA: reações reais por borda + pilares
-      if (useGrid && !oneWayAxis) {
-        // pilares que apoiam a laje direto (internos, de borda livre e de
-        // canto — §19.5.2): todos precisam entrar na grelha como apoio
-        const supportedEdgeIdx = supported.map((ed) => ed.edgeIndex)
+      // pilares que apoiam a laje direto (internos, de borda livre e de canto —
+      // §19.5.2): entram na grelha como apoio (só no método da grelha)
+      const supportedEdgeIdx = supported.map((ed) => ed.edgeIndex)
+      const interiorColumns = (): ReturnType<typeof classifySlabColumns> => {
         const supportedSet = new Set(supportedEdgeIdx)
         const onBeamFn = (p: Vec2): boolean =>
           levelMembers.some((m) => {
@@ -992,12 +1039,87 @@ export function buildAnalysisModel(project: Project): {
             const info = columnSectionInfo(col.section)
             return { id: col.id, pos: col.pos, half: Math.hypot(info.bu, info.bv) / 2 }
           })
-        const interior = classifySlabColumns(
-          candidates,
-          poly,
-          (e) => supportedSet.has(e),
-          onBeamFn,
-        )
+        return classifySlabColumns(candidates, poly, (e) => supportedSet.has(e), onBeamFn)
+      }
+
+      // ---------------- cargas concentradas/lineares sobre a laje (issue #8):
+      // reações da grelha (ou alavanca, se unidirecional) descem para a barra
+      // de viga mais próxima do ponto em que ocorrem
+      const slabSamples = slabLoadsByPlan.get(plan.id)?.bySlab.get(slab.id)
+      if (slabSamples && slabSamples.length > 0) {
+        const totG = slabSamples.reduce((acc, x) => acc + x.g, 0)
+        const totQ = slabSamples.reduce((acc, x) => acc + x.q, 0)
+        const interiorC = useGrid && !oneWayAxis ? interiorColumns() : []
+        let appliedG = 0
+        let appliedQ = 0
+        try {
+          const dsl = distributeSlabLoads({
+            polygon: poly,
+            holes: slabOpeningPolygons(plan, slab),
+            supportedEdges: supportedEdgeIdx,
+            interiorColumns: interiorC,
+            thickness: slab.thickness,
+            samples: slabSamples,
+            oneWayAxis,
+          })
+          const byEdge = new Map(supported.map((ed) => [ed.edgeIndex, ed]))
+          const fG = new Map<number, number>()
+          const fQ = new Map<number, number>()
+          for (const r of dsl.reactions) {
+            if (r.columnId) {
+              const col = project.columns.find((c) => c.id === r.columnId)
+              if (!col) continue
+              const node = getNode(li, col.pos)
+              nodalLoads.G.push({ node, dof: 2, value: -r.g })
+              nodalLoads.Q.push({ node, dof: 2, value: -r.q })
+              appliedG += r.g
+              appliedQ += r.q
+              continue
+            }
+            const ed = r.edgeIndex !== null ? byEdge.get(r.edgeIndex) : undefined
+            if (!ed) continue
+            let best = -1
+            let bestD = Infinity
+            for (const mid of ed.onEdge) {
+              const m = members[mid]
+              const p1 = m.axis?.a ?? nodes[m.ni]
+              const p2 = m.axis?.b ?? nodes[m.nj]
+              const d = projectOnSegment(r.pos, { x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }).d
+              if (d < bestD) {
+                bestD = d
+                best = mid
+              }
+            }
+            if (best < 0) continue
+            fG.set(best, (fG.get(best) ?? 0) + r.g)
+            fQ.set(best, (fQ.get(best) ?? 0) + r.q)
+            appliedG += r.g
+            appliedQ += r.q
+          }
+          // força da reação espalhada na própria barra (≤ 50 cm): força conservada
+          for (const [mid, f] of fG) memberLoads.G[mid].wy -= f / members[mid].length
+          for (const [mid, f] of fQ) memberLoads.Q[mid].wy -= f / members[mid].length
+        } catch (err) {
+          warnings.push(
+            `Laje ${slab.name} (${level.name}): cargas concentradas não distribuídas (${err instanceof Error ? err.message : 'erro'}).`,
+          )
+        }
+        levelG[li] += appliedG
+        levelQ[li] += appliedQ
+        nSlabLoadSlabs++
+        const lost = totG + totQ - appliedG - appliedQ
+        if (lost > 0.01) {
+          warnings.push(
+            `Laje ${slab.name} (${level.name}): ${lost.toFixed(1)} kN de carga concentrada sem apoio que a receba (${
+              oneWayAxis ? 'vigota sem viga nos dois extremos' : 'laje sem borda apoiada'
+            }) — NÃO aplicada.`,
+          )
+        }
+      }
+
+      // ---------------- método da GRELHA: reações reais por borda + pilares
+      if (useGrid && !oneWayAxis) {
+        const interior = interiorColumns()
         if (supportedEdgeIdx.length + interior.length > 0) {
           try {
             const key = slabGridCacheKey({
@@ -1081,6 +1203,22 @@ export function buildAnalysisModel(project: Project): {
           memberLoads.Q[mid].wy -= wLineQ * loadScale(mid)
         }
       }
+    }
+  }
+
+  if (nSlabLoadSlabs > 0) {
+    warnings.push(
+      `Cargas concentradas/lineares sobre lajes em ${nSlabLoadSlabs} painel(is): reações calculadas pela analogia de grelha da laje (alavanca nas unidirecionais) e aplicadas nas vigas na posição em que ocorrem.`,
+    )
+  }
+  for (const plan of project.plans) {
+    const asg = slabLoadsByPlan.get(plan.id)
+    if (!asg || !levels.some((l, i) => i > 0 && l.planId === plan.id)) continue
+    for (const [loadId, o] of asg.outside) {
+      const name = plan.slabLoads?.find((x) => x.id === loadId)?.name ?? '?'
+      warnings.push(
+        `Carga ${name} (${plan.name}): ${(o.g + o.q).toFixed(1)} kN fora de qualquer laje ou sobre abertura — NÃO aplicados.`,
+      )
     }
   }
 

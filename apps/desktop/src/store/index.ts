@@ -22,6 +22,7 @@ import {
   type ElementRef,
   type FloorPlan,
   type LoadRegion,
+  type SlabLoad,
   type MasonryWall,
   type NewProjectParams,
   type Project,
@@ -52,7 +53,16 @@ export function selectedRefs(s: { selection: ElementRef | null; multi: ElementRe
   return [sel]
 }
 
-export type Tool = 'select' | 'column' | 'beam' | 'slab' | 'wall' | 'region' | 'mwall' | 'measure'
+export type Tool =
+  | 'select'
+  | 'column'
+  | 'beam'
+  | 'slab'
+  | 'wall'
+  | 'region'
+  | 'mwall'
+  | 'measure'
+  | 'slabload'
 export type ViewMode = 'plan' | '3d' | 'split'
 export type Theme = 'dark' | 'light'
 
@@ -123,6 +133,11 @@ export interface ElementDefaults {
   wallW: number
   wallLabel: string
   regionKind: 'escada' | 'reservatorio' | 'generica' | 'furo'
+  /** carga sobre laje a inserir: pontual (1 clique) ou linear (2 cliques) */
+  slabLoadKind?: 'point' | 'line'
+  /** valores iniciais: kN (pontual) / kN/m (linear) */
+  slabLoadG?: number
+  slabLoadQ?: number
 }
 
 /**
@@ -284,6 +299,13 @@ export interface HFState {
   /** cria região de carga (escada/reservatório) com preset do tipo padrão */
   addLoadRegion: (polygon: Vec2[]) => void
   updateLoadRegion: (id: string, patch: Partial<Omit<LoadRegion, 'id'>>) => void
+  /**
+   * carga sobre a laje (issue #8): 1 ponto = pontual; 2 pontos = linear.
+   * Usa o tipo e os valores de `defaults`.
+   */
+  addSlabLoad: (pts: Vec2[]) => void
+  updateSlabLoad: (id: string, patch: Partial<Omit<SlabLoad, 'id'>>) => void
+  moveSlabLoad: (id: string, delta: Vec2) => void
   deleteElement: (ref: ElementRef) => void
   /** exclui vários elementos em um único passo de desfazer */
   deleteElements: (refs: ElementRef[]) => void
@@ -572,6 +594,7 @@ export const useStore = create<HFState>()(
           ...(plan?.beams ?? []).map((b) => ({ kind: 'beam' as const, id: b.id })),
           ...(plan?.slabs ?? []).map((x) => ({ kind: 'slab' as const, id: x.id })),
           ...(plan?.loadRegions ?? []).map((r) => ({ kind: 'loadRegion' as const, id: r.id })),
+          ...(plan?.slabLoads ?? []).map((l) => ({ kind: 'slabLoad' as const, id: l.id })),
         ]
         set({ multi: refs, selection: refs[refs.length - 1] ?? null })
       },
@@ -1000,6 +1023,68 @@ export const useStore = create<HFState>()(
           selection: { kind: 'loadRegion', id: region.id },
         })
       },
+      addSlabLoad: (pts) => {
+        const s = get()
+        const plan = activePlanOf(s.project, s.activeLevelId)
+        if (!plan || pts.length === 0) return
+        const kind = pts.length >= 2 ? 'line' : 'point'
+        if (kind === 'line' && Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) < 0.05) return
+        const prefix = kind === 'line' ? 'CL' : 'CP'
+        const used = new Set((plan.slabLoads ?? []).map((l) => l.name))
+        let n = 1
+        while (used.has(`${prefix}${n}`)) n++
+        const load: SlabLoad = {
+          id: uid('sl'),
+          name: `${prefix}${n}`,
+          kind,
+          a: pts[0],
+          ...(kind === 'line' ? { b: pts[1] } : {}),
+          g: s.defaults.slabLoadG ?? (kind === 'line' ? 5 : 10),
+          q: s.defaults.slabLoadQ ?? 0,
+        }
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            slabLoads: [...(pl.slabLoads ?? []), load],
+          })),
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+          selection: { kind: 'slabLoad', id: load.id },
+          multi: [],
+        })
+      },
+      updateSlabLoad: (id, patch) => {
+        const s = get()
+        const plan = s.project.plans.find((pl) => pl.slabLoads?.some((l) => l.id === id))
+        if (!plan) return
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            slabLoads: (pl.slabLoads ?? []).map((l) => (l.id === id ? { ...l, ...patch } : l)),
+          })),
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+        })
+      },
+      moveSlabLoad: (id, delta) => {
+        const s = get()
+        const plan = s.project.plans.find((pl) => pl.slabLoads?.some((l) => l.id === id))
+        if (!plan) return
+        const mv = (p: Vec2) => ({ x: p.x + delta.x, y: p.y + delta.y })
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            slabLoads: (pl.slabLoads ?? []).map((l) =>
+              l.id === id ? { ...l, a: mv(l.a), ...(l.b ? { b: mv(l.b) } : {}) } : l,
+            ),
+          })),
+          dirty: true,
+          results: null,
+          analysisStatus: 'idle',
+        })
+      },
       updateLoadRegion: (id, patch) => {
         const s = get()
         const plan = s.project.plans.find((pl) => pl.loadRegions.some((r) => r.id === id))
@@ -1036,6 +1121,11 @@ export const useStore = create<HFState>()(
               if (ref.kind === 'loadRegion') {
                 return { ...pl, loadRegions: pl.loadRegions.filter((r) => r.id !== ref.id) }
               }
+              if (ref.kind === 'slabLoad') {
+                return pl.slabLoads
+                  ? { ...pl, slabLoads: pl.slabLoads.filter((l) => l.id !== ref.id) }
+                  : pl
+              }
               return { ...pl, wallLoads: pl.wallLoads.filter((w) => w.id !== ref.id) }
             }),
           }
@@ -1058,6 +1148,7 @@ export const useStore = create<HFState>()(
         const slabs = ids('slab')
         const regions = ids('loadRegion')
         const walls = ids('wallLoad')
+        const sLoads = ids('slabLoad')
         set({
           project: {
             ...s.project,
@@ -1068,6 +1159,9 @@ export const useStore = create<HFState>()(
               slabs: pl.slabs.filter((x) => !slabs.has(x.id)),
               loadRegions: pl.loadRegions.filter((r) => !regions.has(r.id)),
               wallLoads: pl.wallLoads.filter((w) => !walls.has(w.id) && !beams.has(w.beamId)),
+              ...(pl.slabLoads
+                ? { slabLoads: pl.slabLoads.filter((l) => !sLoads.has(l.id)) }
+                : {}),
             })),
           },
           dirty: true,
