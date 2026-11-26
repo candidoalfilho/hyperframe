@@ -131,6 +131,48 @@ export interface WindDirectionLoads {
   totalForce: number
 }
 
+/**
+ * Registro do CAMINHO DAS CARGAS verticais (kN característicos, casos G e Q):
+ * o que foi aplicado em cada barra e o que cada laje entrega a cada barra ou
+ * pilar. É a mesma conta que monta os vetores de carga, anotada por elemento.
+ */
+export interface SlabTransfer {
+  levelIndex: number
+  slabId: string
+  name: string
+  /** contorno simplificado (sem vértices colineares) — `edgeIndex` refere-se a ele */
+  polygon: Vec2[]
+  /** regra de repartição: charneiras a 45°, faixas de nervura ou reações da grelha */
+  method: 'charneiras' | 'unidirecional' | 'grelha'
+  /** direção das nervuras/vigotas (método 'unidirecional') */
+  axis?: 'x' | 'y'
+  /** carga total da laje (distribuída + concentradas), kN */
+  g: number
+  q: number
+  /** parcela sem apoio que a receba — NÃO aplicada ao pórtico, kN */
+  lostG: number
+  lostQ: number
+  edges: {
+    edgeIndex: number
+    /** há viga sob a borda */
+    supported: boolean
+    /** quinhão nominal da borda, m² (antes de redistribuir bordas livres) */
+    trib: number
+    /** força entregue a cada barra de viga sob a borda, kN */
+    members: { memberId: number; g: number; q: number }[]
+  }[]
+  /** pilares que apoiam a laje direto (laje lisa / carga concentrada), kN */
+  columns: { columnId: string; nodeId: number; g: number; q: number }[]
+}
+
+export interface LoadTransfers {
+  slabs: SlabTransfer[]
+  /** carga própria de cada barra (mesmo índice de `members`), kN */
+  members: { memberId: number; self: number; wallG: number; wallQ: number }[]
+  /** forças verticais aplicadas direto em nós (consolos), kN ↓ */
+  nodal: { nodeId: number; levelIndex: number; columnId: string; name: string; g: number; q: number }[]
+}
+
 export interface AnalysisModel {
   nodes: ANode[]
   members: AMember[]
@@ -156,6 +198,8 @@ export interface AnalysisModel {
   winkler: { nodeId: number; kz: number; area: number }[] | null
   /** ks efetivo dos baldrames, kN/m³ (null = sem baldrames) */
   winklerKs: number | null
+  /** registro do caminho das cargas verticais (lajes → barras → nós) */
+  loadTransfers: LoadTransfers
   warnings: string[]
   /** estatísticas p/ relatório */
   stats: { nodes: number; members: number; dofs: number }

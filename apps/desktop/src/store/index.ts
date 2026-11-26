@@ -89,6 +89,7 @@ export type ResultsTab =
   | 'fundacoes'
   | 'alvenaria'
   | 'incendio'
+  | 'cargas'
   | 'reacoes'
   | 'quantitativos'
   | 'pranchas'

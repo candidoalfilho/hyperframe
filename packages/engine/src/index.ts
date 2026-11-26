@@ -50,6 +50,25 @@ export {
   type SlabGridOutput,
 } from './analysis/grid'
 export { analyze, comboDisplacements, comboDiagrams, comboReactions } from './analyze'
+export {
+  computeLoadPath,
+  loadPathOptions,
+  traceLoadPath,
+  tributaryPolygons,
+  slabKey as loadPathSlabKey,
+  beamKey as loadPathBeamKey,
+  columnKey as loadPathColumnKey,
+  foundationKey as loadPathFoundationKey,
+  type LoadPath,
+  type LoadPathColumn,
+  type LoadPathColumnStep,
+  type LoadPathElement,
+  type LoadPathFlow,
+  type LoadPathKind,
+  type LoadPathOption,
+  type LoadPathSelection,
+  type LoadPathSlabEdge,
+} from './analysis/loadPath'
 export { runPDelta, type PDeltaDirResult } from './analysis/pdelta'
 export {
   runModal,

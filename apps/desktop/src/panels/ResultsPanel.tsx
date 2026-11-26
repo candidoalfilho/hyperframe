@@ -18,6 +18,7 @@ import { cm, cm2, fmt, fmtCmDim, ROMAN } from './format'
 import LatticeSlabsResults from './LatticeResults'
 import SlabLoadsResults from './SlabLoadsResults'
 import SteelSchedule from './SteelSchedule'
+import LoadPathTab from './LoadPathTab'
 import { IconClose, IconPrint } from '../components/Icons'
 import PranchasPanel from '../drawings/PranchasPanel'
 
@@ -35,6 +36,7 @@ const TABS: [ResultsTab, string][] = [
   ['fundacoes', 'Fundações'],
   ['alvenaria', 'Alvenaria'],
   ['incendio', 'Incêndio'],
+  ['cargas', 'Caminho das cargas'],
   ['reacoes', 'Reações'],
   ['quantitativos', 'Quantitativos'],
   ['pranchas', 'Pranchas'],
@@ -2772,6 +2774,8 @@ export default function ResultsPanel() {
   const setTab = useStore((s) => s.setResultsTab)
   const setResultsOpen = useStore((s) => s.setResultsOpen)
   const [warningsOpen, setWarningsOpen] = useState(false)
+  // painel alto: ocupa toda a área de trabalho (plantas e pranchas pedem espaço)
+  const [tall, setTall] = useState(false)
 
   if (!results) return null
 
@@ -2784,7 +2788,7 @@ export default function ResultsPanel() {
         left: 44,
         right: 300,
         bottom: 24,
-        height: '52vh',
+        height: tall ? 'calc(100% - 68px)' : '52vh',
         zIndex: 60,
         background: 'var(--bg-1)',
         borderTop: '2px solid var(--accent)',
@@ -2851,6 +2855,15 @@ export default function ResultsPanel() {
         </button>
         <button
           className="btn-icon"
+          style={{ width: 26, height: 26, fontSize: 13 }}
+          title={tall ? 'Reduzir o painel' : 'Ampliar o painel (ocupa toda a área de trabalho)'}
+          aria-label={tall ? 'Reduzir o painel' : 'Ampliar o painel'}
+          onClick={() => setTall(!tall)}
+        >
+          {tall ? '▾' : '▴'}
+        </button>
+        <button
+          className="btn-icon"
           style={{ width: 26, height: 26 }}
           title="Fechar painel"
           onClick={() => setResultsOpen(false)}
@@ -2907,6 +2920,9 @@ export default function ResultsPanel() {
         {tab === 'fundacoes' && <FundacoesTab results={results} project={project} />}
         {tab === 'alvenaria' && <AlvenariaTab results={results} />}
         {tab === 'incendio' && <IncendioTab results={results} />}
+        {tab === 'cargas' && (
+          <LoadPathTab results={results} project={project} onExpand={tall ? undefined : () => setTall(true)} />
+        )}
         {tab === 'reacoes' && <ReacoesTab results={results} project={project} />}
         {tab === 'quantitativos' && <QuantitativosTab results={results} project={project} />}
         {tab === 'pranchas' && <PranchasPanel />}

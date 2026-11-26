@@ -108,6 +108,13 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
   τRd1 = 794 kPa < τSd1 = 1384 kPa ⇒ exige armadura)
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
+- Caminho das cargas (v0.2.59): painel isolado de 4 × 6 m (laje h = 12, g = 4 kN/m²,
+  vigas 15×40, pilares 20×20) — quinhões de 4 m² (triângulos) e 8 m² (trapézios) ⇒ 16 e
+  32 kN por borda; vigas 22 e 41 kN, metade para cada pilar; 31,5 kN das vigas + 3 kN de
+  peso próprio = 34,5 kN por fundação (tudo à mão); viga secundária de 36 kN entrega 18 kN
+  a cada principal; em todos os casos e combinações do edifício de exemplo: equilíbrio em
+  cada nó (< 10⁻⁶), próprio + recebido = entregue em cada viga, e a soma das fundações
+  igual à carga aplicada e à planta de cargas
 - Cargas concentradas e lineares sobre lajes (v0.2.58): grelha com força central em
   placa quadrada apoiada — Σ reações = P e flecha 0,0116·P·a²/D (Timoshenko, ±12% da
   analogia); faixa unidirecional com linha a 1/4 do vão — reações 3/4 e 1/4 (estática,
