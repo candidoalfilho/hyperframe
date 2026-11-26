@@ -218,6 +218,7 @@ export function runColumnDesign(
       governing: design.governing,
       status,
       notes,
+      check: { sec, demands, asMin: Math.max(asMin, wall?.asTotal ?? 0) },
       wall: wall
         ? {
             length: Math.max(info.bu, info.bv),

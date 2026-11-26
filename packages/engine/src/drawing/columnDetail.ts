@@ -35,7 +35,11 @@ export function buildColumnDetailDrawing(details: ColumnDetailInfo[]): Drawing {
   const line2 = (d: ColumnDetailInfo): string =>
     `${d.sectionLabel} cm · ${d.barsN} φ ${mmTxt(d.barsPhi)}`
   const line3 = (d: ColumnDetailInfo): string =>
-    `estribo φ${mmTxt(d.stirrupPhi)} c/${Math.round(d.stirrupSpacing * 100)} · traspasse ${Math.round(d.lapLength * 100)}`
+    `estribo φ${mmTxt(d.stirrupPhi)} c/${Math.round(d.stirrupSpacing * 100)}${
+      d.jointSpacing !== undefined && d.jointLength !== undefined
+        ? ` (c/${Math.round(d.jointSpacing * 100)} em ${Math.round(d.jointLength * 100)} cm junto aos nós)`
+        : ''
+    } · traspasse ${Math.round(d.lapLength * 100)}`
 
   // passo da grade: 2,2 m; cresce se houver seção alta ou rótulo largo demais
   // (fonte mono ≈ 0,62·altura por caractere)

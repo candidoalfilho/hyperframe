@@ -1381,6 +1381,60 @@ export function buildMemorialPdf(
     ],
   )
 
+  // ------------------------------ 14.2 armaduras ajustadas pelo engenheiro
+  {
+    const mmT = (phi: number) => String(Math.round(phi * 10000) / 10).replace('.', ',')
+    const rows: string[][] = []
+    for (const c of results.detailing.checks?.beams ?? []) {
+      if (!c.manual) continue
+      const d = results.detailing.beams.find((b) => b.beamId === c.beamId && b.spanIndex === c.spanIndex)
+      if (!d) continue
+      const neg = (nb: typeof d.negLeft) => (nb ? `${nb.n + (nb.cut?.n ?? 0)} φ ${mmT(nb.phi)}` : '—')
+      const st = d.stirrup
+      rows.push([
+        `Viga ${c.beamName} vão ${c.spanIndex + 1}`,
+        `pos. ${d.positive.n} φ ${mmT(d.positive.phi)} · neg. ${neg(d.negLeft)} / ${neg(d.negRight)} · estr. φ${mmT(st.phi)} ` +
+          (st.zones ? st.zones.map((z) => `c/${Math.round(z.spacing * 100)}`).join('+') : `c/${Math.round(st.spacing * 100)}`) +
+          (st.legs ? ` (${st.legs} ramos)` : ''),
+        STATUS_TXT[c.status],
+        c.items.filter((i) => !i.ok).map((i) => `${i.label}: ${i.detail}`).join(' · ') || '—',
+      ])
+    }
+    for (const c of results.detailing.checks?.columns ?? []) {
+      if (!c.manual) continue
+      const d = results.detailing.columns.find((x) => x.columnId === c.columnId)
+      if (!d) continue
+      rows.push([
+        `Pilar ${c.name}`,
+        `${d.barsN} φ ${mmT(d.barsPhi)} · estr. φ${mmT(d.stirrupPhi)} c/${Math.round(d.stirrupSpacing * 100)}` +
+          (d.jointSpacing !== undefined ? ` (c/${Math.round(d.jointSpacing * 100)} junto aos nós)` : ''),
+        STATUS_TXT[c.status],
+        c.items.filter((i) => !i.ok).map((i) => `${i.label}: ${i.detail}`).join(' · ') || '—',
+      ])
+    }
+    if (rows.length > 0) {
+      L.h2('14.2 Armaduras ajustadas pelo engenheiro — verificação com a armadura adotada')
+      L.para(
+        'Nestes elementos a armadura do detalhamento foi editada. As verificações (momento resistente ' +
+          'com a altura útil real, armadura mínima, barras na largura, estribos por trecho, fissuração; ' +
+          'nos pilares, flexo-compressão oblíqua e limites de taxa e de estribos) foram refeitas com o ' +
+          'que foi adotado e os esforços desta análise. As tabelas 6 a 8 mostram o dimensionamento do programa.',
+        7.8,
+        'I',
+        0.3,
+      )
+      for (const r of rows) {
+        L.kv(
+          [
+            [r[0], `${r[1]} — ${r[2]}`],
+            ...(r[3] !== '—' ? ([['', `não atende: ${r[3]}`]] as [string, string][]) : []),
+          ],
+          120,
+        )
+      }
+    }
+  }
+
   // ------------------------------------------------------------- 15. avisos
   L.h1('15. Avisos da análise e premissas')
   if (results.warnings.length > 0) {

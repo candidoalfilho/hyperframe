@@ -108,6 +108,13 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
   τRd1 = 794 kPa < τSd1 = 1384 kPa ⇒ exige armadura)
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
+- Armadura adotada (v0.2.62): 4 φ10 em 20 × (d = 46) cm ⇒ Rs = 136,6 kN, a = 3,75 cm,
+  MRd = 60,3 kN·m (à mão); MRd da armadura calculada devolve o Md de entrada (inverso do
+  dimensionamento) em 4 níveis de momento; seção T com a LN na mesa e na alma conferidas
+  à mão; x/d > 0,45 limita o MRd ao de x = 0,45·d; 20 cm, c = 3, φt = 5 ⇒ 5 φ10 por camada
+  e CG a 4,5 cm com a 6ª barra na 2ª camada; estribo φ6,3 c/ 20 ⇒ 3,12 cm²/m (6,23 com 4
+  ramos); (150 − 79,2)/(0,9·0,46·435) ⇒ 3,93 cm²/m; a solução do programa atende a todas
+  as verificações nos 34 vãos e 12 pilares do edifício de exemplo
 - Memorial detalhado (v0.2.61): a conta escrita As = Md/(fyd·z), z = d − 0,4x reproduz a
   armadura calculada de cada apoio de viga do edifício de exemplo; a combinação apontada em
   cada diagrama reproduz o valor extremo da envoltória; a tabela de cargas de cada viga

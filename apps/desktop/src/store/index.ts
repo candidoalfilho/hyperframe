@@ -21,6 +21,7 @@ import {
   type Beam,
   type AutoDimOptions,
   type Column,
+  type ColumnRebarOverride,
   type ColumnSection,
   type DimStyle,
   type Dimension,
@@ -228,6 +229,11 @@ export interface HFState {
   setRebarOverride: (ov: RebarOverride) => void
   /** restaura o detalhamento automático de uma viga inteira */
   clearRebarOverrides: (beamId: string) => void
+  /** ajuste da armadura de um pilar (mescla; campo `undefined` volta ao automático) */
+  setColumnRebarOverride: (ov: ColumnRebarOverride) => void
+  clearColumnRebarOverride: (columnId: string) => void
+  /** mostra a solução do programa sem apagar os ajustes (e volta à editada) */
+  setRebarOverridesOff: (off: boolean) => void
   /**
    * fundação editável por pilar (tipo/dimensões/posição/cota). NÃO invalida a
    * análise — refaz só o dimensionamento das fundações (puro). Obs.: com
@@ -399,6 +405,29 @@ function activePlanOf(project: Project, activeLevelId: string): FloorPlan | null
   return project.plans.find((p) => p.id === level.planId) ?? null
 }
 
+/**
+ * projeto novo + detalhamento refeito em linha (é função pura do projeto e do
+ * dimensionamento): prancha, quadro de ferros, quantitativos e as verificações
+ * da armadura adotada seguem o ajuste ao vivo, sem invalidar a análise
+ */
+function withDetailing(s: HFState, project: Project): Partial<HFState> {
+  return {
+    project,
+    dirty: true,
+    results: s.results
+      ? {
+          ...s.results,
+          detailing: runDetailing(
+            project,
+            s.results.beamDesign,
+            s.results.columnDesign,
+            s.results.beamService,
+          ),
+        }
+      : s.results,
+  }
+}
+
 /** retorna projeto novo com a planta substituída */
 function withPlan(project: Project, planId: string, fn: (plan: FloorPlan) => FloorPlan): Project {
   return {
@@ -532,38 +561,52 @@ export const useStore = create<HFState>()(
         })),
       setRebarOverride: (ov) =>
         set((s) => {
-          const list = (s.project.rebarOverrides ?? []).filter(
-            (o) => !(o.beamId === ov.beamId && o.spanIndex === ov.spanIndex && o.slot === ov.slot),
-          )
-          if (ov.n !== undefined || ov.phi !== undefined || ov.spacing !== undefined) list.push(ov)
-          const project = { ...s.project, rebarOverrides: list }
-          return {
-            project,
-            dirty: true,
-            // detalhamento é função pura do projeto + dimensionamento: recalcula
-            // em linha p/ prancha/quadro/quantitativos seguirem o ajuste ao vivo
-            results: s.results
-              ? {
-                  ...s.results,
-                  detailing: runDetailing(project, s.results.beamDesign, s.results.columnDesign),
-                }
-              : s.results,
+          const same = (o: RebarOverride) =>
+            o.beamId === ov.beamId && o.spanIndex === ov.spanIndex && o.slot === ov.slot
+          // mescla com o ajuste que já existe na posição; campo `undefined` é removido
+          const prev = (s.project.rebarOverrides ?? []).find(same)
+          const merged = { ...prev, ...ov } as RebarOverride
+          for (const k of Object.keys(merged) as (keyof RebarOverride)[]) {
+            if (merged[k] === undefined || merged[k] === false) delete merged[k]
           }
+          const list = (s.project.rebarOverrides ?? []).filter((o) => !same(o))
+          // sobrou só a identificação ⇒ a posição volta ao automático
+          if (Object.keys(merged).length > 3) list.push(merged)
+          return withDetailing(s, { ...s.project, rebarOverrides: list })
         }),
       clearRebarOverrides: (beamId) =>
+        set((s) =>
+          withDetailing(s, {
+            ...s.project,
+            rebarOverrides: (s.project.rebarOverrides ?? []).filter((o) => o.beamId !== beamId),
+          }),
+        ),
+      setColumnRebarOverride: (ov) =>
         set((s) => {
-          const list = (s.project.rebarOverrides ?? []).filter((o) => o.beamId !== beamId)
-          const project = { ...s.project, rebarOverrides: list }
-          return {
-            project,
-            dirty: true,
-            results: s.results
-              ? {
-                  ...s.results,
-                  detailing: runDetailing(project, s.results.beamDesign, s.results.columnDesign),
-                }
-              : s.results,
+          const prev = (s.project.columnRebarOverrides ?? []).find((o) => o.columnId === ov.columnId)
+          const merged = { ...prev, ...ov } as ColumnRebarOverride
+          for (const k of Object.keys(merged) as (keyof ColumnRebarOverride)[]) {
+            if (merged[k] === undefined) delete merged[k]
           }
+          const list = (s.project.columnRebarOverrides ?? []).filter((o) => o.columnId !== ov.columnId)
+          if (Object.keys(merged).length > 1) list.push(merged)
+          return withDetailing(s, { ...s.project, columnRebarOverrides: list })
+        }),
+      clearColumnRebarOverride: (columnId) =>
+        set((s) =>
+          withDetailing(s, {
+            ...s.project,
+            columnRebarOverrides: (s.project.columnRebarOverrides ?? []).filter(
+              (o) => o.columnId !== columnId,
+            ),
+          }),
+        ),
+      setRebarOverridesOff: (off) =>
+        set((s) => {
+          const project = { ...s.project }
+          if (off) project.rebarOverridesOff = true
+          else delete project.rebarOverridesOff
+          return withDetailing(s, project)
         }),
       setFoundationOverride: (ov) =>
         set((s) => {

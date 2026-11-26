@@ -713,6 +713,13 @@ export interface Project {
   notes?: string
   /** ajustes manuais do editor de armaduras (por vão de viga) */
   rebarOverrides?: RebarOverride[]
+  /** ajustes manuais das armaduras dos pilares */
+  columnRebarOverrides?: ColumnRebarOverride[]
+  /**
+   * mostra a solução do programa sem apagar os ajustes: enquanto ligado, o
+   * detalhamento ignora `rebarOverrides` e `columnRebarOverrides`
+   */
+  rebarOverridesOff?: boolean
   /** ajustes manuais das fundações (por pilar — editor de fundações) */
   foundationOverrides?: FoundationOverride[]
   /** estilo das cotas do usuário (ausente = padrão: cm, traço a 45°) */
@@ -758,10 +765,42 @@ export interface RebarOverride {
   slot: 'positive' | 'negLeft' | 'negRight' | 'stirrup'
   /** barras longitudinais: quantidade */
   n?: number
-  /** barras longitudinais: bitola, m */
+  /** barras longitudinais: bitola, m · estribos: bitola do estribo, m */
   phi?: number
-  /** estribos: passo, m */
+  /** estribos: passo do trecho central (ou do vão inteiro), m */
   spacing?: number
+  /** barras longitudinais: comprimento de corte (desenvolvido, com ganchos), m */
+  length?: number
+  /** negativas: a barra segue pelo vão inteiro até o outro apoio */
+  through?: boolean
+  /** estribos: número de ramos (2 = estribo simples, 4 = duplo) */
+  legs?: number
+  /** estribos: trecho junto ao apoio esquerdo/direito com passo próprio */
+  left?: StirrupZone
+  right?: StirrupZone
+}
+
+/** trecho de estribos com passo próprio: comprimento a partir do apoio e passo, m */
+export interface StirrupZone {
+  length: number
+  spacing: number
+}
+
+/**
+ * Ajuste manual da armadura de um pilar (issue #12): substitui o arranjo
+ * automático no detalhamento; as verificações são refeitas com o que foi adotado.
+ */
+export interface ColumnRebarOverride {
+  columnId: string
+  /** barras longitudinais: quantidade e bitola, m */
+  n?: number
+  phi?: number
+  /** estribos: bitola e passo corrente, m */
+  stirrupPhi?: number
+  stirrupSpacing?: number
+  /** trecho junto aos nós (acima e abaixo de cada pavimento) com passo menor, m */
+  jointLength?: number
+  jointSpacing?: number
 }
 
 export type ElementKind =

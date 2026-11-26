@@ -360,6 +360,11 @@ export interface BeamSpanDesign {
   negLeft: FlexureDesign | null
   negRight: FlexureDesign | null
   shear: ShearDesign
+  /**
+   * envoltória ELU de |V| ao longo do vão (x desde o apoio esquerdo, m; kN) —
+   * verifica estribos com passo diferente em cada trecho
+   */
+  shearEnv?: { x: number[]; v: number[] }
   torsion: TorsionDesign
   skin: SkinReinforcement
   /** massa de aço estimada do vão, kg */
@@ -399,6 +404,15 @@ export interface ColumnDesignResult {
   governing: string
   status: 'ok' | 'atencao' | 'falha'
   notes: string[]
+  /**
+   * dados p/ reverificar OUTRO arranjo de barras (editor de armaduras): seção,
+   * solicitações governantes (já com 2ª ordem local e mínimos) e As mínima
+   */
+  check?: {
+    sec: import('../nbr/nbr6118/columnDesign').ColumnSectionDef
+    demands: import('../nbr/nbr6118/columnDesign').ColumnDemandPoint[]
+    asMin: number
+  }
   /** pilar-parede (§15.9): decomposição em lâminas e mínimos §18.5 */
   wall?: {
     length: number
@@ -766,6 +780,10 @@ export interface BeamDetailSpan {
     n: number
     phi: number
     length: number
+    /** comprimento que o detalhamento automático adotaria p/ estas barras, m */
+    lengthAuto?: number
+    /** n, φ ou comprimento vieram do editor */
+    manual?: boolean
     pos?: number
     legStart?: number
     legEnd?: number
@@ -776,6 +794,10 @@ export interface BeamDetailSpan {
     n: number
     phi: number
     length: number
+    lengthAuto?: number
+    manual?: boolean
+    /** barra prolongada pelo vão inteiro (continuidade) */
+    through?: boolean
     pos?: number
     leg?: number
     /** apoio de EXTREMIDADE: barra entra no vão e ancora no apoio com gancho
@@ -787,12 +809,28 @@ export interface BeamDetailSpan {
     n: number
     phi: number
     length: number
+    lengthAuto?: number
+    manual?: boolean
+    through?: boolean
     pos?: number
     leg?: number
     edge?: boolean
     cut?: { n: number; length: number; pos?: number }
   } | null
-  stirrup: { phi: number; spacing: number; count: number; unitLength: number; pos?: number }
+  stirrup: {
+    phi: number
+    /** passo do trecho central (ou do vão inteiro), m */
+    spacing: number
+    /** total de estribos do vão */
+    count: number
+    unitLength: number
+    pos?: number
+    /** número de ramos (ausente = 2) */
+    legs?: number
+    /** trechos da esquerda para a direita, quando há passos diferentes */
+    zones?: { length: number; spacing: number; count: number }[]
+    manual?: boolean
+  }
 }
 
 export interface ColumnDetailInfo {
@@ -805,10 +843,45 @@ export interface ColumnDetailInfo {
   barPositions: { x: number; y: number }[]
   stirrupPhi: number
   stirrupSpacing: number
+  /** trecho junto aos nós com passo menor (confinamento), m — ausente = passo único */
+  jointLength?: number
+  jointSpacing?: number
+  /** armadura vinda do editor (ajuste manual) */
+  manual?: boolean
   /** alturas dos tramos, m */
   storyHeights: number[]
   /** traspasse por tramo, m */
   lapLength: number
+}
+
+/** uma verificação da armadura ADOTADA (do programa ou editada) */
+export interface RebarCheckItem {
+  id: string
+  /** o que foi verificado, ex.: "Flexão — positivo" */
+  label: string
+  ok: boolean
+  /** valores comparados, ex.: "MRd = 71,2 ≥ Md = 62,5 kN·m" */
+  detail: string
+  /** gravidade quando não atende (padrão: falha) */
+  severity?: 'falha' | 'atencao'
+}
+
+export interface BeamRebarCheck {
+  beamId: string
+  beamName: string
+  spanIndex: number
+  /** há ajuste manual neste vão */
+  manual: boolean
+  items: RebarCheckItem[]
+  status: 'ok' | 'atencao' | 'falha'
+}
+
+export interface ColumnRebarCheck {
+  columnId: string
+  name: string
+  manual: boolean
+  items: RebarCheckItem[]
+  status: 'ok' | 'atencao' | 'falha'
 }
 
 export interface SteelSummary {
@@ -823,6 +896,8 @@ export interface DetailingResults {
   beams: BeamDetailSpan[]
   columns: ColumnDetailInfo[]
   steel: SteelSummary
+  /** verificações refeitas com a armadura adotada (issue #12) */
+  checks?: { beams: BeamRebarCheck[]; columns: ColumnRebarCheck[] }
 }
 
 export interface Quantities {
