@@ -52,7 +52,8 @@ export default function PlansManager() {
   const topLevel = sortedLevels[sortedLevels.length - 1]
   const addAboveId = addPos === '' ? (topLevel?.id ?? null) : addPos === '_below' ? null : addPos
   const independent = mode === 'keep'
-  const refLevel = sortedLevels.find((l) => l.id === refId) ?? sortedLevels[0]
+  // referência padrão = topo: +3 m nunca coincide com um nível existente
+  const refLevel = sortedLevels.find((l) => l.id === refId) ?? sortedLevels[sortedLevels.length - 1]
   const newElevation = refLevel ? refLevel.elevation + offset : 0
   /** nível existente que impediria a criação do nível independente */
   const clash = independent

@@ -257,6 +257,35 @@ export function buildMemorialPdf(
       `Análise ELU com rigidez reduzida (vigas ${fmt(st.stiffnessReduction.beams, 1)}·EI, ` +
       `pilares ${fmt(st.stiffnessReduction.columns, 1)}·EI — §15.7.3) e ELS com EI integral.`,
   )
+  // ligação viga–pilar (issue #13): braços rígidos e trechos rígidos adotados
+  {
+    const arms = results.model.members.filter((m) => m.offI || m.offJ)
+    if (arms.length > 0 || st.rigidEndZones) {
+      let eMax = 0
+      let eccEnds = 0
+      for (const m of arms) {
+        for (const o of [m.offI, m.offJ]) {
+          if (!o) continue
+          const along = o[0] * m.xLocal[0] + o[1] * m.xLocal[1]
+          const e = Math.hypot(o[0] - along * m.xLocal[0], o[1] - along * m.xLocal[1])
+          if (e > 0.005) eccEnds++
+          eMax = Math.max(eMax, e)
+        }
+      }
+      L.para(
+        'Ligação viga–pilar (§14.6.2.1): o extremo da viga é ligado ao centro de gravidade do ' +
+          'pilar por braço rígido' +
+          (eccEnds > 0
+            ? ` — ${eccEnds} extremo(s) com excentricidade em planta (máx. ${fmt(eMax * 100, 0)} cm), ` +
+              'cuja reação gera o momento V·e no pilar'
+            : '') +
+          '. ' +
+          (st.rigidEndZones
+            ? 'Trechos rígidos longitudinais considerados: vão de cálculo ℓ0 + a1 + a2, com a = min(t/2; 0,3·h) (§14.6.2.4).'
+            : 'Vão de cálculo das vigas tomado eixo a eixo dos apoios.'),
+      )
+    }
+  }
 
   // --------------------------------------------------------------- 3. ações
   L.h1('3. Ações')

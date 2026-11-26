@@ -260,3 +260,16 @@ describe('níveis independentes (issue #14)', () => {
     expect(p.find((l) => l.id === mid.id)!.elevation).toBeCloseTo(mid.elevation + 0.4, 9)
   })
 })
+
+describe('nível ativo após desfazer', () => {
+  it('desfazer a criação de um nível não deixa o nível ativo órfão', () => {
+    useStore.temporal.getState().clear()
+    const top = sortedLevels(st().project)[st().project.levels.length - 1]
+    st().addLevel({ aboveLevelId: top.id, height: 3 })
+    const novo = st().activeLevelId
+    expect(st().project.levels.some((l) => l.id === novo)).toBe(true)
+    useStore.temporal.getState().undo()
+    expect(st().project.levels.some((l) => l.id === novo)).toBe(false)
+    expect(st().project.levels.some((l) => l.id === st().activeLevelId)).toBe(true)
+  })
+})

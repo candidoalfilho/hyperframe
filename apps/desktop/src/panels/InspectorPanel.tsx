@@ -39,8 +39,10 @@ import PlansManager from './PlansManager'
 import { MemberForcesSection } from './MemberDiagrams'
 import LatticeSlabFields from './LatticeSlabFields'
 import {
+  AnchorPicker,
   BeamWallLoads,
   MultiInspector,
+  useColumnGeomUpdate,
   SlabDims,
   WallCalcFields,
   wallFromCalc,
@@ -381,6 +383,11 @@ function ProjectInspector({ project }: { project: Project }) {
         </div>
 
         <div className="field">
+          <label className="label">Pilar — ponto de inserção</label>
+          <AnchorPicker hint="Ponto da seção que fica sob o cursor ao inserir." />
+        </div>
+
+        <div className="field">
           <label className="label">Viga — seção bw × h (cm)</label>
           <div className="field-row">
             <NumberField
@@ -529,6 +536,7 @@ function ProjectInspector({ project }: { project: Project }) {
 
 function ColumnInspector({ col, project }: { col: Column; project: Project }) {
   const updateColumn = useStore((s) => s.updateColumn)
+  const setGeom = useColumnGeomUpdate()
   const deleteElement = useStore((s) => s.deleteElement)
 
   const shape = col.section.shape === 'circle' ? 'circle' : col.section.shape === 'L' ? 'L' : 'rect'
@@ -536,15 +544,15 @@ function ColumnInspector({ col, project }: { col: Column; project: Project }) {
     if (next === shape) return
     const info = columnSectionInfo(col.section)
     if (next === 'circle') {
-      updateColumn(col.id, { section: { shape: 'circle', d: Math.max(info.bu, info.bv) } })
+      setGeom(col.id, { section: { shape: 'circle', d: Math.max(info.bu, info.bv) } })
     } else if (next === 'L') {
       const b = Math.max(info.bu, 0.4)
       const h = Math.max(info.bv, 0.4)
-      updateColumn(col.id, {
+      setGeom(col.id, {
         section: { shape: 'L', b, h, tb: Math.min(0.2, b / 2), th: Math.min(0.2, h / 2) },
       })
     } else {
-      updateColumn(col.id, { section: { bw: Math.max(info.minDim, 0.19), h: Math.max(info.bv, 0.4) } })
+      setGeom(col.id, { section: { bw: Math.max(info.minDim, 0.19), h: Math.max(info.bv, 0.4) } })
     }
   }
 
@@ -602,7 +610,7 @@ function ColumnInspector({ col, project }: { col: Column; project: Project }) {
             min={14}
             max={300}
             style={{ width: '100%' }}
-            onCommit={(v) => updateColumn(col.id, { section: { shape: 'circle', d: v / 100 } })}
+            onCommit={(v) => setGeom(col.id, { section: { shape: 'circle', d: v / 100 } })}
           />
         </div>
       ) : col.section.shape === 'L' ? (
@@ -611,12 +619,17 @@ function ColumnInspector({ col, project }: { col: Column; project: Project }) {
         <RectSectionFields colId={col.id} sec={col.section} />
       )}
 
+      <div className="field">
+        <label className="label">Ponto fixo ao mudar a seção</label>
+        <AnchorPicker hint="Fica parado quando a seção ou a rotação mudam." />
+      </div>
+
       {col.section.shape !== 'circle' && (
         <div className="field">
           <label className="label">Rotação</label>
           <RotationSelect
             value={col.rotationDeg}
-            onChange={(v) => updateColumn(col.id, { rotationDeg: v })}
+            onChange={(v) => setGeom(col.id, { rotationDeg: v })}
           />
         </div>
       )}
@@ -1133,7 +1146,7 @@ function LSectionFields({
   colId: string
   sec: Extract<Column['section'], { shape: 'L' }>
 }) {
-  const updateColumn = useStore((s) => s.updateColumn)
+  const updateColumn = useColumnGeomUpdate()
   return (
     <>
       <div className="field">
@@ -1185,7 +1198,7 @@ function RectSectionFields({
   colId: string
   sec: Extract<Column['section'], { bw: number }>
 }) {
-  const updateColumn = useStore((s) => s.updateColumn)
+  const updateColumn = useColumnGeomUpdate()
   return (
     <div className="field">
       <label className="label">Seção bw × h (cm)</label>

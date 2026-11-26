@@ -143,6 +143,8 @@ export function buildAnalysisModel(project: Project): {
   const overhang = new Map<string, number>()
   /** pieces por índice de nível */
   const piecesByLevel = new Map<number, Piece[]>()
+  /** trechos de viga descartados por estarem dentro da seção de um pilar */
+  const stubsByLevel = new Map<number, { a: Vec2; b: Vec2 }[]>()
 
   // ks p/ baldrames (vigas no nível 0) sobre apoio elástico de Winkler:
   // override manual > sondagem (Es médio, faixa B) > heurística 120·σadm
@@ -264,6 +266,9 @@ export function buildAnalysisModel(project: Project): {
           if (dist(pa, pb) < TOL) {
             // trecho inteiro dentro da seção do pilar: rígido, não vira barra
             nStubs++
+            const list = stubsByLevel.get(li) ?? []
+            list.push({ a: ga, b: gb })
+            stubsByLevel.set(li, list)
             if (sectionChanges) pendingBreak = true
             continue
           }
@@ -929,6 +934,14 @@ export function buildAnalysisModel(project: Project): {
         if (onEdge.length === 0) {
           freeTrib += aTrib
           continue
+        }
+        // o trecho de viga dentro da seção do pilar também apoia a borda
+        for (const st of stubsByLevel.get(li) ?? []) {
+          if (
+            projectOnSegment(st.a, pa, pb).d <= TOL * 3 &&
+            projectOnSegment(st.b, pa, pb).d <= TOL * 3
+          )
+            covered += dist(st.a, st.b)
         }
         supported.push({ aTrib, onEdge, covered, edgeLen, edgeIndex: e })
         if (covered < edgeLen - 10 * TOL) {

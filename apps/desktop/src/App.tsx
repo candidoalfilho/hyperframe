@@ -113,6 +113,25 @@ export default function App() {
         s.selectAll()
         return
       }
+      // Alt + tecla: alinhar a seleção múltipla pela âncora (e.code — no macOS
+      // Alt muda o caractere de e.key)
+      if (e.altKey && !e.metaKey && !e.ctrlKey) {
+        const mode = (
+          {
+            KeyL: 'left',
+            KeyR: 'right',
+            KeyT: 'top',
+            KeyB: 'bottom',
+            KeyC: 'centerX',
+            KeyE: 'centerY',
+          } as const
+        )[e.code]
+        if (mode && selectedRefs(s).length > 1) {
+          e.preventDefault()
+          s.alignSelection(mode)
+        }
+        return
+      }
       if (e.metaKey || e.ctrlKey || e.altKey) return
       switch (e.key) {
         case 'v':

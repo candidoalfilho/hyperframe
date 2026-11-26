@@ -8,12 +8,20 @@ import {
   simplifyPolygon,
   wallLoadFromCalc,
   type Beam,
+  type Column,
   type ElementRef,
   type Slab,
   type WallLoad,
   type WallLoadCalc,
 } from '@hyperframe/engine'
 import { useStore } from '../store'
+import {
+  ALIGN_LABEL,
+  ANCHOR_LABEL,
+  COLUMN_ANCHORS,
+  type AlignMode,
+  type ColumnAnchor,
+} from '../store/align'
 import { NumberField } from './NumberField'
 import { cm, fmt } from './format'
 
@@ -320,6 +328,165 @@ const KIND_LABEL: Record<ElementRef['kind'], [string, string]> = {
 }
 
 /** painel da seleção múltipla: mover por valor, girar pilares, excluir */
+/**
+ * Mudanças de seção/rotação do pilar respeitando o ponto de referência
+ * escolhido: com face ou canto, esse ponto fica parado e o centro se desloca.
+ */
+export function useColumnGeomUpdate() {
+  const updateColumn = useStore((s) => s.updateColumn)
+  const resizeColumn = useStore((s) => s.resizeColumn)
+  const anchor = useStore((s) => s.defaults.columnAnchor ?? 'c')
+  return (id: string, patch: Partial<Pick<Column, 'section' | 'rotationDeg'>>) =>
+    anchor === 'c' ? updateColumn(id, patch) : resizeColumn(id, patch, anchor)
+}
+
+/** seletor 3×3 do ponto de referência do pilar: centro, meio de face ou canto */
+export function AnchorPicker({ hint }: { hint: string }) {
+  const anchor = useStore((s) => s.defaults.columnAnchor ?? 'c')
+  const setDefaults = useStore((s) => s.setDefaults)
+  const set = (a: ColumnAnchor) => setDefaults({ columnAnchor: a === 'c' ? undefined : a })
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 18px)',
+          gridTemplateRows: 'repeat(3, 18px)',
+          border: '1px solid var(--border)',
+          borderRadius: 4,
+          background: 'var(--bg-2)',
+          flex: 'none',
+        }}
+      >
+        {COLUMN_ANCHORS.map((a) => (
+          <button
+            key={a}
+            title={ANCHOR_LABEL[a]}
+            aria-label={ANCHOR_LABEL[a]}
+            aria-pressed={a === anchor}
+            onClick={() => set(a)}
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              padding: 0,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
+          >
+            <span
+              style={{
+                width: a === anchor ? 9 : 5,
+                height: a === anchor ? 9 : 5,
+                borderRadius: '50%',
+                background: a === anchor ? 'var(--accent)' : 'var(--text-faint, #7d8596)',
+              }}
+            />
+          </button>
+        ))}
+      </div>
+      <div style={{ fontSize: 11.5, lineHeight: 1.45 }}>
+        <div style={{ fontWeight: 600 }}>{ANCHOR_LABEL[anchor]}</div>
+        <div className="faint">{hint}</div>
+      </div>
+    </div>
+  )
+}
+
+const ALIGN_BUTTONS: { mode: AlignMode; glyph: string; key: string }[] = [
+  { mode: 'left', glyph: '⇤', key: 'L' },
+  { mode: 'centerX', glyph: '↔', key: 'C' },
+  { mode: 'right', glyph: '⇥', key: 'R' },
+  { mode: 'top', glyph: '⤒', key: 'T' },
+  { mode: 'centerY', glyph: '↕', key: 'E' },
+  { mode: 'bottom', glyph: '⤓', key: 'B' },
+]
+
+/** alinhar pela âncora e distribuir — atua sobre a seleção múltipla */
+function AlignTools({ refs }: { refs: ElementRef[] }) {
+  const selection = useStore((s) => s.selection)
+  const project = useStore((s) => s.project)
+  const alignSelection = useStore((s) => s.alignSelection)
+  const distributeSelection = useStore((s) => s.distributeSelection)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  const anchorName = useMemo(() => {
+    if (!selection) return null
+    if (selection.kind === 'column')
+      return project.columns.find((c) => c.id === selection.id)?.name ?? null
+    for (const pl of project.plans) {
+      if (selection.kind === 'beam') {
+        const b = pl.beams.find((x) => x.id === selection.id)
+        if (b) return b.name
+      }
+      if (selection.kind === 'loadRegion') {
+        const r = pl.loadRegions.find((x) => x.id === selection.id)
+        if (r) return r.name
+      }
+    }
+    return null
+  }, [selection, project])
+
+  const report = (r: 'ok' | 'none' | 'duplicate') =>
+    setMsg(
+      r === 'duplicate'
+        ? 'Um pilar cairia sobre outro que fica parado.'
+        : r === 'none'
+          ? 'Nada a mover: os elementos já estão nessa posição.'
+          : null,
+    )
+  const movable = refs.filter(
+    (r) => r.kind === 'column' || r.kind === 'beam' || r.kind === 'loadRegion',
+  ).length
+
+  return (
+    <div className="field">
+      <label className="label">
+        {anchorName
+          ? `Alinhar pela âncora — ${anchorName} fica parado`
+          : 'Alinhar — Shift+clique no pilar ou viga de referência'}
+      </label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4 }}>
+        {ALIGN_BUTTONS.map((b) => (
+          <button
+            key={b.mode}
+            className="btn"
+            disabled={!anchorName || movable < 2}
+            title={`Alinhar ${ALIGN_LABEL[b.mode]} (Alt+${b.key})`}
+            style={{ padding: '4px 0', fontSize: 15, lineHeight: 1 }}
+            onClick={() => report(alignSelection(b.mode))}
+          >
+            {b.glyph}
+          </button>
+        ))}
+      </div>
+      <div className="field-row" style={{ marginTop: 6 }}>
+        <button
+          className="btn"
+          disabled={movable < 3}
+          title="Centros igualmente espaçados em X; os dois extremos ficam parados"
+          onClick={() => report(distributeSelection('x'))}
+        >
+          Distribuir em X
+        </button>
+        <button
+          className="btn"
+          disabled={movable < 3}
+          title="Centros igualmente espaçados em Y; os dois extremos ficam parados"
+          onClick={() => report(distributeSelection('y'))}
+        >
+          Distribuir em Y
+        </button>
+      </div>
+      {msg && <div style={{ color: 'var(--err)', fontSize: 11.5, marginTop: 4 }}>{msg}</div>}
+      <div className="faint" style={{ fontSize: 11, lineHeight: 1.5, marginTop: 4 }}>
+        A âncora é o último elemento clicado com Shift. O alinhamento usa as faces da seção do
+        pilar e a largura da viga; lajes acompanham as vigas.
+      </div>
+    </div>
+  )
+}
+
 export function MultiInspector({ refs }: { refs: ElementRef[] }) {
   const moveElements = useStore((s) => s.moveElements)
   const rotateColumns = useStore((s) => s.rotateColumns)
@@ -364,6 +531,8 @@ export function MultiInspector({ refs }: { refs: ElementRef[] }) {
           <div style={{ color: 'var(--err)', fontSize: 11.5, marginTop: 4 }}>{msg}</div>
         )}
       </div>
+
+      <AlignTools refs={refs} />
 
       {colIds.length > 0 && (
         <button className="btn" style={{ width: '100%', marginBottom: 8 }} onClick={() => rotateColumns(colIds)}>

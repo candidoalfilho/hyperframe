@@ -34,6 +34,15 @@ import {
   type WallLoad,
 } from '@hyperframe/engine'
 import { pushRecent } from '../io/fileio'
+import {
+  alignInProject,
+  anchorOffset,
+  centerFromAnchor,
+  distributeInProject,
+  moveInProject,
+  type AlignMode,
+  type ColumnAnchor,
+} from './align'
 
 /** elementos efetivamente selecionados (seleção múltipla válida ou a simples) */
 export function selectedRefs(s: { selection: ElementRef | null; multi: ElementRef[] }): ElementRef[] {
@@ -104,6 +113,8 @@ export interface D3Options {
 export interface ElementDefaults {
   columnSection: ColumnSection
   columnRotation: 0 | 90 | 180 | 270
+  /** ponto da seção sob o cursor ao inserir o pilar (ausente = centro) */
+  columnAnchor?: ColumnAnchor
   beamSection: SectionRect
   slabThickness: number
   slabFinish: number
@@ -240,6 +251,22 @@ export interface HFState {
    * pontos movidos acompanham (o modelo continua conectado).
    */
   moveElements: (refs: ElementRef[], delta: Vec2) => 'ok' | 'duplicate'
+  /**
+   * alinha os elementos da seleção pela âncora (o elemento selecionado por
+   * último, que fica parado), em um único passo de desfazer
+   */
+  alignSelection: (mode: AlignMode) => 'ok' | 'none' | 'duplicate'
+  /** distribui a seleção com centros igualmente espaçados; extremos parados */
+  distributeSelection: (axis: 'x' | 'y') => 'ok' | 'none' | 'duplicate'
+  /**
+   * muda seção/rotação do pilar mantendo fixo o ponto de ancoragem (face ou
+   * canto): o centro é deslocado, as vigas ficam onde estão
+   */
+  resizeColumn: (
+    id: string,
+    patch: Partial<Pick<Column, 'section' | 'rotationDeg'>>,
+    anchor: ColumnAnchor,
+  ) => void
   /** gira 90° os pilares indicados */
   rotateColumns: (ids: string[]) => void
   addBeamPath: (path: Vec2[]) => void
@@ -572,9 +599,15 @@ export const useStore = create<HFState>()(
       setResultsTab: (resultsTab) => set({ resultsTab }),
 
       // ---- modelagem ----
-      addColumn: (pos) => {
+      addColumn: (point) => {
         const s = get()
         const p = s.project
+        // o ponto clicado é a âncora escolhida (centro, face ou canto) da seção
+        const pos = centerFromAnchor(
+          { section: s.defaults.columnSection, rotationDeg: s.defaults.columnRotation },
+          s.defaults.columnAnchor ?? 'c',
+          point,
+        )
         // evita pilar duplicado no mesmo ponto
         const exists = p.columns.some(
           (c) => Math.hypot(c.pos.x - pos.x, c.pos.y - pos.y) < 0.05,
@@ -705,57 +738,52 @@ export const useStore = create<HFState>()(
           }
         }),
       moveElements: (refs, delta) => {
-        if (Math.abs(delta.x) < 1e-9 && Math.abs(delta.y) < 1e-9) return 'ok'
-        const s = get()
-        const p = s.project
-        const has = (kind: ElementRef['kind'], id: string) =>
-          refs.some((r) => r.kind === kind && r.id === id)
-        const movedCols = p.columns.filter((c) => has('column', c.id))
-        // pilar não pode cair sobre outro que fica parado
-        const collide = movedCols.some((c) =>
-          p.columns.some(
-            (o) =>
-              !has('column', o.id) &&
-              Math.hypot(o.pos.x - (c.pos.x + delta.x), o.pos.y - (c.pos.y + delta.y)) < 0.05,
-          ),
-        )
-        if (collide) return 'duplicate'
-        // pontos que se movem: pilares (valem em todas as plantas) + vértices
-        // dos elementos selecionados (valem na planta deles)
-        const globalPts = movedCols.map((c) => c.pos)
-        const shift = (q: Vec2) => ({ x: q.x + delta.x, y: q.y + delta.y })
-        const plans = p.plans.map((pl) => {
-          const pts = [
-            ...globalPts,
-            ...pl.beams.filter((b) => has('beam', b.id)).flatMap((b) => b.path),
-            ...pl.slabs.filter((x) => has('slab', x.id)).flatMap((x) => x.polygon),
-            ...pl.loadRegions.filter((r) => has('loadRegion', r.id)).flatMap((r) => r.polygon),
-          ]
-          if (pts.length === 0) return pl
-          const near = (q: Vec2) => pts.some((m) => Math.hypot(q.x - m.x, q.y - m.y) < 0.02)
-          const mv = (q: Vec2) => (near(q) ? shift(q) : q)
-          return {
-            ...pl,
-            beams: pl.beams.map((b) => ({ ...b, path: b.path.map(mv) })),
-            slabs: pl.slabs.map((x) => ({ ...x, polygon: x.polygon.map(mv) })),
-            loadRegions: pl.loadRegions.map((r) => ({ ...r, polygon: r.polygon.map(mv) })),
-            ...(pl.masonryWalls
-              ? { masonryWalls: pl.masonryWalls.map((w) => ({ ...w, path: w.path.map(mv) })) }
-              : {}),
-          }
-        })
-        set({
-          project: {
-            ...p,
-            columns: p.columns.map((c) => (has('column', c.id) ? { ...c, pos: shift(c.pos) } : c)),
-            plans,
-          },
-          dirty: true,
-          results: null,
-          analysisStatus: 'idle',
-        })
+        const next = moveInProject(get().project, refs, delta)
+        if (next === 'duplicate') return 'duplicate'
+        if (next === get().project) return 'ok'
+        set({ project: next, dirty: true, results: null, analysisStatus: 'idle' })
         return 'ok'
       },
+      alignSelection: (mode) => {
+        const s = get()
+        const refs = selectedRefs(s)
+        if (refs.length < 2 || !s.selection) return 'none'
+        const r = alignInProject(s.project, refs, s.selection, mode)
+        if (r === 'duplicate' || r === 'none') return r
+        set({ project: r.project, dirty: true, results: null, analysisStatus: 'idle' })
+        return 'ok'
+      },
+      distributeSelection: (axis) => {
+        const s = get()
+        const r = distributeInProject(s.project, selectedRefs(s), axis)
+        if (r === 'duplicate' || r === 'none') return r
+        set({ project: r.project, dirty: true, results: null, analysisStatus: 'idle' })
+        return 'ok'
+      },
+      resizeColumn: (id, patch, anchor) =>
+        set((s) => {
+          const c = s.project.columns.find((x) => x.id === id)
+          if (!c) return {}
+          const next = { ...c, ...patch }
+          const o0 = anchorOffset(c, anchor)
+          const o1 = anchorOffset(next, anchor)
+          // o ponto de ancoragem não se move: centro novo = âncora − offset novo
+          const pos = { x: c.pos.x + o0.x - o1.x, y: c.pos.y + o0.y - o1.y }
+          const clash = s.project.columns.some(
+            (o) => o.id !== id && Math.hypot(o.pos.x - pos.x, o.pos.y - pos.y) < 0.05,
+          )
+          return {
+            project: {
+              ...s.project,
+              columns: s.project.columns.map((x) =>
+                x.id === id ? { ...next, pos: clash ? c.pos : pos } : x,
+              ),
+            },
+            dirty: true,
+            results: null,
+            analysisStatus: 'idle',
+          }
+        }),
       rotateColumns: (ids) =>
         set((s) => ({
           project: {
@@ -1361,6 +1389,16 @@ export const useStore = create<HFState>()(
     },
   ),
 )
+
+// nível ativo sempre válido: desfazer a criação de um nível (ou refazer a
+// remoção) deixava activeLevelId apontando para um nível que não existe mais
+useStore.subscribe((s, prev) => {
+  if (s.project.levels === prev.project.levels) return
+  if (s.project.levels.some((l) => l.id === s.activeLevelId)) return
+  const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
+  const fallback = [...sorted].reverse().find((l) => l.planId) ?? sorted[sorted.length - 1]
+  if (fallback) useStore.setState({ activeLevelId: fallback.id })
+})
 
 // aplica o tema salvo antes do primeiro paint (tokens em data-theme no <html>)
 if (typeof document !== 'undefined') applyTheme(useStore.getState().theme)

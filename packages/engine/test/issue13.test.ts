@@ -255,3 +255,40 @@ describe('alertas de compatibilidade geométrica', () => {
     expect(ok.model.warnings.some((x) => x.startsWith('Viga parcialmente fora'))).toBe(false)
   })
 })
+
+describe('viga que cruza dentro do pilar fora do centro', () => {
+  it('o trecho descartado dentro da seção continua apoiando a borda da laje', async () => {
+    const { createSampleProject } = await import('../src/model/factory')
+    const p = createSampleProject()
+    const plan = p.plans[0]
+    // desloca 8 cm a viga horizontal de fachada: as vigas verticais passam a
+    // ser cortadas em y = 0,08, dentro dos pilares da fachada
+    const b = plan.beams.find(
+      (x) => x.path.every((q) => Math.abs(q.y) < 1e-9) && x.path.length >= 2,
+    )!
+    b.path = b.path.map((q) => ({ x: q.x, y: q.y + 0.08 }))
+    const r = analyze(p)
+    expect(r.model.warnings.some((w) => w.includes('parcialmente apoiada'))).toBe(false)
+    expect(r.model.warnings.some((w) => w.startsWith('Excentricidade viga–pilar considerada'))).toBe(
+      true,
+    )
+  })
+})
+
+describe('memorial', () => {
+  it('descreve o modelo da ligação viga–pilar quando há braço rígido', async () => {
+    const { buildMemorialPdf } = await import('../src/report/memorial')
+    const text = (p: Project): string => {
+      const bytes = buildMemorialPdf(p, analyze(p), { generatedAt: '26/11/2026 10:00' })
+      let s = ''
+      for (const b of bytes) s += String.fromCharCode(b)
+      return s
+    }
+    const ecc = text(frame(0.15))
+    expect(ecc).toContain('14.6.2.1')
+    expect(ecc).toContain('15 cm')
+    // viga centrada e sem trechos rígidos: o parágrafo não aparece
+    expect(text(frame(0))).not.toContain('14.6.2.1')
+    expect(text(frame(0, { rot: 0, rigid: true }))).toContain('14.6.2.4')
+  })
+})
