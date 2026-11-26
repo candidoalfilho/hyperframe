@@ -12,6 +12,8 @@
 import type { Project, Vec2 } from '../model/types'
 import type { Drawing, DrawingPrimitive } from './types'
 import { polygonCentroid } from '../geometry/geometry'
+import { dimStyleOf } from '../model/dimensions'
+import { dimensionPrimitives } from './userDims'
 import {
   columnFootprint,
   columnHalfExtents,
@@ -153,7 +155,14 @@ export function offsetPolyline(pts: Vec2[], d: number): Vec2[] {
 const AXIS_EXT = 1.5
 const BUBBLE_R = 0.25
 
-export function buildFormworkDrawing(project: Project, planId: string): Drawing {
+export function buildFormworkDrawing(
+  project: Project,
+  planId: string,
+  opts: {
+    /** inclui as cotas do usuário não ocultas (padrão: sim) */
+    userDims?: boolean
+  } = {},
+): Drawing {
   const plan = project.plans.find((p) => p.id === planId)
   if (!plan) throw new Error(`Planta de forma não encontrada: ${planId}`)
 
@@ -467,6 +476,14 @@ export function buildFormworkDrawing(project: Project, planId: string): Drawing 
       height: 0.15,
       layer: 'TEXTOS',
     })
+  }
+
+  // ---- cotas do usuário (issue #10): as mesmas do editor, exceto as ocultas ----
+  if (opts.userDims !== false) {
+    const style = dimStyleOf(project)
+    for (const d of plan.dimensions ?? []) {
+      if (!d.hidden) prims.push(...dimensionPrimitives(d, style))
+    }
   }
 
   // ---- título no canto inferior esquerdo ----

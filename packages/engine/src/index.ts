@@ -11,6 +11,25 @@ export {
   slabLoadTotal,
 } from './analysis/slabLoads'
 
+export {
+  DIM_ANCHOR_LABEL,
+  DIM_STYLE_DEFAULT,
+  autoDimension,
+  dimDirection,
+  dimRefAt,
+  dimRefLabel,
+  dimStyleOf,
+  dimensionLayout,
+  dimensionValues,
+  formatDim,
+  lostDimRefs,
+  refreshDimensions,
+  resolveDimRef,
+  type AutoDimOptions,
+  type DimLayout,
+} from './model/dimensions'
+export { dimensionPrimitives } from './drawing/userDims'
+
 export * from './model/factory'
 export * from './model/naming'
 export { uid } from './model/uid'
