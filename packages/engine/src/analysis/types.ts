@@ -413,6 +413,44 @@ export interface SlabGridDesign {
   notes: string[]
 }
 
+/** verificação das cargas concentradas/lineares sobre uma laje (issue #8) */
+export interface SlabConcentratedCheck {
+  /** resultante característica das cargas nesta laje, kN */
+  totalG: number
+  totalQ: number
+  /** parcela de cada carga que atua nesta laje, kN */
+  loads: { id: string; name: string; kind: 'point' | 'line'; g: number; q: number }[]
+  /** laje bidirecional: amplificação dos momentos nas direções X e Y e da flecha */
+  kx?: number
+  ky?: number
+  kw?: number
+  /** fator de carga uniforme equivalente aplicado ao dimensionamento (1 = nenhum) */
+  factor: number
+  /** punção sob cada carga pontual (lajes maciças, §19.5) */
+  punching: {
+    loadId: string
+    name: string
+    /** força de cálculo e área carregada */
+    fsd: number
+    bx: number
+    by: number
+    check: import('../nbr/nbr6118/punching').PunchingOutput
+  }[]
+  /** laje unidirecional: esforços característicos na vigota/nervura crítica */
+  joist?: {
+    /** adicionais das concentradas e os da carga uniforme (biapoiada), kN·m e kN */
+    m: number
+    v: number
+    mUniform: number
+    vUniform: number
+    span: number
+    /** a carga atravessa o painel: todas as vigotas recebem (dimensionamento amplificado) */
+    spread: boolean
+    /** vigotas/nervuras justapostas necessárias sob a carga (1 = a própria basta) */
+    juxtaposed: number
+  }
+}
+
 export interface SlabDesignResultItem {
   slabId: string
   name: string
@@ -434,6 +472,8 @@ export interface SlabDesignResultItem {
   latticeDesign?: import('../nbr/nbr6118/latticeSlab').LatticeDesignOutput | null
   /** vibração de piso §23.3: f1 = 18/√δ,imediata,QP ≥ 1,2·fcrit */
   vibration?: { f1: number; fcrit: number; limit: number; ok: boolean }
+  /** cargas concentradas/lineares sobre a laje — ausente se não houver */
+  concentrated?: SlabConcentratedCheck
   status: 'ok' | 'atencao' | 'falha'
   notes: string[]
 }

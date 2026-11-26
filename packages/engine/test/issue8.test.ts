@@ -204,3 +204,120 @@ describe('caminho de carga: laje → vigas → pilares', () => {
     expect(r.beamDesign.every((b) => Number.isFinite(b.positive.md))).toBe(true)
   })
 })
+
+describe('verificação da laje com cargas concentradas', () => {
+  const slabOf = (r: ReturnType<typeof analyze>) => r.slabDesign[0]
+
+  it('sem cargas: nenhum bloco de concentradas no resultado', () => {
+    expect(slabOf(analyze(panel(4, 4, []))).concentrated).toBeUndefined()
+  })
+
+  it('maciça (Marcus): momentos amplificados e punção verificada sob a carga', () => {
+    const ref = slabOf(analyze(panel(4, 4, [])))
+    const r = slabOf(analyze(panel(4, 4, [pt(2, 2, 15, 5)])))
+    const c = r.concentrated!
+    expect(c.totalG).toBeCloseTo(15, 9)
+    expect(c.totalQ).toBeCloseTo(5, 9)
+    expect(c.kx!).toBeCloseTo(c.ky!, 6) // simetria
+    expect(c.factor).toBeGreaterThan(1.3)
+    // dimensionamento com a carga uniforme equivalente: Md cresce na mesma razão
+    expect(r.design!.dirA.mSpanD / ref.design!.dirA.mSpanD).toBeCloseTo(c.factor, 3)
+    expect(r.design!.dirA.asSpan).toBeGreaterThanOrEqual(ref.design!.dirA.asSpan)
+    // punção: FSd = 1,4 × 20 = 28 kN em 20×20 cm
+    expect(c.punching.length).toBe(1)
+    expect(c.punching[0].fsd).toBeCloseTo(28, 9)
+    expect(c.punching[0].check.okC).toBe(true)
+    expect(r.notes.some((n) => n.startsWith('Punção sob C1'))).toBe(true)
+    expect(r.notes.some((n) => n.startsWith('Cargas concentradas'))).toBe(true)
+  })
+
+  it('punção: contorno C′ a 2d — u1 = 2(bx+by) + 4πd e τSd = FSd/(u1·d)', () => {
+    const r = slabOf(analyze(panel(4, 4, [pt(2, 2, 20)])))
+    const p = r.concentrated!.punching[0]
+    // CAA II: cobrimento da laje 2,5 cm ⇒ d = 0,12 − 0,025 − 0,015 = 0,08 m
+    const d = 0.08
+    const u1 = 2 * (0.2 + 0.2) + 4 * Math.PI * d
+    expect(p.check.u1).toBeCloseTo(u1, 6)
+    expect(p.check.tauSd1).toBeCloseTo((1.4 * 20) / (u1 * d), 3)
+  })
+
+  it('carga pesada em área pequena reprova a laje por punção', () => {
+    const heavy: SlabLoad = { ...pt(2, 2, 160), size: { bx: 0.1, by: 0.1 } }
+    const r = slabOf(analyze(panel(4, 4, [heavy])))
+    expect(r.status).toBe('falha')
+    expect(r.notes.some((n) => n.startsWith('Punção sob C1') && n.includes('>'))).toBe(true)
+  })
+
+  it('método da grelha: momentos por direção amplificados', () => {
+    const grid = (loads: SlabLoad[]) =>
+      slabOf(analyze(panel(4, 4, loads, (p) => (p.settings.slabMethod = 'grelha'))))
+    const ref = grid([])
+    // parede paralela a Y: carrega as faixas em X
+    const r = grid([{ id: 'w', name: 'PAR1', kind: 'line', a: { x: 2, y: 0.5 }, b: { x: 2, y: 3.5 }, g: 8, q: 0 }])
+    const c = r.concentrated!
+    expect(c.kx!).toBeGreaterThan(c.ky!)
+    expect(r.gridDesign!.mxSpan / ref.gridDesign!.mxSpan).toBeCloseTo(c.kx!, 3)
+    expect(r.gridDesign!.mySpan / ref.gridDesign!.mySpan).toBeCloseTo(c.ky!, 3)
+    expect(c.punching.length).toBe(0) // carga linear não tem punção
+  })
+
+  describe('laje treliçada', () => {
+    const lattice = async (loads: SlabLoad[]) => {
+      const { LATTICE_DEFAULTS } = await import('../src/model/presets')
+      const { latticeRibbed } = await import('../src/nbr/nbr6118/latticeSlab')
+      return slabOf(
+        analyze(
+          panel(4, 4, loads, (p) => {
+            const s = p.plans[0].slabs[0]
+            const rb = latticeRibbed({ ...LATTICE_DEFAULTS }, 0.04, 'x')
+            s.ribbed = rb.ribbed
+            s.thickness = rb.thickness
+          }),
+        ),
+      )
+    }
+
+    it('parede ao longo das vigotas: pede vigotas justapostas sob a parede', async () => {
+      const ref = await lattice([])
+      const r = await lattice([
+        { id: 'w', name: 'PAR1', kind: 'line', a: { x: 0.2, y: 2 }, b: { x: 3.8, y: 2 }, g: 6, q: 0 },
+      ])
+      const j = r.concentrated!.joist!
+      expect(j.spread).toBe(false)
+      // parede de 6 kN/m em 3,6 m centrada num vão de 4 m: M = R·2 − 6·1,8·0,9
+      expect(j.m).toBeCloseTo(10.8 * 2 - 6 * 1.8 * 0.9, 1)
+      expect(j.v).toBeCloseTo(10.8, 1)
+      expect(j.juxtaposed).toBeGreaterThanOrEqual(2)
+      expect(r.status).not.toBe('ok')
+      expect(r.notes.some((n) => n.includes('JUSTAPOSTAS'))).toBe(true)
+      // o painel em si não é redimensionado por uma carga localizada
+      expect(r.latticeDesign!.mdSpan).toBeCloseTo(ref.latticeDesign!.mdSpan, 9)
+    })
+
+    it('parede atravessando as vigotas: todas recebem, o painel é redimensionado', async () => {
+      const ref = await lattice([])
+      const r = await lattice([
+        { id: 'w', name: 'PAR1', kind: 'line', a: { x: 2, y: 0 }, b: { x: 2, y: 4 }, g: 6, q: 0 },
+      ])
+      const c = r.concentrated!
+      expect(c.joist!.spread).toBe(true)
+      expect(c.joist!.juxtaposed).toBe(1)
+      expect(c.factor).toBeGreaterThan(1.2)
+      expect(r.latticeDesign!.mdSpan / ref.latticeDesign!.mdSpan).toBeCloseTo(c.factor, 3)
+      // P por vigota = 6 kN/m × intereixo; no meio do vão de 4 m: M = P·L/4, V = P/2
+      const { LATTICE_DEFAULTS } = await import('../src/model/presets')
+      const { latticeRibbed } = await import('../src/nbr/nbr6118/latticeSlab')
+      const sp = latticeRibbed({ ...LATTICE_DEFAULTS }, 0.04, 'x').ribbed.spacing
+      expect(c.joist!.m / ((6 * sp * 4) / 4)).toBeGreaterThan(0.99)
+      expect(c.joist!.m / ((6 * sp * 4) / 4)).toBeLessThan(1.01)
+      expect(c.joist!.v / ((6 * sp) / 2)).toBeGreaterThan(0.99)
+      expect(c.joist!.v / ((6 * sp) / 2)).toBeLessThan(1.01)
+    })
+
+    it('carga pequena: a vigota dimensionada resiste sem reforço', async () => {
+      const r = await lattice([pt(0.3, 2, 0.5)])
+      expect(r.concentrated!.joist!.juxtaposed).toBe(1)
+      expect(r.notes.some((n) => n.includes('resiste sem reforço'))).toBe(true)
+    })
+  })
+})

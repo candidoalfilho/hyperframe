@@ -1,5 +1,5 @@
 import type { FloorPlan, Project, Slab, Vec2 } from '../model/types'
-import type { SlabDesignResultItem, SlabGridDesign } from '../analysis/types'
+import type { SlabConcentratedCheck, SlabDesignResultItem, SlabGridDesign } from '../analysis/types'
 import { dist, pointInPolygon, projectOnSegment, TOL } from '../geometry/geometry'
 import { concreteProps, coverFor, fyd as fydOf } from '../nbr/nbr6118/materials'
 import { designSlab, pickSlabBars, type EdgeCondition } from '../nbr/nbr6118/slabDesign'
@@ -27,6 +27,13 @@ import { edgeContinuous, isRectangular, oneWaySpanStats, simplifyPolygon } from 
 import { slabSelfWeight } from '../analysis/slabWeight'
 import { designLatticeSlab } from '../nbr/nbr6118/latticeSlab'
 import { crackLimit } from '../nbr/nbr6118/cracking'
+import {
+  assignSlabLoads,
+  joistExtraEffects,
+  slabConcentratedEffects,
+  SLAB_LOAD_SIZE_DEFAULT,
+  type SlabLoadSample,
+} from '../analysis/slabLoads'
 
 /** pressões características da laje (peso próprio + revest. + regiões, furos descontados) */
 function slabPressures(
@@ -43,6 +50,232 @@ function slabPressures(
     extras.g
   const q = slab.liveLoad * netFactor + extras.q
   return { g, q }
+}
+
+/** bordas da laje com viga ou parede estrutural (amostras da borda sobre o eixo) */
+function supportedEdgesOf(plan: FloorPlan, polygon: Vec2[]): number[] {
+  const nearPath = (p: Vec2, path: Vec2[]): boolean => {
+    for (let i = 0; i + 1 < path.length; i++) {
+      if (projectOnSegment(p, path[i], path[i + 1]).d <= TOL * 3) return true
+    }
+    return false
+  }
+  const near = (p: Vec2): boolean =>
+    plan.beams.some((b) => nearPath(p, b.path)) ||
+    (plan.masonryWalls ?? []).some((w) => nearPath(p, w.path))
+  const out: number[] = []
+  const n = polygon.length
+  for (let e = 0; e < n; e++) {
+    const a = polygon[e]
+    const b = polygon[(e + 1) % n]
+    const hits = [0.25, 0.5, 0.75].filter((t) =>
+      near({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }),
+    )
+    if (hits.length >= 2) out.push(e)
+  }
+  return out
+}
+
+const fmtN = (v: number, d = 1) => v.toFixed(d).replace('.', ',')
+
+/** resumo das cargas concentradas que atuam na laje (parcelas por carga) */
+function concentratedBase(plan: FloorPlan, samples: SlabLoadSample[]): SlabConcentratedCheck {
+  const by = new Map<string, { g: number; q: number }>()
+  for (const s of samples) {
+    const o = by.get(s.loadId) ?? { g: 0, q: 0 }
+    o.g += s.g
+    o.q += s.q
+    by.set(s.loadId, o)
+  }
+  const loads = [...by].map(([id, o]) => {
+    const l = plan.slabLoads?.find((x) => x.id === id)
+    return { id, name: l?.name ?? '?', kind: l?.kind ?? ('point' as const), g: o.g, q: o.q }
+  })
+  return {
+    totalG: samples.reduce((s, x) => s + x.g, 0),
+    totalQ: samples.reduce((s, x) => s + x.q, 0),
+    loads,
+    factor: 1,
+    punching: [],
+  }
+}
+
+/**
+ * Laje BIDIRECIONAL: amplificação dos momentos e da flecha pela grelha com e
+ * sem as cargas concentradas. Devolve o resumo já com kx, ky, kw e `factor`.
+ */
+function twoWayConcentrated(
+  project: Project,
+  plan: FloorPlan,
+  slab: Slab,
+  samples: SlabLoadSample[],
+  notes: string[],
+): SlabConcentratedCheck {
+  const base = concentratedBase(plan, samples)
+  const polygon = simplifyPolygon(slab.polygon)
+  const { g, q } = slabPressures(project, plan, slab)
+  try {
+    const eff = slabConcentratedEffects({
+      polygon,
+      holes: slabOpeningPolygons(plan, slab),
+      supportedEdges: supportedEdgesOf(plan, polygon),
+      thickness: slab.thickness,
+      g,
+      q,
+      psi2: project.settings.psiLive.psi2,
+      samples,
+    })
+    if (eff) {
+      base.kx = eff.kx
+      base.ky = eff.ky
+      base.kw = eff.kw
+      base.factor = Math.max(eff.kx, eff.ky)
+      notes.push(
+        `Cargas concentradas (${fmtN(base.totalG + base.totalQ)} kN): momentos da grelha com as cargas ÷ sem as cargas = ×${fmtN(eff.kx, 2)} em X e ×${fmtN(eff.ky, 2)} em Y; flecha ×${fmtN(eff.kw, 2)}.`,
+      )
+    }
+  } catch {
+    notes.push('Cargas concentradas: a laje não tem borda apoiada — efeito local NÃO verificado.')
+  }
+  return base
+}
+
+/** punção sob as cargas PONTUAIS de laje maciça (§19.5, contornos C e C′) */
+function pointLoadPunching(
+  project: Project,
+  plan: FloorPlan,
+  slab: Slab,
+  check: SlabConcentratedCheck,
+  asX: number,
+  asY: number,
+  cover: number,
+  fck: number,
+): { fail: boolean; reinf: boolean; notes: string[] } {
+  const notes: string[] = []
+  let fail = false
+  let reinf = false
+  const h = slab.thickness
+  const d = Math.max(h - cover - 0.015, 0.5 * h)
+  for (const l of check.loads) {
+    if (l.kind !== 'point') continue
+    const load = plan.slabLoads?.find((x) => x.id === l.id)
+    const size = load?.size ?? SLAB_LOAD_SIZE_DEFAULT
+    const fsd = 1.4 * (l.g + l.q)
+    if (fsd < 1e-6) continue
+    const out = checkPunching({
+      fsd,
+      column: { shape: 'rect', c1: size.bx, c2: size.by },
+      d,
+      rhoX: Math.min(asX / d, 0.02),
+      rhoY: Math.min(asY / d, 0.02),
+      fck,
+      gammaC: project.settings.concrete.gammaC,
+    })
+    check.punching.push({ loadId: l.id, name: l.name, fsd, bx: size.bx, by: size.by, check: out })
+    if (!out.okC) {
+      fail = true
+      notes.push(
+        `Punção sob ${l.name}: τSd = ${fmtN(out.tauSd0, 0)} > τRd2 = ${fmtN(out.tauRd2, 0)} kPa na face da área carregada (${fmtN(size.bx * 100, 0)}×${fmtN(size.by * 100, 0)} cm) — aumentar a área de apoio ou a espessura.`,
+      )
+    } else if (out.needsShearReinf) {
+      reinf = true
+      notes.push(
+        `Punção sob ${l.name}: τSd = ${fmtN(out.tauSd1, 0)} > τRd1 = ${fmtN(out.tauRd1, 0)} kPa no contorno a 2d — prever armadura de punção, área de apoio maior ou laje mais espessa.`,
+      )
+    } else {
+      notes.push(
+        `Punção sob ${l.name} (FSd = ${fmtN(fsd)} kN): τSd = ${fmtN(out.tauSd1, 0)} ≤ τRd1 = ${fmtN(out.tauRd1, 0)} kPa — OK (§19.5).`,
+      )
+    }
+  }
+  return { fail, reinf, notes }
+}
+
+/**
+ * Laje UNIDIRECIONAL (treliçada / nervurada em uma direção): esforços das
+ * concentradas na vigota crítica. Carga que atravessa o painel amplifica o
+ * dimensionamento de todas as vigotas (`factor`); carga localizada pede
+ * vigotas justapostas sob ela (fechado em `oneWayFinish`).
+ */
+function oneWayConcentrated(
+  plan: FloorPlan,
+  slab: Slab,
+  samples: SlabLoadSample[],
+  axis: 'x' | 'y',
+  span: number,
+  gq: number,
+  psi2: number,
+): SlabConcentratedCheck {
+  const base = concentratedBase(plan, samples)
+  const spacing = slab.ribbed?.spacing ?? 0
+  const eff = joistExtraEffects({
+    polygon: simplifyPolygon(slab.polygon),
+    axis,
+    spacing,
+    psi2,
+    samples,
+  })
+  if (!eff || !(span > 0)) return base
+  // carga uniforme por vigota, biapoiada no vão de cálculo (referência)
+  const wu = gq * spacing
+  const mUniform = (wu * span * span) / 8
+  const vUniform = (wu * span) / 2
+  const k = Math.max(
+    mUniform > 1e-9 ? (mUniform + eff.m) / mUniform : 1,
+    vUniform > 1e-9 ? (vUniform + eff.v) / vUniform : 1,
+  )
+  base.joist = {
+    m: eff.m,
+    v: eff.v,
+    mUniform,
+    vUniform,
+    span: eff.span,
+    spread: eff.spread,
+    juxtaposed: eff.spread ? 1 : Math.max(1, Math.ceil(k - 1e-6)),
+  }
+  if (eff.spread) base.factor = k
+  return base
+}
+
+/**
+ * Fecha a verificação unidirecional depois do dimensionamento: com a folga
+ * real da vigota (`cap`, valores de cálculo por vigota) refina quantas
+ * justapostas são necessárias e escreve as notas.
+ */
+function oneWayFinish(
+  cc: SlabConcentratedCheck,
+  what: 'vigota' | 'nervura',
+  notes: string[],
+  cap?: { md: number; mRd: number; vd: number; vRd: number },
+): 'ok' | 'atencao' | 'falha' {
+  const j = cc.joist
+  if (!j) return 'ok'
+  if (j.spread) {
+    notes.push(
+      `Carga linear atravessando as ${what}s: cada ${what} recebe +${fmtN(j.m, 2)} kN·m e +${fmtN(j.v, 2)} kN — painel dimensionado com carga uniforme equivalente ×${fmtN(cc.factor, 2)}.`,
+    )
+    return 'ok'
+  }
+  if (cap && cap.mRd > 1e-9 && cap.vRd > 1e-9) {
+    // n vigotas justapostas dividem o esforço da faixa: n ≥ solicitação ÷ resistência de uma
+    const need = Math.max((cap.md + 1.4 * j.m) / cap.mRd, (cap.vd + 1.4 * j.v) / cap.vRd)
+    j.juxtaposed = Math.max(1, Math.ceil(need - 1e-6))
+  }
+  if (j.juxtaposed > 1) {
+    notes.push(
+      `Carga concentrada sobre a laje: a ${what} sob a carga recebe +${fmtN(j.m, 2)} kN·m e +${fmtN(j.v, 2)} kN característicos (a carga uniforme dá ${fmtN(j.mUniform, 2)} kN·m e ${fmtN(j.vUniform, 2)} kN) — prever ${j.juxtaposed} ${what}s JUSTAPOSTAS sob a carga${j.juxtaposed > 4 ? ', ou viga/nervura moldada no local' : ''}.`,
+    )
+  } else {
+    notes.push(
+      `Carga concentrada sobre a laje: +${fmtN(j.m, 2)} kN·m e +${fmtN(j.v, 2)} kN na ${what} crítica — a ${what} dimensionada resiste sem reforço.`,
+    )
+  }
+  if (cc.loads.some((l) => l.kind === 'point')) {
+    notes.push(
+      `Carga pontual em laje com ${what}s: a capa não é verificada à punção — apoiar a carga sobre ${what} ou prever região maciça.`,
+    )
+  }
+  return j.juxtaposed > 4 ? 'falha' : j.juxtaposed > 1 ? 'atencao' : 'ok'
 }
 
 /** grelha de pavimento unificada da planta (null = indisponível ⇒ método por laje) */
@@ -115,10 +348,18 @@ export function runSlabDesign(
         ? tryFloorGrid(project, plan, levels, levels.indexOf(level), cp.ecs)
         : null
 
+    // cargas concentradas/lineares por laje (issue #8)
+    const slabAsg =
+      plan.slabLoads && plan.slabLoads.length > 0
+        ? assignSlabLoads(plan, (sl) => slabOpeningPolygons(plan, sl))
+        : null
+
     for (const slab of plan.slabs) {
       const rect = isRectangular(slab.polygon)
       const extras = slabExtraLoads(plan, slab)
       const notes: string[] = []
+      const samples = slabAsg?.bySlab.get(slab.id) ?? []
+      const psi2 = project.settings.psiLive.psi2
       let openWarn = false
       if (extras.g > 1e-9 || extras.q > 1e-9) {
         notes.push(
@@ -137,6 +378,8 @@ export function runSlabDesign(
 
       // ------------------------------ método da GRELHA (maciças, qualquer forma)
       if (!slab.ribbed && project.settings.slabMethod === 'grelha') {
+        const ccNotes: string[] = []
+        const cc = samples.length > 0 ? twoWayConcentrated(project, plan, slab, samples, ccNotes) : null
         const item = designSlabByGrid(
           project,
           plan,
@@ -153,10 +396,18 @@ export function runSlabDesign(
           },
           floor,
           jointMoments,
+          cc ? { kx: cc.kx ?? 1, ky: cc.ky ?? 1, kw: cc.kw ?? 1 } : undefined,
         )
         if (item) {
           item.notes.unshift(...notes)
           if (openWarn && item.status === 'ok') item.status = 'atencao'
+          if (cc && item.gridDesign) {
+            const pp = pointLoadPunching(project, plan, slab, cc, item.gridDesign.asX, item.gridDesign.asY, cover, cp.fck)
+            item.concentrated = cc
+            item.notes.push(...ccNotes, ...pp.notes)
+            if (pp.fail) item.status = 'falha'
+            else if (pp.reinf && item.status === 'ok') item.status = 'atencao'
+          }
           out.push(item)
           continue
         }
@@ -220,6 +471,13 @@ export function runSlabDesign(
         // largura do painel transversal às vigotas (média, p/ contar vigotas)
         const width = area / Math.max(stats.mean, 1e-6)
         const openFactor = 1 - Math.min(openArea, area) / Math.max(area, 1e-9)
+        const gLat = (gSelf + slab.finishLoad) * openFactor + extras.g
+        const qLat = slab.liveLoad * openFactor + extras.q
+        const cc =
+          samples.length > 0
+            ? oneWayConcentrated(plan, slab, samples, axis, span, gLat + qLat, psi2)
+            : null
+        const kLat = cc?.factor ?? 1
         const latticeDesign = designLatticeSlab({
           lattice: lat,
           topping: slab.ribbed.topping,
@@ -229,8 +487,8 @@ export function runSlabDesign(
           neighborStart,
           neighborEnd,
           width,
-          g: (gSelf + slab.finishLoad) * openFactor + extras.g,
-          q: slab.liveLoad * openFactor + extras.q,
+          g: gLat * kLat,
+          q: qLat * kLat,
           g0: gSelf,
           psi1: project.settings.psiLive.psi1,
           psi2: project.settings.psiLive.psi2,
@@ -256,6 +514,21 @@ export function runSlabDesign(
           openWarn
         )
           status = 'atencao'
+        const ccNotes: string[] = []
+        if (cc) {
+          // folga real da vigota: MRd ∝ As efetiva; VRd com ou sem diagonais
+          const st = oneWayFinish(cc, 'vigota', ccNotes, {
+            md: latticeDesign.mdSpan,
+            mRd:
+              latticeDesign.asReq > 1e-12
+                ? (latticeDesign.mdSpan * latticeDesign.asProvided) / latticeDesign.asReq
+                : latticeDesign.mdSpan,
+            vd: latticeDesign.vd,
+            vRd: Math.max(latticeDesign.vrd1, latticeDesign.usesDiagonals ? latticeDesign.vrd3 : 0),
+          })
+          if (st === 'falha') status = 'falha'
+          else if (st === 'atencao' && status === 'ok') status = 'atencao'
+        }
         out.push({
           slabId: slab.id,
           name: slab.name,
@@ -269,8 +542,9 @@ export function runSlabDesign(
           ribbedDesign: null,
           gridDesign: null,
           latticeDesign,
+          ...(cc ? { concentrated: cc } : {}),
           status,
-          notes: [...notes, ...latticeDesign.notes],
+          notes: [...notes, ...latticeDesign.notes, ...ccNotes],
         })
         continue
       }
@@ -304,14 +578,37 @@ export function runSlabDesign(
       const fixedA = ((cont[1] ? 1 : 0) + (cont[3] ? 1 : 0)) as EdgeCondition
       const fixedB = ((cont[0] ? 1 : 0) + (cont[2] ? 1 : 0)) as EdgeCondition
 
+      // cargas concentradas: carga uniforme equivalente (×factor) no dimensionamento
+      const gMar = gSelf + slab.finishLoad + extras.g
+      const qMar = slab.liveLoad + extras.q
+      const ccNotes: string[] = []
+      let cc: SlabConcentratedCheck | null = null
+      let ccStatus: 'ok' | 'atencao' | 'falha' = 'ok'
+      if (samples.length > 0) {
+        if (slab.ribbed && slab.ribbed.dirs !== 'xy') {
+          const axis = slab.ribbed.dirs
+          const spanRib = ribsAlongA ? spanA : spanB
+          cc = oneWayConcentrated(plan, slab, samples, axis, spanRib, gMar + qMar, psi2)
+          ccStatus = oneWayFinish(cc, 'nervura', ccNotes)
+        } else {
+          cc = twoWayConcentrated(project, plan, slab, samples, ccNotes)
+          if (cc.factor > 1 + 1e-9) {
+            ccNotes.push(
+              `Dimensionamento com carga uniforme equivalente ×${fmtN(cc.factor, 2)} (maior das duas direções) — a favor da segurança p/ a flecha.`,
+            )
+          }
+        }
+      }
+      const kCc = cc?.factor ?? 1
+
       if (slab.ribbed) {
         const ribbedDesign = designRibbedSlab({
           a: { span: spanA, fixedEnds: fixedA },
           b: { span: spanB, fixedEnds: fixedB },
           h: slab.thickness,
           ribbed: slab.ribbed,
-          g: gSelf + slab.finishLoad + extras.g,
-          q: slab.liveLoad + extras.q,
+          g: gMar * kCc,
+          q: qMar * kCc,
           psi2: project.settings.psiLive.psi2,
           cover,
           fcd: cp.fcd,
@@ -329,6 +626,13 @@ export function runSlabDesign(
         if (!ribbedDesign.dirA.ok || !ribbedDesign.dirB.ok || !geomOk) status = 'falha'
         else if (!ribbedDesign.deflectionOk || openWarn || ribbedDesign.geometry.asTBeams)
           status = 'atencao'
+        if (ccStatus === 'falha') status = 'falha'
+        else if (ccStatus === 'atencao' && status === 'ok') status = 'atencao'
+        if (cc && slab.ribbed.dirs === 'xy' && cc.loads.some((l) => l.kind === 'point')) {
+          ccNotes.push(
+            'Carga pontual em laje nervurada: a capa não é verificada à punção — apoiar a carga sobre nervura ou prever região maciça.',
+          )
+        }
         out.push({
           slabId: slab.id,
           name: slab.name,
@@ -341,8 +645,9 @@ export function runSlabDesign(
           design: null,
           ribbedDesign,
           gridDesign: null,
+          ...(cc ? { concentrated: cc } : {}),
           status,
-          notes: [...notes, ...ribbedDesign.notes],
+          notes: [...notes, ...ribbedDesign.notes, ...ccNotes],
         })
         continue
       }
@@ -351,8 +656,8 @@ export function runSlabDesign(
         a: { span: spanA, fixedEnds: fixedA },
         b: { span: spanB, fixedEnds: fixedB },
         thickness: slab.thickness,
-        g: gSelf + slab.finishLoad + extras.g,
-        q: slab.liveLoad + extras.q,
+        g: gMar * kCc,
+        q: qMar * kCc,
         psi2: project.settings.psiLive.psi2,
         cover,
         fcd: cp.fcd,
@@ -365,6 +670,13 @@ export function runSlabDesign(
       let status: SlabDesignResultItem['status'] = 'ok'
       if (!design.dirA.ok || !design.dirB.ok || !design.minThicknessOk) status = 'falha'
       else if (!design.deflectionOk || openWarn) status = 'atencao'
+      if (cc) {
+        // direções A/B → X/Y: a armadura de vão nas duas direções entra em ρ
+        const pp = pointLoadPunching(project, plan, slab, cc, design.dirA.asSpan, design.dirB.asSpan, cover, cp.fck)
+        ccNotes.push(...pp.notes)
+        if (pp.fail) status = 'falha'
+        else if (pp.reinf && status === 'ok') status = 'atencao'
+      }
 
       out.push({
         slabId: slab.id,
@@ -378,8 +690,9 @@ export function runSlabDesign(
         design,
         ribbedDesign: null,
         gridDesign: null,
+        ...(cc ? { concentrated: cc } : {}),
         status,
-        notes: [...notes, ...design.notes],
+        notes: [...notes, ...design.notes, ...ccNotes],
       })
     }
   }
@@ -437,6 +750,8 @@ function designSlabByGrid(
   mat: GridMat,
   floor: FloorGridOutput | null,
   jointMoments?: Map<string, { m1: number; m2: number }>,
+  /** amplificação das cargas concentradas (momentos X/Y e flecha) */
+  amp?: { kx: number; ky: number; kw: number },
 ): SlabDesignResultItem | null {
   const notes: string[] = []
   const levels = [...project.levels].sort((a, b) => a.elevation - b.elevation)
@@ -546,6 +861,14 @@ function designSlabByGrid(
     wQpDefl = grid.result.wMax * wQp
     colLoadsChar = new Map([...grid.columnLoads].map(([id, f]) => [id, f * wChar]))
     statsG = grid.stats
+  }
+
+  if (amp) {
+    mxSpanChar *= amp.kx
+    mxSupChar *= amp.kx
+    mySpanChar *= amp.ky
+    mySupChar *= amp.ky
+    wQpDefl *= amp.kw
   }
 
   const h = slab.thickness
