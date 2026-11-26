@@ -805,6 +805,51 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.60 — Issue #10: cotas permanentes, associadas ao modelo
+
+> A ferramenta Medir (D) só consultava: a medida sumia ao sair dela.
+
+**Ferramenta Cota (T)**
+- [x] **Linear** horizontal ou vertical (a direção sai do lado para onde a linha
+  é puxada, como no CAD) e **alinhada** (distância real, para elementos
+  inclinados)
+- [x] **Simples** (2 pontos), **em cadeia** (com linha extra do total) e
+  **acumulada** a partir de uma origem
+- [x] **Associada ao modelo**: o ponto que o snap pega fica preso ao pilar
+  (centro, meio de face ou canto), ao vértice da viga ou ao eixo da grelha, e
+  acompanha o elemento quando ele é movido, a seção muda ou o eixo é deslocado
+  — no mesmo passo de desfazer. Dá para soltar e prender de novo cada ponto;
+  com a opção desligada a cota é só anotação
+- [x] **Referência perdida** (elemento excluído): a cota fica onde estava,
+  tracejada, e é apontada no painel e na Consistência
+- [x] **Editar**: selecionar (clique ou janela), arrastar a linha de cota (os
+  pontos não mudam), afastamento por valor, inverter lado, trocar direção e
+  forma, excluir, mover em grupo, desfazer/refazer. Exibição → Cotas esconde
+  todas
+- [x] Cotas são anotação: criar, editar e excluir **não invalida a análise**
+
+**Cotagem automática**
+- [x] **Cotar a seleção**: uma cadeia por direção, entre eixos ou entre faces
+  dos pilares, com total, do lado escolhido. Um ponto por alinhamento (pilares
+  na mesma linha não repetem a cota)
+- [x] **Cotar todos os pilares** do pavimento em X e em Y, pela ferramenta
+
+**Estilo e saída**
+- [x] Estilo do projeto: unidade (cm, m, mm), casas decimais, altura do texto e
+  símbolo de extremidade (traço a 45°, seta, ponto)
+- [x] Finalidade por cota (locação, dimensão, geral) e "não mostrar nas pranchas"
+- [x] **Planta de forma, PDF e DXF** trazem as cotas do usuário, com filtro por
+  finalidade; as cotas automáticas entre eixos podem ser desligadas
+
+**Fora desta versão (registrado na issue de continuação)**
+- [ ] Cota angular e cota de nível
+- [ ] Cotagem por linha de referência (elementos interceptados)
+- [ ] Faces de viga e de parede como referência
+- [ ] Copiar/colar e agrupar cotas; posição do texto; cor e espessura; estilos
+  salvos entre projetos
+- [ ] Escolha de cotas por prancha e edição na composição da prancha;
+  anticolisão automática com textos e eixos
+
 ## v0.2.59 — Issue #9: caminho das cargas (lajes → vigas → pilares → fundações)
 
 > As reações de laje em viga e de viga em pilar já eram calculadas, mas só

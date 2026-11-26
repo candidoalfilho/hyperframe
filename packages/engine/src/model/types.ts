@@ -367,6 +367,69 @@ export interface FloorPlan {
   slabLoads?: SlabLoad[]
   /** paredes de alvenaria estrutural (NBR 16868) */
   masonryWalls?: MasonryWall[]
+  /** cotas permanentes do usuário (anotação: não entram na análise) */
+  dimensions?: Dimension[]
+}
+
+// ---------------------------------------------------------------------------
+// Cotas permanentes (issue #10)
+// ---------------------------------------------------------------------------
+
+/** ponto da seção do pilar: centro, meio de uma face ou canto (n = +Y, e = +X) */
+export type DimColumnAnchor = 'c' | 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+/**
+ * Referência de um ponto de cota a um elemento do modelo: enquanto ela existir,
+ * o ponto acompanha o elemento (pilar movido, seção alterada, eixo deslocado).
+ */
+export type DimRef =
+  | { kind: 'column'; id: string; at: DimColumnAnchor }
+  /** vértice do eixo da viga (índice em `path`) */
+  | { kind: 'beam'; id: string; vertex: number }
+  /** eixo(s) da grelha: os dois = interseção; um só = ponto livre sobre o eixo */
+  | { kind: 'grid'; x?: string; y?: string }
+
+export interface DimPoint {
+  /** posição atual em planta, m — atualizada a partir de `ref` a cada edição do modelo */
+  p: Vec2
+  /** ausente = ponto livre (cota usada só como anotação) */
+  ref?: DimRef
+}
+
+/** finalidade da cota: locação de eixos, dimensão de elementos ou medida geral */
+export type DimCategory = 'locacao' | 'dimensao' | 'geral'
+
+export interface Dimension {
+  id: string
+  /** Cota 1, Cota 2… */
+  name: string
+  /** direção medida: horizontal (Δx), vertical (Δy) ou alinhada aos pontos extremos */
+  dir: 'h' | 'v' | 'aligned'
+  /** em cadeia (trechos sucessivos) ou acumulada a partir do 1º ponto */
+  form: 'chain' | 'baseline'
+  /** 2 pontos = cota simples; mais = cadeia/acumulada */
+  points: DimPoint[]
+  /**
+   * afastamento da linha de cota em relação ao 1º ponto, medido na normal da
+   * direção (h: +Y · v: −X · alinhada: 90° anti-horário), m
+   */
+  offset: number
+  /** cadeia: linha extra, mais afastada, com a dimensão total */
+  total?: boolean
+  category?: DimCategory
+  /** oculta: fica no projeto, mas não aparece no editor nem nas pranchas */
+  hidden?: boolean
+}
+
+/** estilo das cotas do projeto (editor, pranchas e exportação) */
+export interface DimStyle {
+  unit: 'cm' | 'm' | 'mm'
+  /** casas decimais (cm e mm: zeros finais são omitidos) */
+  decimals: number
+  /** altura do texto no desenho, m (na escala da planta) */
+  textHeight: number
+  /** símbolo de extremidade: traço a 45°, seta ou ponto */
+  terminator: 'tick' | 'arrow' | 'dot'
 }
 
 /** entidade de underlay importada de DXF (coordenadas já em m, após escala) */
@@ -652,6 +715,8 @@ export interface Project {
   rebarOverrides?: RebarOverride[]
   /** ajustes manuais das fundações (por pilar — editor de fundações) */
   foundationOverrides?: FoundationOverride[]
+  /** estilo das cotas do usuário (ausente = padrão: cm, traço a 45°) */
+  dimStyle?: DimStyle
 }
 
 /**
@@ -699,7 +764,14 @@ export interface RebarOverride {
   spacing?: number
 }
 
-export type ElementKind = 'column' | 'beam' | 'slab' | 'wallLoad' | 'loadRegion' | 'slabLoad'
+export type ElementKind =
+  | 'column'
+  | 'beam'
+  | 'slab'
+  | 'wallLoad'
+  | 'loadRegion'
+  | 'slabLoad'
+  | 'dimension'
 
 export interface ElementRef {
   kind: ElementKind

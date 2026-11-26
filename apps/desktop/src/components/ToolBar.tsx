@@ -11,6 +11,7 @@ import {
   IconMasonry,
   IconRuler,
   IconSlabLoad,
+  IconDimension,
 } from './Icons'
 
 const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Element }[] = [
@@ -43,6 +44,12 @@ const tools: { id: Tool; title: string; icon: (p: { size?: number }) => JSX.Elem
     id: 'measure',
     title: 'Medir (D) — clique os pontos: distância por trecho e acumulada · Enter conclui · Esc limpa',
     icon: IconRuler,
+  },
+  {
+    id: 'dim',
+    title:
+      'Cota (T) — cota permanente: clique os pontos e depois a posição da linha · tipo e forma no painel',
+    icon: IconDimension,
   },
 ]
 

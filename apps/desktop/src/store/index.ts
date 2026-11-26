@@ -3,7 +3,10 @@ import { temporal } from 'zundo'
 import {
   createSampleProject,
   createEmptyProject,
+  autoDimension,
   detectFaces,
+  dimStyleOf,
+  refreshDimensions,
   nextBeamName,
   nextColumnName,
   nextPlanName,
@@ -16,8 +19,11 @@ import {
   REGION_PRESETS,
   type AnalysisResults,
   type Beam,
+  type AutoDimOptions,
   type Column,
   type ColumnSection,
+  type DimStyle,
+  type Dimension,
   type DxfUnderlay,
   type ElementRef,
   type FloorPlan,
@@ -63,6 +69,7 @@ export type Tool =
   | 'mwall'
   | 'measure'
   | 'slabload'
+  | 'dim'
 export type ViewMode = 'plan' | '3d' | 'split'
 export type Theme = 'dark' | 'light'
 
@@ -139,6 +146,14 @@ export interface ElementDefaults {
   /** valores iniciais: kN (pontual) / kN/m (linear) */
   slabLoadG?: number
   slabLoadQ?: number
+  /** cota a inserir: linear (H/V conforme o lado em que a linha é posta) ou alinhada */
+  dimMode?: 'linear' | 'aligned'
+  /** simples (2 pontos), em cadeia ou acumulada a partir do 1º ponto */
+  dimForm?: 'single' | 'chain' | 'baseline'
+  /** cadeia: linha extra com o total */
+  dimTotal?: boolean
+  /** prende os pontos aos elementos do modelo (padrão: sim) */
+  dimAssoc?: boolean
 }
 
 /**
@@ -307,6 +322,15 @@ export interface HFState {
   addSlabLoad: (pts: Vec2[]) => void
   updateSlabLoad: (id: string, patch: Partial<Omit<SlabLoad, 'id'>>) => void
   moveSlabLoad: (id: string, delta: Vec2) => void
+  /**
+   * cotas (issue #10) — anotação: NÃO invalidam a análise. Os pontos presos a
+   * elementos são atualizados a cada edição do modelo (ver `set` abaixo).
+   */
+  addDimension: (d: Omit<Dimension, 'id' | 'name'>) => string | null
+  updateDimension: (id: string, patch: Partial<Omit<Dimension, 'id'>>) => void
+  /** cota em cadeia dos pilares/vigas indicados (padrão: a seleção) */
+  autoDimension: (opts: AutoDimOptions, refs?: ElementRef[]) => 'ok' | 'none'
+  setDimStyle: (patch: Partial<DimStyle>) => void
   deleteElement: (ref: ElementRef) => void
   /** exclui vários elementos em um único passo de desfazer */
   deleteElements: (refs: ElementRef[]) => void
@@ -397,7 +421,21 @@ const initialProject = createSampleProject()
 
 export const useStore = create<HFState>()(
   temporal(
-    (set, get) => ({
+    (rawSet, get) => {
+      // toda edição do projeto passa por aqui: as cotas presas a elementos são
+      // reposicionadas no MESMO passo (e no mesmo passo de desfazer)
+      const set: typeof rawSet = ((partial: unknown, replace?: false) =>
+        rawSet((s) => {
+          const next = (
+            typeof partial === 'function' ? (partial as (st: HFState) => Partial<HFState>)(s) : partial
+          ) as Partial<HFState>
+          if (next.project && next.project !== s.project) {
+            const project = refreshDimensions(next.project)
+            return project === next.project ? next : { ...next, project }
+          }
+          return next
+        }, replace)) as typeof rawSet
+      return {
       project: initialProject,
       fileName: null,
       dirty: false,
@@ -596,6 +634,7 @@ export const useStore = create<HFState>()(
           ...(plan?.slabs ?? []).map((x) => ({ kind: 'slab' as const, id: x.id })),
           ...(plan?.loadRegions ?? []).map((r) => ({ kind: 'loadRegion' as const, id: r.id })),
           ...(plan?.slabLoads ?? []).map((l) => ({ kind: 'slabLoad' as const, id: l.id })),
+          ...(plan?.dimensions ?? []).map((d) => ({ kind: 'dimension' as const, id: d.id })),
         ]
         set({ multi: refs, selection: refs[refs.length - 1] ?? null })
       },
@@ -765,7 +804,9 @@ export const useStore = create<HFState>()(
         const next = moveInProject(get().project, refs, delta)
         if (next === 'duplicate') return 'duplicate'
         if (next === get().project) return 'ok'
-        set({ project: next, dirty: true, results: null, analysisStatus: 'idle' })
+        // só cotas: é anotação, a análise continua valendo
+        if (refs.every((r) => r.kind === 'dimension')) set({ project: next, dirty: true })
+        else set({ project: next, dirty: true, results: null, analysisStatus: 'idle' })
         return 'ok'
       },
       alignSelection: (mode) => {
@@ -1100,9 +1141,70 @@ export const useStore = create<HFState>()(
           analysisStatus: 'idle',
         })
       },
+      addDimension: (d) => {
+        const s = get()
+        const plan = activePlanOf(s.project, s.activeLevelId)
+        if (!plan || d.points.length < 2) return null
+        const used = new Set((plan.dimensions ?? []).map((x) => x.name))
+        let n = 1
+        while (used.has(`Cota ${n}`)) n++
+        const dim: Dimension = { ...d, id: uid('dim'), name: `Cota ${n}` }
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            dimensions: [...(pl.dimensions ?? []), dim],
+          })),
+          dirty: true,
+          selection: { kind: 'dimension', id: dim.id },
+          multi: [],
+        })
+        return dim.id
+      },
+      updateDimension: (id, patch) => {
+        const s = get()
+        const plan = s.project.plans.find((pl) => pl.dimensions?.some((d) => d.id === id))
+        if (!plan) return
+        set({
+          project: withPlan(s.project, plan.id, (pl) => ({
+            ...pl,
+            dimensions: (pl.dimensions ?? []).map((d) => (d.id === id ? { ...d, ...patch } : d)),
+          })),
+          dirty: true,
+        })
+      },
+      autoDimension: (opts, refs) => {
+        const s = get()
+        const plan = activePlanOf(s.project, s.activeLevelId)
+        if (!plan) return 'none'
+        const d = autoDimension(s.project, plan, refs ?? selectedRefs(s), opts)
+        if (!d) return 'none'
+        return get().addDimension(d) ? 'ok' : 'none'
+      },
+      setDimStyle: (patch) =>
+        set((s) => ({
+          project: { ...s.project, dimStyle: { ...dimStyleOf(s.project), ...patch } },
+          dirty: true,
+        })),
       deleteElement: (ref) => {
         const s = get()
         let project = s.project
+        if (ref.kind === 'dimension') {
+          // anotação: sai sem invalidar a análise
+          set({
+            project: {
+              ...project,
+              plans: project.plans.map((pl) =>
+                pl.dimensions?.some((d) => d.id === ref.id)
+                  ? { ...pl, dimensions: pl.dimensions.filter((d) => d.id !== ref.id) }
+                  : pl,
+              ),
+            },
+            dirty: true,
+            selection: s.selection?.id === ref.id ? null : s.selection,
+            multi: s.multi.filter((r) => r.id !== ref.id),
+          })
+          return
+        }
         if (ref.kind === 'column') {
           project = { ...project, columns: project.columns.filter((c) => c.id !== ref.id) }
         } else {
@@ -1150,6 +1252,9 @@ export const useStore = create<HFState>()(
         const regions = ids('loadRegion')
         const walls = ids('wallLoad')
         const sLoads = ids('slabLoad')
+        const dims = ids('dimension')
+        // só cotas na seleção: a análise continua valendo
+        const onlyDims = refs.every((r) => r.kind === 'dimension')
         set({
           project: {
             ...s.project,
@@ -1163,11 +1268,13 @@ export const useStore = create<HFState>()(
               ...(pl.slabLoads
                 ? { slabLoads: pl.slabLoads.filter((l) => !sLoads.has(l.id)) }
                 : {}),
+              ...(pl.dimensions
+                ? { dimensions: pl.dimensions.filter((d) => !dims.has(d.id)) }
+                : {}),
             })),
           },
           dirty: true,
-          results: null,
-          analysisStatus: 'idle',
+          ...(onlyDims ? {} : { results: null, analysisStatus: 'idle' as const }),
           selection: null,
           multi: [],
         })
@@ -1262,6 +1369,24 @@ export const useStore = create<HFState>()(
             id: uid('wl'),
             beamId: beamIdMap.get(w.beamId) ?? w.beamId,
           }))
+          // cotas vão junto; as presas a vigas passam a apontar para as vigas da cópia
+          if (src.dimensions && src.dimensions.length > 0) {
+            plan.dimensions = src.dimensions.map((d) => ({
+              ...d,
+              id: uid('dim'),
+              points: d.points.map((pt) => ({
+                p: { ...pt.p },
+                ...(pt.ref
+                  ? {
+                      ref:
+                        pt.ref.kind === 'beam'
+                          ? { ...pt.ref, id: beamIdMap.get(pt.ref.id) ?? pt.ref.id }
+                          : { ...pt.ref },
+                    }
+                  : {}),
+              })),
+            }))
+          }
         }
         set({ project: { ...s.project, plans: [...s.project.plans, plan] }, dirty: true })
       },
@@ -1476,7 +1601,8 @@ export const useStore = create<HFState>()(
         worker.postMessage(s.project)
       },
       invalidateResults: () => set({ results: null, analysisStatus: 'idle' }),
-    }),
+      }
+    },
     {
       partialize: (state) => ({ project: state.project }),
       limit: 64,

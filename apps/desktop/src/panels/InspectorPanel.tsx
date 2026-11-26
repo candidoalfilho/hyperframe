@@ -39,6 +39,7 @@ import PlansManager from './PlansManager'
 import { MemberForcesSection } from './MemberDiagrams'
 import LatticeSlabFields from './LatticeSlabFields'
 import SlabLoadInspector, { SlabLoadDefaults } from './SlabLoadInspector'
+import DimensionInspector, { DimensionDefaults } from './DimensionInspector'
 import {
   AnchorPicker,
   BeamWallLoads,
@@ -2241,6 +2242,11 @@ export default function InspectorPanel() {
         .flatMap((p) => p.slabLoads ?? [])
         .find((l) => l.id === selection.id)
       if (load) content = <SlabLoadInspector key={load.id} load={load} />
+    } else if (selection.kind === 'dimension') {
+      const dim = project.plans
+        .flatMap((p) => p.dimensions ?? [])
+        .find((d) => d.id === selection.id)
+      if (dim) content = <DimensionInspector key={dim.id} dim={dim} />
     } else {
       const wl = project.plans.flatMap((p) => p.wallLoads).find((w) => w.id === selection.id)
       if (wl) content = <WallLoadInspector key={wl.id} wl={wl} project={project} />
@@ -2266,6 +2272,20 @@ export default function InspectorPanel() {
               Próxima carga
             </div>
             <SlabLoadDefaults />
+          </div>
+        )}
+        {/* ferramenta Cota: tipo, forma, cotagem automática e estilo sempre à mão */}
+        {tool === 'dim' && (
+          <div
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '8px 10px 2px',
+              marginBottom: 12,
+              background: 'var(--bg-2)',
+            }}
+          >
+            <DimensionDefaults />
           </div>
         )}
         {content}

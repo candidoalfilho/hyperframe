@@ -2,6 +2,7 @@ import type { ElementRef, Project } from '../model/types'
 import { dist, pointInPolygon, polygonArea, projectOnSegment, TOL } from '../geometry/geometry'
 import { columnSectionInfo } from './columnSection'
 import { slabOpeningPolygons } from '../analysis/buildModel'
+import { lostDimRefs } from './dimensions'
 
 /**
  * Verificação de consistência do modelo (pré-análise) — no espírito do
@@ -317,6 +318,21 @@ export function checkConsistency(project: Project): ConsistencyIssue[] {
   for (const c of project.columns) names.set(c.name, (names.get(c.name) ?? 0) + 1)
   for (const [name, count] of names) {
     if (count > 1) push('leve', `${count} pilares com o mesmo nome "${name}".`)
+  }
+
+  // cotas cuja referência deixou de existir (leve: é só anotação)
+  for (const plan of project.plans) {
+    for (const d of plan.dimensions ?? []) {
+      const lost = lostDimRefs(project, plan, d)
+      if (lost.length > 0) {
+        push(
+          'leve',
+          `${d.name}: ${lost.length} ponto(s) perderam a referência (elemento excluído) — a cota ficou parada onde estava.`,
+          { kind: 'dimension', id: d.id },
+          plan.name,
+        )
+      }
+    }
   }
 
   const order: IssueSeverity[] = ['grave', 'media', 'leve']

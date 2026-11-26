@@ -5,7 +5,7 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.59-orange) ![tests](https://img.shields.io/badge/testes-692%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.60-orange) ![tests](https://img.shields.io/badge/testes-740%20passando-brightgreen)
 
 ## O que já faz (v0.2.52)
 
