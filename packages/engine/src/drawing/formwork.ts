@@ -9,7 +9,7 @@
  * gerador DXF.
  */
 
-import type { Project, Vec2 } from '../model/types'
+import type { DimCategory, Project, Vec2 } from '../model/types'
 import type { Drawing, DrawingPrimitive } from './types'
 import { polygonCentroid } from '../geometry/geometry'
 import { dimStyleOf } from '../model/dimensions'
@@ -159,8 +159,13 @@ export function buildFormworkDrawing(
   project: Project,
   planId: string,
   opts: {
-    /** inclui as cotas do usuário não ocultas (padrão: sim) */
-    userDims?: boolean
+    /**
+     * cotas do usuário não ocultas: todas (padrão), nenhuma (false) ou só as
+     * finalidades listadas (cota sem finalidade conta como 'geral')
+     */
+    userDims?: boolean | DimCategory[]
+    /** cotas automáticas entre eixos da grelha (padrão: sim) */
+    axisDims?: boolean
   } = {},
 ): Drawing {
   const plan = project.plans.find((p) => p.id === planId)
@@ -235,8 +240,9 @@ export function buildFormworkDrawing(
   }
 
   // ---- cotas entre eixos adjacentes, afastadas para fora do conteúdo ----
+  const withAxisDims = opts.axisDims !== false
   const xs = [...project.grid.xAxes].sort((a, b) => a.pos - b.pos)
-  for (let i = 0; i + 1 < xs.length; i++) {
+  for (let i = 0; withAxisDims && i + 1 < xs.length; i++) {
     const a = xs[i]
     const b = xs[i + 1]
     prims.push({
@@ -252,7 +258,7 @@ export function buildFormworkDrawing(
     })
   }
   const ys = [...project.grid.yAxes].sort((a, b) => a.pos - b.pos)
-  for (let i = 0; i + 1 < ys.length; i++) {
+  for (let i = 0; withAxisDims && i + 1 < ys.length; i++) {
     const a = ys[i]
     const b = ys[i + 1]
     prims.push({
@@ -481,8 +487,11 @@ export function buildFormworkDrawing(
   // ---- cotas do usuário (issue #10): as mesmas do editor, exceto as ocultas ----
   if (opts.userDims !== false) {
     const style = dimStyleOf(project)
+    const only = Array.isArray(opts.userDims) ? opts.userDims : null
     for (const d of plan.dimensions ?? []) {
-      if (!d.hidden) prims.push(...dimensionPrimitives(d, style))
+      if (d.hidden) continue
+      if (only && !only.includes(d.category ?? 'geral')) continue
+      prims.push(...dimensionPrimitives(d, style))
     }
   }
 

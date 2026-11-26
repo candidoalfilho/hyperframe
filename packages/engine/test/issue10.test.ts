@@ -293,10 +293,10 @@ describe('cotagem automática da seleção', () => {
     expect(values.slice(0, -1)).toEqual(xs.slice(1).map((x, i) => x - xs[i]))
     expect(values[values.length - 1]).toBeCloseTo(xs[xs.length - 1] - xs[0], 12)
     expect(d.category).toBe('locacao')
-    // linha 80 cm abaixo da face dos pilares de baixo
+    // linha 60 cm abaixo da face dos pilares de baixo
     const lay = dimensionLayout(full, S)
     const faceY = Math.min(...p.columns.map((c) => resolveDimRef(p, plan, { kind: 'column', id: c.id, at: 's' }, c.pos)!.y))
-    expect(lay.main.a.y).toBeCloseTo(faceY - 0.8, 9)
+    expect(lay.main.a.y).toBeCloseTo(faceY - 0.6, 9)
   })
 
   it('em Y pelo lado direito: linha à direita dos pilares', () => {
@@ -377,6 +377,24 @@ describe('pranchas, PDF e DXF', () => {
     expect(texts).not.toContain('37')
     // a cota abaixo da planta alarga os limites do desenho
     expect(withDims.bounds.minY).toBeLessThan(without.bounds.minY + 1e-9)
+  })
+
+  it('filtro por finalidade e cotas automáticas entre eixos desligáveis', () => {
+    const q: Project = JSON.parse(JSON.stringify(p))
+    q.plans[0].dimensions = [
+      free([[0, 0], [1.11, 0]], { id: 'l', category: 'locacao' }),
+      free([[0, 0], [2.22, 0]], { id: 'g' }), // sem finalidade = geral
+    ]
+    const texts = (o: Parameters<typeof buildFormworkDrawing>[2]) =>
+      buildFormworkDrawing(q, q.plans[0].id, o).primitives.flatMap((x) => (x.kind === 'text' ? [x.text] : []))
+    expect(texts({ userDims: ['locacao'] })).toContain('111')
+    expect(texts({ userDims: ['locacao'] })).not.toContain('222')
+    expect(texts({ userDims: ['geral'] })).toContain('222')
+    expect(texts({ userDims: ['geral'] })).not.toContain('111')
+    const dimsOf = (o: Parameters<typeof buildFormworkDrawing>[2]) =>
+      buildFormworkDrawing(q, q.plans[0].id, o).primitives.filter((x) => x.kind === 'dim').length
+    expect(dimsOf({})).toBeGreaterThan(0)
+    expect(dimsOf({ axisDims: false })).toBe(0)
   })
 
   it('unidade do projeto vale nas pranchas', () => {

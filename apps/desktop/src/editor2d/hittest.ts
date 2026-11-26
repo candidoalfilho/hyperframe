@@ -2,8 +2,11 @@ import {
   columnHalfExtents,
   pointInPolygon,
   projectOnSegment,
+  dimensionLayout,
   type Beam,
   type Column,
+  type DimStyle,
+  type Dimension,
   type ElementRef,
   type LoadRegion,
   type Slab,
@@ -11,6 +14,7 @@ import {
   type Vec2,
   type WallLoad,
 } from '@hyperframe/engine'
+import { dimTextHeight, dimensionAt } from './dimTool'
 
 /** menor distância do ponto a uma polilinha */
 export function distToPath(p: Vec2, path: Vec2[]): number {
@@ -43,6 +47,9 @@ export interface HitContext {
   loadRegions: LoadRegion[]
   /** cargas concentradas/lineares sobre lajes */
   slabLoads?: SlabLoad[]
+  /** cotas do usuário (com o estilo do projeto) — só se as cotas estão visíveis */
+  dimensions?: Dimension[]
+  dimStyle?: DimStyle
   showLoads: boolean
   showSlabs: boolean
   /** px por metro — p/ tolerância mínima de 8 px nas vigas */
@@ -83,7 +90,7 @@ export function wallLoadOnBeamAt(p: Vec2, ctx: HitContext, beamId: string): Wall
 }
 
 /**
- * hit-test com prioridade: pilares > cargas sobre laje > regiões de carga > vigas > cargas de
+ * hit-test com prioridade: pilares > cotas > cargas sobre laje > regiões de carga > vigas > cargas de
  * parede > lajes. A VIGA vem antes da carga de parede desenhada sobre ela —
  * a carga é alcançada clicando ao lado da viga (rótulo) ou clicando de novo
  * na viga já selecionada (ver Editor2D) e pelo painel da viga.
@@ -98,6 +105,12 @@ export function hitTest(p: Vec2, ctx: HitContext): ElementRef | null {
     if (Math.abs(p.x - c.pos.x) <= hx && Math.abs(p.y - c.pos.y) <= hy) {
       return { kind: 'column', id: c.id }
     }
+  }
+
+  // cotas — linhas finas, quase sempre fora da estrutura: logo depois dos pilares
+  if (ctx.dimensions && ctx.dimensions.length > 0 && ctx.dimStyle) {
+    const d = dimensionAt(p, ctx.dimensions, ctx.dimStyle, ctx.k)
+    if (d) return { kind: 'dimension', id: d.id }
   }
 
   // cargas sobre laje — marcador pequeno: antes das regiões e das vigas
@@ -225,6 +238,16 @@ export function marqueeHits(r: WorldRect, crossing: boolean, ctx: HitContext): E
       const full = inRect(l.a, r) && (!l.b || inRect(l.b, r))
       const touch = crossing && !!l.b && segHitsRect(l.a, l.b, r)
       if (full || touch) out.push({ kind: 'slabLoad', id: l.id })
+    }
+  }
+  // cotas: pela linha de cota principal
+  if (ctx.dimensions && ctx.dimStyle) {
+    const h = dimTextHeight(ctx.dimStyle, ctx.k)
+    for (const d of ctx.dimensions) {
+      if (d.points.length < 2) continue
+      const { main } = dimensionLayout(d, ctx.dimStyle, h)
+      const full = inRect(main.a, r) && inRect(main.b, r)
+      if (full || (crossing && segHitsRect(main.a, main.b, r))) out.push({ kind: 'dimension', id: d.id })
     }
   }
   return out

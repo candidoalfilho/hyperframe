@@ -7,7 +7,7 @@ import { columnHalfExtents, type Column, type Project, type Vec2 } from '@hyperf
  */
 
 export interface GeoRef {
-  kind: 'column' | 'beam' | 'slab' | 'wallLoad' | 'loadRegion' | 'mwall' | 'slabLoad'
+  kind: 'column' | 'beam' | 'slab' | 'wallLoad' | 'loadRegion' | 'mwall' | 'slabLoad' | 'dimension'
   id: string
 }
 
@@ -86,7 +86,12 @@ export function moveInProject(p: Project, refs: GeoRef[], delta: Vec2): Project 
       ...pl.slabs.filter((x) => has(refs, 'slab', x.id)).flatMap((x) => x.polygon),
       ...pl.loadRegions.filter((r) => has(refs, 'loadRegion', r.id)).flatMap((r) => r.polygon),
     ]
-    if (pts.length === 0 && !pl.slabLoads?.some((l) => has(refs, 'slabLoad', l.id))) return pl
+    if (
+      pts.length === 0 &&
+      !pl.slabLoads?.some((l) => has(refs, 'slabLoad', l.id)) &&
+      !pl.dimensions?.some((d) => has(refs, 'dimension', d.id))
+    )
+      return pl
     const near = (q: Vec2) => pts.some((m) => Math.hypot(q.x - m.x, q.y - m.y) < 0.02)
     const mv = (q: Vec2) => (near(q) ? shift(q) : q)
     return {
@@ -104,6 +109,17 @@ export function moveInProject(p: Project, refs: GeoRef[], delta: Vec2): Project 
               has(refs, 'slabLoad', l.id)
                 ? { ...l, a: shift(l.a), ...(l.b ? { b: shift(l.b) } : {}) }
                 : l,
+            ),
+          }
+        : {}),
+      // cotas selecionadas: os pontos LIVRES se movem; os presos seguem a
+      // referência deles (o store atualiza depois de cada edição)
+      ...(pl.dimensions
+        ? {
+            dimensions: pl.dimensions.map((d) =>
+              has(refs, 'dimension', d.id)
+                ? { ...d, points: d.points.map((pt) => (pt.ref ? pt : { ...pt, p: shift(pt.p) })) }
+                : d,
             ),
           }
         : {}),

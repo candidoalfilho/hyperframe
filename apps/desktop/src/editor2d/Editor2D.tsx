@@ -7,8 +7,12 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
+  dimDirection,
+  dimStyleOf,
   dist,
+  lostDimRefs,
   type Column,
+  type Dimension,
   type ElementRef,
   type FloorPlan,
   type Grid,
@@ -41,6 +45,8 @@ import SelectionOverlay from './layers/SelectionOverlay'
 import MeasureLayer from './layers/MeasureLayer'
 import RigidArmsLayer from './layers/RigidArmsLayer'
 import SlabLoadsLayer from './layers/SlabLoadsLayer'
+import DimensionsLayer from './layers/DimensionsLayer'
+import { dimFromPicks } from './dimTool'
 
 const ORTHO_MAX_RAD = (15 * Math.PI) / 180
 /** tolerância de snap em px de tela */
@@ -110,7 +116,7 @@ const slabLoadGhost = (l: SlabLoad): Vec2[] =>
 /** estado de um arrasto de elemento (ferramenta selecionar) */
 interface DragState {
   /** 'group' = conjunto selecionado · 'marquee' = janela de seleção no vazio */
-  kind: 'column' | 'beam' | 'loadRegion' | 'slabLoad' | 'mwall' | 'group' | 'marquee'
+  kind: 'column' | 'beam' | 'loadRegion' | 'slabLoad' | 'dimension' | 'mwall' | 'group' | 'marquee'
   id: string
   name: string
   /** ponto de mundo onde o arrasto começou */
@@ -134,6 +140,9 @@ interface DragState {
   clickSelect?: ElementRef
   /** janela com Shift: soma à seleção atual */
   additive?: boolean
+  /** cota arrastada: a original e o afastamento proposto */
+  dim?: Dimension
+  dimOffset?: number
 }
 
 export default function Editor2D() {
@@ -141,6 +150,8 @@ export default function Editor2D() {
   const grid = useStore((s) => s.project.grid)
   const columns = useStore((s) => s.project.columns)
   const underlay = useStore((s) => s.project.underlay ?? null)
+  const dimStyleRaw = useStore((s) => s.project.dimStyle)
+  const dimStyle = useMemo(() => dimStyleOf({ dimStyle: dimStyleRaw }), [dimStyleRaw])
   const foundations = useStore((s) => s.results?.foundations ?? null)
   const isLowestLevel = useStore((s) => s.activeLevelId === s.project.levels[0]?.id)
   // braços rígidos viga–pilar do modelo analisado, no nível ativo
@@ -178,6 +189,10 @@ export default function Editor2D() {
   const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2; crossing: boolean } | null>(null)
   /** medição concluída (Enter/duplo-clique): fica na tela até o próximo clique */
   const [measureDone, setMeasureDone] = useState(false)
+  /** cota: pontos concluídos — o próximo clique posiciona a linha de cota */
+  const [dimPlacing, setDimPlacing] = useState(false)
+  /** cota sendo arrastada (prévia com o novo afastamento) */
+  const [dimDrag, setDimDrag] = useState<Dimension | null>(null)
 
   const [chain, setChain] = useState<Vec2[]>([])
   const chainRef = useRef<Vec2[]>(chain)
@@ -268,6 +283,7 @@ export default function Editor2D() {
         e.stopPropagation()
         dragRef.current = null
         setDragGhosts([])
+        setDimDrag(null)
         setMarquee(null)
       }
     }
@@ -299,6 +315,10 @@ export default function Editor2D() {
       else setChain([])
     } else if (t === 'slabload') {
       setChain([])
+    } else if (t === 'dim') {
+      // pontos concluídos: falta posicionar a linha de cota
+      if (c.length >= 2) setDimPlacing(true)
+      else setChain([])
     } else if (t === 'region') {
       if (c.length < 3) {
         showToast('Região precisa de pelo menos 3 pontos')
@@ -312,13 +332,21 @@ export default function Editor2D() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = useStore.getState().tool
-      if (t !== 'beam' && t !== 'region' && t !== 'mwall' && t !== 'measure' && t !== 'slabload')
+      if (
+        t !== 'beam' &&
+        t !== 'region' &&
+        t !== 'mwall' &&
+        t !== 'measure' &&
+        t !== 'slabload' &&
+        t !== 'dim'
+      )
         return
       if (e.key === 'Escape' && chainRef.current.length > 0) {
         e.preventDefault()
         e.stopPropagation()
         setChain([])
         setMeasureDone(false)
+        setDimPlacing(false)
       } else if (e.key === 'Enter' && chainRef.current.length > 0) {
         e.preventDefault()
         finishChain()
@@ -333,6 +361,7 @@ export default function Editor2D() {
   useEffect(() => {
     setChain([])
     setMeasureDone(false)
+    setDimPlacing(false)
     setCursorSnap(null)
     const st = useStore.getState()
     if (st.hoverRef) st.setHover(null)
@@ -363,13 +392,16 @@ export default function Editor2D() {
       tool === 'region' ||
       tool === 'mwall' ||
       tool === 'measure' ||
-      tool === 'slabload'
+      tool === 'slabload' ||
+      tool === 'dim'
     ) {
       const snap = computeSnap(raw, snapData, tolW)
       if (snap) return snap
       let pt = roundPoint05(raw)
       const c = chainRef.current
-      if (c.length > 0 && !alt) pt = applyOrtho(c[c.length - 1], pt, orthoMode)
+      // posicionando a linha de cota não há trava: o cursor só define o afastamento
+      if (c.length > 0 && !alt && !(tool === 'dim' && dimPlacing))
+        pt = applyOrtho(c[c.length - 1], pt, orthoMode)
       return { point: pt, kind: null }
     }
     return { point: raw, kind: null }
@@ -382,6 +414,8 @@ export default function Editor2D() {
     wallLoads: plan?.wallLoads ?? [],
     loadRegions: plan?.loadRegions ?? [],
     slabLoads: plan?.slabLoads ?? [],
+    dimensions: display.showDims ? (plan?.dimensions ?? []) : [],
+    dimStyle,
     showLoads: display.showLoads,
     showSlabs: display.showSlabs,
     k: vp.k,
@@ -500,7 +534,39 @@ export default function Editor2D() {
         } else if (hit.kind === 'slabLoad') {
           const l = plan?.slabLoads?.find((x) => x.id === hit.id)
           if (l) startDrag({ kind: 'slabLoad', id: l.id, name: l.name, path: slabLoadGhost(l), bw: 0.06 })
+        } else if (hit.kind === 'dimension') {
+          // arrastar a cota muda só o afastamento da linha (os pontos ficam)
+          const d = plan?.dimensions?.find((x) => x.id === hit.id)
+          if (d) startDrag({ kind: 'dimension', id: d.id, name: d.name, dim: d })
         }
+        break
+      }
+      case 'dim': {
+        if (!plan) break
+        const pt = effectiveCursor(raw, e.altKey).point
+        const picks = {
+          points: chainRef.current,
+          cursor: pt,
+          placing: dimPlacing,
+          mode: st.defaults.dimMode ?? 'linear',
+          form: st.defaults.dimForm ?? 'single',
+          total: st.defaults.dimTotal ?? true,
+          assoc: st.defaults.dimAssoc ?? true,
+        }
+        if (dimPlacing) {
+          const d = dimFromPicks(picks, st.project, plan)
+          if (d) st.addDimension(d)
+          setChain([])
+          setDimPlacing(false)
+          break
+        }
+        const c = chainRef.current
+        const last = c[c.length - 1]
+        if (last && dist(last, pt) < 1e-6) break
+        const next = [...c, pt]
+        setChain(next)
+        // cota simples: com o 2º ponto já passa a posicionar a linha
+        if (picks.form === 'single' && next.length >= 2) setDimPlacing(true)
         break
       }
       case 'slabload': {
@@ -584,6 +650,14 @@ export default function Editor2D() {
         setMarquee({ a: drag.start, b: raw, crossing: s.x < drag.startScreen.x })
         return
       }
+      if (drag.kind === 'dimension' && drag.dim) {
+        const u = dimDirection(drag.dim)
+        const moved = (raw.x - drag.start.x) * -u.y + (raw.y - drag.start.y) * u.x
+        drag.dimOffset = r05(drag.dim.offset + moved)
+        setDimDrag({ ...drag.dim, offset: drag.dimOffset })
+        st.setCursorWorld(raw)
+        return
+      }
       // no grupo o Shift não inverte o ORTO (Shift ali é "somar à seleção")
       const lock = drag.kind === 'group' ? orthoMode : orthoMode !== e.shiftKey
       if (drag.kind === 'group' && drag.ghosts) {
@@ -660,10 +734,16 @@ export default function Editor2D() {
     if (drag) {
       dragRef.current = null
       setDragGhosts([])
+      setDimDrag(null)
       if (e.currentTarget.hasPointerCapture(e.pointerId)) {
         e.currentTarget.releasePointerCapture(e.pointerId)
       }
       const st = useStore.getState()
+      if (drag.kind === 'dimension') {
+        if (drag.moved && drag.dimOffset !== undefined && drag.dim && drag.dimOffset !== drag.dim.offset)
+          st.updateDimension(drag.id, { offset: drag.dimOffset })
+        return
+      }
       if (drag.kind === 'marquee') {
         setMarquee(null)
         // Shift+clique numa laje (sem arrastar): soma/retira a laje
@@ -725,7 +805,8 @@ export default function Editor2D() {
   }
 
   const onDoubleClick = () => {
-    if (tool === 'beam' || tool === 'region' || tool === 'mwall' || tool === 'measure') finishChain()
+    if (tool === 'beam' || tool === 'region' || tool === 'mwall' || tool === 'measure' || tool === 'dim')
+      finishChain()
   }
 
   // seleção múltipla efetiva (ignora um `multi` antigo que não contém a seleção)
@@ -743,9 +824,45 @@ export default function Editor2D() {
   const hovWall = hoverRef?.kind === 'wallLoad' ? hoverRef.id : null
   const hovRegion = hoverRef?.kind === 'loadRegion' ? hoverRef.id : null
 
+  // ---- cotas: prévia do gesto, seleção e referências perdidas ----
+  const dimMode = defaults.dimMode ?? 'linear'
+  const dimForm = defaults.dimForm ?? 'single'
+  const dimTotal = defaults.dimTotal ?? true
+  const dimAssoc = defaults.dimAssoc ?? true
+  const dimPreview = useMemo<Dimension | null>(() => {
+    if (tool !== 'dim') return null
+    const d = dimFromPicks(
+      {
+        points: chain,
+        cursor: cursorSnap?.point ?? null,
+        placing: dimPlacing,
+        mode: dimMode,
+        form: dimForm,
+        total: dimTotal,
+        assoc: dimAssoc,
+      },
+      { columns, grid },
+      plan,
+    )
+    return d ? { ...d, id: '__preview', name: '' } : null
+  }, [tool, chain, cursorSnap, dimPlacing, dimMode, dimForm, dimTotal, dimAssoc, columns, grid, plan])
+  const selDims = useMemo(
+    () => groupRefs.filter((r) => r.kind === 'dimension').map((r) => r.id),
+    [groupRefs],
+  )
+  const lostDims = useMemo(
+    () =>
+      plan
+        ? (plan.dimensions ?? [])
+            .filter((d) => lostDimRefs({ columns, grid }, plan, d).length > 0)
+            .map((d) => d.id)
+        : [],
+    [plan, columns, grid],
+  )
+
   const cursorCss = panning
     ? 'grabbing'
-    : dragGhosts.length > 0
+    : dragGhosts.length > 0 || dimDrag
       ? 'move'
       : spaceDown || handMode
         ? 'grab'
@@ -879,6 +996,21 @@ export default function Editor2D() {
               k={vp.k}
               selectedId={selWall}
               hoveredId={hovWall}
+            />
+          )}
+          {plan && display.showDims && ((plan.dimensions?.length ?? 0) > 0 || dimPreview || dimDrag) && (
+            <DimensionsLayer
+              dimensions={
+                dimDrag
+                  ? (plan.dimensions ?? []).map((d) => (d.id === dimDrag.id ? dimDrag : d))
+                  : (plan.dimensions ?? [])
+              }
+              style={dimStyle}
+              k={vp.k}
+              selectedIds={selDims}
+              hoveredId={hoverRef?.kind === 'dimension' ? hoverRef.id : null}
+              lostIds={lostDims}
+              preview={dimPreview}
             />
           )}
           <PreviewLayer

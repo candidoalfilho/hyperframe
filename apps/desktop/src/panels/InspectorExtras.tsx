@@ -24,6 +24,7 @@ import {
 } from '../store/align'
 import { NumberField } from './NumberField'
 import { cm, fmt } from './format'
+import { AutoDimTools } from './DimensionInspector'
 
 const beamLengthOf = (beam: Beam | undefined): number => {
   if (!beam) return 0
@@ -346,6 +347,7 @@ const KIND_LABEL: Record<ElementRef['kind'], [string, string]> = {
   loadRegion: ['região de carga', 'regiões de carga'],
   wallLoad: ['carga de parede', 'cargas de parede'],
   slabLoad: ['carga na laje', 'cargas na laje'],
+  dimension: ['cota', 'cotas'],
 }
 
 /** painel da seleção múltipla: mover por valor, girar pilares, excluir */
@@ -559,6 +561,8 @@ export function MultiInspector({ refs }: { refs: ElementRef[] }) {
       </div>
 
       <AlignTools refs={refs} />
+
+      <AutoDimTools refs={refs} />
 
       {colIds.length > 0 && (
         <button className="btn" style={{ width: '100%', marginBottom: 8 }} onClick={() => rotateColumns(colIds)}>

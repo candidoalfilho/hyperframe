@@ -429,7 +429,7 @@ export function autoDimension(
     points.push(pt)
   }
   if (points.length < 2) return null
-  const gap = opts.gap ?? 0.8
+  const gap = opts.gap ?? 0.6
   const linePos = opts.side === 'min' ? lo - gap : hi + gap
   // h: linha em y = p0.y + offset · v: linha em x = p0.x − offset
   const offset = horizontal ? linePos - points[0].p.y : points[0].p.x - linePos

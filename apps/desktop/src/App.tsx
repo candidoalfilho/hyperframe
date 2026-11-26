@@ -181,6 +181,10 @@ export default function App() {
         case 'R':
           s.setTool('region')
           break
+        case 't':
+        case 'T':
+          s.setTool('dim')
+          break
         case 'Delete':
         case 'Backspace':
           s.deleteSelected()

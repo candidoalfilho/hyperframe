@@ -39,6 +39,7 @@ export default function StatusBar() {
     beam: 'clique os pontos da viga · Enter/duplo-clique finaliza · Esc cancela',
     slab: 'clique dentro de um contorno fechado de vigas',
     wall: 'clique na viga para aplicar carga de alvenaria',
+    dim: 'cota — clique os pontos (snap prende ao modelo) · Enter/duplo-clique conclui a cadeia · clique a posição da linha · Esc cancela',
     slabload:
       'carga na laje — pontual: clique na posição · linear: clique o início e o fim · Esc cancela · F8 orto',
   }

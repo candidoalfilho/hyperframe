@@ -108,6 +108,12 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
   τRd1 = 794 kPa < τSd1 = 1384 kPa ⇒ exige armadura)
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
+- Cotas do usuário (v0.2.60): linear horizontal entre (1;2) e (5;3) mede Δx = 4,00 m com a
+  linha em y = 1; alinhada no triângulo 3-4-5 mede 5,00 m com a linha a 1 m na normal;
+  cadeia 0–4–8,5–12,5 m ⇒ 400 · 450 · 400 e total 1250 cm; acumulada ⇒ 0 · 400 · 850 · 1250;
+  pilar movido 35 cm ⇒ cota +35 cm; pilar 10 cm mais largo dos dois lados ⇒ vão livre
+  −10 cm; cotagem automática de 12 pilares ⇒ 4 alinhamentos em X; os mesmos números saem
+  na planta de forma e no DXF
 - Caminho das cargas (v0.2.59): painel isolado de 4 × 6 m (laje h = 12, g = 4 kN/m²,
   vigas 15×40, pilares 20×20) — quinhões de 4 m² (triângulos) e 8 m² (trapézios) ⇒ 16 e
   32 kN por borda; vigas 22 e 41 kN, metade para cada pilar; 31,5 kN das vigas + 3 kN de

@@ -13,6 +13,7 @@ import {
   buildSlabRebarDrawing,
   composeSheet,
   writeDxf,
+  type DimCategory,
   type Drawing,
   type SheetFormat,
 } from '@hyperframe/engine'
@@ -66,6 +67,10 @@ export default function PranchasPanel() {
   const [cutDir, setCutDir] = useState<'x' | 'y'>('x')
   const [cutAxisId, setCutAxisId] = useState('')
   const [withSheet, setWithSheet] = useState(false)
+  /** cotas do usuário na planta de forma: todas, nenhuma ou só uma finalidade */
+  const [userDims, setUserDims] = useState<'all' | 'none' | DimCategory>('all')
+  /** cotas automáticas entre eixos (desligar quando as do usuário já cobrem) */
+  const [axisDims, setAxisDims] = useState(true)
   const [format, setFormat] = useState<SheetFormat>('A1')
   const [scaleOpt, setScaleOpt] = useState<'auto' | number>('auto')
 
@@ -117,7 +122,12 @@ export default function PranchasPanel() {
   const content = useMemo<Drawing | null>(() => {
     try {
       if (tipo === 'forma') {
-        return effectivePlanId ? buildFormworkDrawing(project, effectivePlanId) : null
+        return effectivePlanId
+          ? buildFormworkDrawing(project, effectivePlanId, {
+              userDims: userDims === 'all' ? true : userDims === 'none' ? false : [userDims],
+              axisDims,
+            })
+          : null
       }
       if (tipo === 'corte') {
         // corta 1 cm ao lado do eixo p/ pegar os pilares do alinhamento
@@ -157,7 +167,7 @@ export default function PranchasPanel() {
     } catch {
       return null
     }
-  }, [tipo, project, results, effectivePlanId, effectiveBeam, cutDir, effectiveCutAxis, effectiveCol, effectiveMw])
+  }, [tipo, project, results, effectivePlanId, effectiveBeam, cutDir, effectiveCutAxis, effectiveCol, effectiveMw, userDims, axisDims])
 
   const sheet = useMemo(() => {
     if (!content) return null
@@ -312,6 +322,34 @@ export default function PranchasPanel() {
             </select>
           </>
         )}
+
+        {tipo === 'forma' &&
+          (project.plans.find((p) => p.id === effectivePlanId)?.dimensions?.length ?? 0) > 0 && (
+            <>
+              <span className="label" style={{ margin: 0 }}>
+                Cotas do usuário
+              </span>
+              <select
+                className="select"
+                aria-label="Cotas do usuário"
+                value={userDims}
+                onChange={(e) => setUserDims(e.target.value as 'all' | 'none' | DimCategory)}
+              >
+                <option value="all">todas</option>
+                <option value="locacao">só locação</option>
+                <option value="dimensao">só dimensão</option>
+                <option value="geral">só gerais</option>
+                <option value="none">nenhuma</option>
+              </select>
+              <label
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}
+                title="Cotas automáticas entre os eixos da grelha — desligue se as suas cotas já cobrem"
+              >
+                <input type="checkbox" checked={axisDims} onChange={(e) => setAxisDims(e.target.checked)} />
+                Cotas entre eixos
+              </label>
+            </>
+          )}
 
         {tipo === 'corte' && (
           <>

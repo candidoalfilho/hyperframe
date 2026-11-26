@@ -37,6 +37,15 @@ export const IconSlabLoad = (p: P) => (
   </svg>
 )
 
+export const IconDimension = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 9v10M20 9v10" opacity={0.6} />
+    <path d="M4 15h16" />
+    <path d="M2.5 16.5l3-3M18.5 16.5l3-3" />
+    <path d="M9 6h6" opacity={0.6} />
+  </svg>
+)
+
 export const IconColumn = (p: P) => (
   <svg {...base(p)}>
     <rect x="8" y="5" width="8" height="14" />
