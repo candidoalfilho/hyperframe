@@ -147,7 +147,26 @@ export {
   stirrupMaxSpacing,
   stirrupRequired,
 } from './design/rebarCheck'
-export { buildDrawingPdf } from './drawing/drawingPdf'
+export { buildDrawingPdf, buildDrawingsPdf } from './drawing/drawingPdf'
+export {
+  SHEET_GAP,
+  SHEET_TITLE_STRIP,
+  arrangeSheet,
+  buildSourceDrawing,
+  composeSheetLayout,
+  fitItemScale,
+  itemPaperSize,
+  newSheetItem,
+  packSheet,
+  placeSheetItems,
+  sheetAreas,
+  sheetIssues,
+  sheetSourceLabel,
+  sheetSourceOptions,
+  type PlacedItem,
+  type SheetIssue,
+} from './drawing/sheetLayout'
+export { buildQuantitiesTableDrawing, buildSteelTableDrawing, tableDrawing } from './drawing/tables'
 
 export * from './nbr/api'
 export { concreteProps, coverFor, fyd } from './nbr/nbr6118/materials'
@@ -362,6 +381,8 @@ export { archEffect } from './nbr/nbr16868/masonry'
 export { masonryWallStackLoads } from './design/masonryRun'
 export { buildMasonryElevationDrawing } from './drawing/masonryElevation'
 export {
+  SHEET_FORMATS,
+  STANDARD_SCALES,
   composeSheet,
   type SheetFormat,
   type SheetInfo,

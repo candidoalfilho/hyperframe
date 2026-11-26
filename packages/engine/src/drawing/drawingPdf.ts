@@ -27,10 +27,24 @@ const LAYER_STYLE: Record<DrawingLayer, { w: number; gray: number }> = {
 }
 
 export function buildDrawingPdf(drawing: Drawing): Uint8Array {
+  return buildDrawingsPdf([drawing])
+}
+
+/** várias pranchas num só PDF: uma página por desenho, cada uma no seu formato */
+export function buildDrawingsPdf(drawings: Drawing[]): Uint8Array {
+  let doc: PdfDoc | null = null
+  for (const drawing of drawings) {
+    const b = drawing.bounds
+    const size = { width: (b.maxX - b.minX) * PT_PER_M, height: (b.maxY - b.minY) * PT_PER_M }
+    if (!doc) doc = new PdfDoc(size)
+    else doc.addPage(size)
+    drawPage(doc, drawing)
+  }
+  return (doc ?? new PdfDoc()).build()
+}
+
+function drawPage(doc: PdfDoc, drawing: Drawing): void {
   const b = drawing.bounds
-  const W = (b.maxX - b.minX) * PT_PER_M
-  const H = (b.maxY - b.minY) * PT_PER_M
-  const doc = new PdfDoc({ width: W, height: H })
   const X = (x: number): number => (x - b.minX) * PT_PER_M
   const Y = (y: number): number => (y - b.minY) * PT_PER_M
   const style = (layer: DrawingLayer): { w: number; gray: number } =>
@@ -114,6 +128,4 @@ export function buildDrawingPdf(drawing: Drawing): Uint8Array {
       }
     }
   }
-
-  return doc.build()
 }

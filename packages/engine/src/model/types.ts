@@ -421,6 +421,52 @@ export interface Dimension {
   hidden?: boolean
 }
 
+// ---------------------------------------------------------------------------
+// Pranchas compostas (issue #23): vários desenhos numa folha
+// ---------------------------------------------------------------------------
+
+/** desenho que pode entrar numa prancha (os mesmos da aba Pranchas + tabelas) */
+export type SheetSource =
+  | { kind: 'forma'; planId: string }
+  | { kind: 'lajes'; planId: string }
+  | { kind: 'corte'; dir: 'x' | 'y'; axisId: string }
+  | { kind: 'cargas' }
+  | { kind: 'fundacoes' }
+  | { kind: 'fundacoes-det' }
+  | { kind: 'viga'; beamId: string }
+  | { kind: 'pilares' }
+  | { kind: 'pilar-elev'; columnId: string }
+  | { kind: 'alv-elev'; wallId: string }
+  /** tabela-resumo de aço por bitola */
+  | { kind: 'aco' }
+  /** tabela de quantitativos (concreto, fôrma, aço) */
+  | { kind: 'quantitativos' }
+
+/** um desenho posicionado na folha */
+export interface SheetItem {
+  id: string
+  source: SheetSource
+  /** canto inferior esquerdo do desenho no papel, m */
+  x: number
+  y: number
+  /** escala 1:N — própria de cada desenho */
+  scale: number
+  /** girado 90° no sentido anti-horário */
+  rotation?: 0 | 90
+}
+
+export type SheetFormatId = 'A0' | 'A1' | 'A2' | 'A3' | 'A4'
+
+/** prancha composta: formato da folha e os desenhos com posição e escala */
+export interface SheetLayout {
+  id: string
+  /** identificação, ex.: "Prancha 01 — formas" */
+  name: string
+  format: SheetFormatId
+  items: SheetItem[]
+  revision?: string
+}
+
 /** estilo das cotas do projeto (editor, pranchas e exportação) */
 export interface DimStyle {
   unit: 'cm' | 'm' | 'mm'
@@ -724,6 +770,8 @@ export interface Project {
   foundationOverrides?: FoundationOverride[]
   /** estilo das cotas do usuário (ausente = padrão: cm, traço a 45°) */
   dimStyle?: DimStyle
+  /** pranchas compostas: vários desenhos por folha, com posição e escala */
+  sheets?: SheetLayout[]
 }
 
 /**
