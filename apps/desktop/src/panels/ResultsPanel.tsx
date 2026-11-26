@@ -1,4 +1,11 @@
-import { Fragment, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  Fragment,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 import {
   CONCRETE_CLASSES,
   COVER_BY_CAA,
@@ -12,13 +19,16 @@ import {
   type Reaction,
   type SlabDesignOutput,
 } from '@hyperframe/engine'
-import { useStore, type ResultsTab } from '../store'
+import { selectedRefs, useStore, type ResultsTab } from '../store'
 import { exportFile } from '../io/fileio'
 import { cm, cm2, fmt, fmtCmDim, ROMAN } from './format'
 import LatticeSlabsResults from './LatticeResults'
 import SlabLoadsResults from './SlabLoadsResults'
 import SteelSchedule from './SteelSchedule'
 import LoadPathTab from './LoadPathTab'
+import MemorialDialog from './MemorialDialog'
+import { panelHeightFromPointer, readPanelHeight, writePanelHeight } from './panelHeight'
+import { getUiZoom } from '../ui/zoom'
 import { IconClose, IconPrint } from '../components/Icons'
 import PranchasPanel from '../drawings/PranchasPanel'
 
@@ -2776,6 +2786,25 @@ export default function ResultsPanel() {
   const [warningsOpen, setWarningsOpen] = useState(false)
   // painel alto: ocupa toda a área de trabalho (plantas e pranchas pedem espaço)
   const [tall, setTall] = useState(false)
+  const [memorialOpen, setMemorialOpen] = useState(false)
+  const selection = useStore((s) => s.selection)
+  const multi = useStore((s) => s.multi)
+  // altura escolhida pelo usuário (arrasto da borda de cima); null = padrão 52vh
+  const [heightPx, setHeightPx] = useState<number | null>(readPanelHeight)
+  const startResize = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const move = (ev: PointerEvent) => {
+      setTall(false)
+      setHeightPx(panelHeightFromPointer(ev.clientY, window.innerHeight, getUiZoom()))
+    }
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      writePanelHeight(panelHeightFromPointer(ev.clientY, window.innerHeight, getUiZoom()))
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
 
   if (!results) return null
 
@@ -2788,7 +2817,8 @@ export default function ResultsPanel() {
         left: 44,
         right: 300,
         bottom: 24,
-        height: tall ? 'calc(100% - 68px)' : '52vh',
+        height: tall ? 'calc(100% - 68px)' : heightPx !== null ? heightPx : '52vh',
+        maxHeight: 'calc(100% - 68px)',
         zIndex: 60,
         background: 'var(--bg-1)',
         borderTop: '2px solid var(--accent)',
@@ -2798,6 +2828,20 @@ export default function ResultsPanel() {
         flexDirection: 'column',
       }}
     >
+      {/* borda de cima: arrastar redimensiona; duplo-clique volta ao tamanho padrão */}
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Redimensionar o painel de resultados"
+        title="Arraste para redimensionar o painel · duplo-clique volta ao tamanho padrão"
+        onPointerDown={startResize}
+        onDoubleClick={() => {
+          setTall(false)
+          setHeightPx(null)
+          writePanelHeight(null)
+        }}
+        style={{ position: 'absolute', top: -5, left: 0, right: 0, height: 9, cursor: 'ns-resize', zIndex: 2 }}
+      />
       {/* cabeçalho */}
       <div
         style={{
@@ -2830,25 +2874,8 @@ export default function ResultsPanel() {
         <button
           className="btn"
           style={{ marginLeft: 'auto' }}
-          title="Exportar memorial de cálculo completo em PDF"
-          onClick={async () => {
-            try {
-              const bytes = buildMemorialPdf(project, results, {
-                generatedAt: new Date().toLocaleString('pt-BR'),
-                appVersion: '0.2.1',
-              })
-              const base = project.name.replace(/[^\p{L}\p{N}\-_ ]/gu, '').trim() || 'projeto'
-              await exportFile(
-                bytes,
-                `${base} — memorial.pdf`,
-                'Memorial de cálculo (PDF)',
-                'pdf',
-                'application/pdf',
-              )
-            } catch (err) {
-              alert(err instanceof Error ? err.message : String(err))
-            }
-          }}
+          title="Gerar o memorial de cálculo em PDF — resumido ou detalhado, com diagramas"
+          onClick={() => setMemorialOpen(true)}
         >
           <IconPrint size={14} />
           Memorial PDF
@@ -2871,6 +2898,15 @@ export default function ResultsPanel() {
           <IconClose size={15} />
         </button>
       </div>
+
+      {memorialOpen && (
+        <MemorialDialog
+          project={project}
+          results={results}
+          selection={selectedRefs({ selection, multi })}
+          onClose={() => setMemorialOpen(false)}
+        />
+      )}
 
       {/* lista de avisos */}
       {warningsOpen && results.warnings.length > 0 && (

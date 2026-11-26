@@ -319,6 +319,13 @@ export { parseDxf } from './dxf/parse'
 export { writeDxf } from './dxf/write'
 
 export { buildMemorialPdf, type MemorialOptions } from './report/memorial'
+export {
+  MEMORIAL_DIAGRAMS,
+  MEMORIAL_SECTIONS,
+  type MemorialDetailOptions,
+  type MemorialDetailSection,
+  type MemorialDiagram,
+} from './report/memorialDetail'
 export { PdfDoc, encodePdfText, textWidth, wrapText, transliterate, A4 } from './report/pdf'
 
 export { buildFormworkDrawing } from './drawing/formwork'
