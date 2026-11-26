@@ -921,6 +921,8 @@ export function buildAnalysisModel(project: Project): {
         // membros de viga sobre esta borda
         const onEdge: number[] = []
         let covered = 0
+        /** trechos da borda com apoio, em parâmetro [0,1] — só p/ o aviso */
+        const spans: [number, number][] = []
         for (const m of levelMembers) {
           const p1 = m.axis?.a ?? { x: nodes[m.ni].x, y: nodes[m.ni].y }
           const p2 = m.axis?.b ?? { x: nodes[m.nj].x, y: nodes[m.nj].y }
@@ -929,24 +931,41 @@ export function buildAnalysisModel(project: Project): {
           if (pr1.d <= TOL * 3 && pr2.d <= TOL * 3) {
             onEdge.push(m.id)
             covered += m.axis ? dist(p1, p2) : m.length
+            // a viga que termina na face do pilar apoia a borda até o eixo dele:
+            // o intervalo vai até a projeção dos nós (centros dos pilares)
+            const ts = [pr1.t, pr2.t]
+            if (m.axis) {
+              ts.push(projectOnSegment(nodes[m.ni], pa, pb).t, projectOnSegment(nodes[m.nj], pa, pb).t)
+            }
+            spans.push([Math.max(Math.min(...ts), 0), Math.min(Math.max(...ts), 1)])
           }
         }
         if (onEdge.length === 0) {
           freeTrib += aTrib
           continue
         }
-        // o trecho de viga dentro da seção do pilar também apoia a borda
+        // o trecho de viga dentro da seção do pilar também apoia a borda: conta
+        // só p/ o aviso — `covered` é o comprimento das BARRAS, denominador da
+        // carga linear (a força da laje é conservada nas barras existentes)
         for (const st of stubsByLevel.get(li) ?? []) {
-          if (
-            projectOnSegment(st.a, pa, pb).d <= TOL * 3 &&
-            projectOnSegment(st.b, pa, pb).d <= TOL * 3
-          )
-            covered += dist(st.a, st.b)
+          const q1 = projectOnSegment(st.a, pa, pb)
+          const q2 = projectOnSegment(st.b, pa, pb)
+          if (q1.d <= TOL * 3 && q2.d <= TOL * 3)
+            spans.push([Math.min(q1.t, q2.t), Math.max(q1.t, q2.t)])
+        }
+        // comprimento apoiado = união dos intervalos
+        spans.sort((x, y) => x[0] - y[0])
+        let supportedLen = 0
+        let reach = -Infinity
+        for (const [t0, t1] of spans) {
+          if (t1 <= reach) continue
+          supportedLen += (t1 - Math.max(t0, reach)) * edgeLen
+          reach = t1
         }
         supported.push({ aTrib, onEdge, covered, edgeLen, edgeIndex: e })
-        if (covered < edgeLen - 10 * TOL) {
+        if (supportedLen < edgeLen - 10 * TOL) {
           warnings.push(
-            `Laje ${slab.name} (${level.name}): borda parcialmente apoiada (${covered.toFixed(
+            `Laje ${slab.name} (${level.name}): borda parcialmente apoiada (${supportedLen.toFixed(
               2,
             )} de ${edgeLen.toFixed(2)} m) — carga concentrada nas vigas existentes.`,
           )

@@ -275,6 +275,29 @@ describe('viga que cruza dentro do pilar fora do centro', () => {
   })
 })
 
+describe('viga lançada de face a face sob a laje', () => {
+  it('a borda da laje conta como apoiada até o eixo do pilar e a carga é conservada', async () => {
+    const { createSampleProject } = await import('../src/model/factory')
+    const ref = analyze(createSampleProject())
+    const p = createSampleProject()
+    const b = p.plans[0].beams.find((x) => x.path.every((q) => Math.abs(q.y) < 1e-9))!
+    const xs = b.path.map((q) => q.x)
+    // encurta a viga 12,5 cm em cada ponta (face dos pilares de canto)
+    b.path = [
+      { x: Math.min(...xs) + 0.125, y: 0 },
+      { x: Math.max(...xs) - 0.125, y: 0 },
+    ]
+    const r = analyze(p)
+    expect(r.model.warnings.some((w) => w.includes('parcialmente apoiada'))).toBe(false)
+    // a carga das lajes chega inteira: só a alvenaria perde os 25 cm por pavimento
+    const fz = (x: typeof r) => x.cases.elu.G!.reactions.reduce((s, q) => s + q.fz, 0)
+    const w = r.model.levelWeights.reduce((s, lw) => s + lw.G, 0)
+    expect(fz(r)).toBeCloseTo(w, 4)
+    expect(fz(ref) - fz(r)).toBeGreaterThanOrEqual(0)
+    expect((fz(ref) - fz(r)) / fz(ref)).toBeLessThan(0.003)
+  })
+})
+
 describe('memorial', () => {
   it('descreve o modelo da ligação viga–pilar quando há braço rígido', async () => {
     const { buildMemorialPdf } = await import('../src/report/memorial')
@@ -291,4 +314,82 @@ describe('memorial', () => {
     expect(text(frame(0))).not.toContain('14.6.2.1')
     expect(text(frame(0, { rot: 0, rigid: true }))).toContain('14.6.2.4')
   })
+})
+
+describe('robustez: edifício exemplo com vigas deslocadas ao acaso', () => {
+  // gerador determinístico (LCG) — o teste não depende de Math.random
+  const rng = (seed: number) => () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296
+    return seed / 4294967296
+  }
+  const finite = (v: unknown): boolean => {
+    if (typeof v === 'number') return Number.isFinite(v)
+    if (Array.isArray(v)) return v.every(finite)
+    if (v && typeof v === 'object') return Object.values(v).every(finite)
+    return true
+  }
+
+  for (const seed of [1, 7, 42]) {
+    for (const rigid of [false, true]) {
+      it(`semente ${seed}, trechos rígidos ${rigid ? 'ligados' : 'desligados'}: equilíbrio e sem NaN`, async () => {
+        const { createSampleProject } = await import('../src/model/factory')
+        const base = createSampleProject()
+        const ref = analyze(base)
+        // o invariante vale no modelo de referência
+        for (const k of ['G', 'Q'] as const) {
+          const fz0 = ref.cases.elu[k]!.reactions.reduce((s, q) => s + q.fz, 0)
+          const w0 = ref.model.levelWeights.reduce((s, lw) => s + lw[k], 0)
+          expect(fz0).toBeCloseTo(w0, 4)
+        }
+        const p = createSampleProject()
+        p.settings.rigidEndZones = rigid || undefined
+        const rnd = rng(seed)
+        // desloca cada viga reta até ±10 cm na direção transversal (dentro dos
+        // pilares); os vértices das lajes sobre a viga acompanham, como no editor
+        for (const plan of p.plans) {
+          const moves: { axis: 'x' | 'y'; at: number; d: number }[] = []
+          for (const b of plan.beams) {
+            const a = b.path[0]
+            const z = b.path[b.path.length - 1]
+            const d = (rnd() - 0.5) * 0.2
+            if (Math.abs(a.y - z.y) < 1e-9) {
+              moves.push({ axis: 'y', at: a.y, d })
+              b.path = b.path.map((q) => ({ x: q.x, y: q.y + d }))
+            } else if (Math.abs(a.x - z.x) < 1e-9) {
+              moves.push({ axis: 'x', at: a.x, d })
+              b.path = b.path.map((q) => ({ x: q.x + d, y: q.y }))
+            }
+          }
+          for (const sl of plan.slabs) {
+            sl.polygon = sl.polygon.map((q) => {
+              const mx = moves.find((m) => m.axis === 'x' && Math.abs(m.at - q.x) < 1e-6)
+              const my = moves.find((m) => m.axis === 'y' && Math.abs(m.at - q.y) < 1e-6)
+              return { x: q.x + (mx?.d ?? 0), y: q.y + (my?.d ?? 0) }
+            })
+          }
+        }
+        const r = analyze(p)
+        expect(r.model.members.some((m) => m.offI || m.offJ)).toBe(true)
+        // nenhum NaN/Infinity em deslocamentos, diagramas e reações
+        for (const pass of [r.cases.elu, r.cases.els])
+          for (const c of Object.values(pass)) expect(finite(c)).toBe(true)
+        // equilíbrio vertical: Σ reações = peso total do modelo (G e Q)
+        const total = (k: 'G' | 'Q') => r.model.levelWeights.reduce((s, lw) => s + lw[k], 0)
+        for (const k of ['G', 'Q'] as const) {
+          const fz = r.cases.elu[k]!.reactions.reduce((s, q) => s + q.fz, 0)
+          expect(fz).toBeCloseTo(total(k), 4)
+        }
+        // a carga total é a do edifício de referência (vigas só mudaram de lugar)
+        const fzRef = ref.cases.elu.G!.reactions.reduce((s, q) => s + q.fz, 0)
+        const fzNew = r.cases.elu.G!.reactions.reduce((s, q) => s + q.fz, 0)
+        expect(Math.abs(fzNew - fzRef) / fzRef).toBeLessThan(0.02)
+        // dimensionamento continua completo e finito
+        expect(r.beamDesign.length).toBeGreaterThan(0)
+        expect(r.columnDesign.length).toBe(ref.columnDesign.length)
+        expect(finite(r.columnDesign.map((c) => c.as))).toBe(true)
+        // γz não dispara (o braço não desestabiliza o pórtico)
+        expect(finite(r.stability)).toBe(true)
+      })
+    }
+  }
 })
