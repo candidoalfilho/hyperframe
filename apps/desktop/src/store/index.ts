@@ -1369,6 +1369,24 @@ export const useStore = create<HFState>()(
             id: uid('wl'),
             beamId: beamIdMap.get(w.beamId) ?? w.beamId,
           }))
+          // cotas vão junto; as presas a vigas passam a apontar para as vigas da cópia
+          if (src.dimensions && src.dimensions.length > 0) {
+            plan.dimensions = src.dimensions.map((d) => ({
+              ...d,
+              id: uid('dim'),
+              points: d.points.map((pt) => ({
+                p: { ...pt.p },
+                ...(pt.ref
+                  ? {
+                      ref:
+                        pt.ref.kind === 'beam'
+                          ? { ...pt.ref, id: beamIdMap.get(pt.ref.id) ?? pt.ref.id }
+                          : { ...pt.ref },
+                    }
+                  : {}),
+              })),
+            }))
+          }
         }
         set({ project: { ...s.project, plans: [...s.project.plans, plan] }, dirty: true })
       },

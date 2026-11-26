@@ -99,6 +99,15 @@ export function normalizeProject(p: Project): Project {
   if (p.foundationOverrides === undefined) p.foundationOverrides = []
   for (const plan of p.plans) {
     if (plan.masonryWalls === undefined) plan.masonryWalls = []
+    // cotas: só as que têm ao menos dois pontos válidos (arquivo editado à mão)
+    if (plan.dimensions !== undefined) {
+      plan.dimensions = (Array.isArray(plan.dimensions) ? plan.dimensions : []).filter(
+        (d) =>
+          Array.isArray(d?.points) &&
+          d.points.length >= 2 &&
+          d.points.every((pt) => Number.isFinite(pt?.p?.x) && Number.isFinite(pt?.p?.y)),
+      )
+    }
   }
   return p
 }

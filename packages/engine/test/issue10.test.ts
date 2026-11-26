@@ -18,6 +18,7 @@ import { buildDrawingPdf } from '../src/drawing/drawingPdf'
 import { writeDxf } from '../src/dxf/write'
 import { checkConsistency } from '../src/model/consistency'
 import { analyze } from '../src/analyze'
+import { parseProject, serializeProject } from '../src/io/serialize'
 import type { DimStyle, Dimension, Project, Vec2 } from '../src/model/types'
 
 /** issue #10 — cotas permanentes, associadas ao modelo, nas pranchas e no DXF */
@@ -337,6 +338,28 @@ describe('cotagem automática da seleção', () => {
       const v = dimensionValues({ ...d!, id: 'x', name: 'Cota' })
       expect(v.reduce((a, c) => a + c, 0)).toBeCloseTo(span, 9)
     } else expect(d).toBeNull()
+  })
+})
+
+describe('salvar e abrir', () => {
+  it('cotas e estilo voltam iguais; cota inválida no arquivo é descartada', () => {
+    const p = createSampleProject()
+    const c = p.columns[0]
+    p.dimStyle = { ...DIM_STYLE_DEFAULT, unit: 'm', decimals: 2 }
+    p.plans[0].dimensions = [
+      {
+        ...free([[0, 0], [4, 0], [8.5, 0]], { total: true, category: 'locacao', hidden: true }),
+        points: [{ p: { ...c.pos }, ref: { kind: 'column', id: c.id, at: 'ne' } }, { p: { x: 4, y: 0 } }],
+      },
+    ]
+    const back = parseProject(serializeProject(p))
+    expect(back.plans[0].dimensions).toEqual(p.plans[0].dimensions)
+    expect(back.dimStyle).toEqual(p.dimStyle)
+    // arquivo antigo: sem o campo, continua sem
+    expect(parseProject(serializeProject(createSampleProject())).plans[0].dimensions).toBeUndefined()
+    const broken = JSON.parse(serializeProject(p))
+    broken.project.plans[0].dimensions.push({ id: 'ruim', points: [{ p: { x: 0, y: 0 } }] }, { id: 'pior' })
+    expect(parseProject(JSON.stringify(broken)).plans[0].dimensions).toHaveLength(1)
   })
 })
 

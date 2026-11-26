@@ -267,6 +267,29 @@ describe('cotas no store', () => {
     expect(st().project.dimStyle).toBeUndefined()
   })
 
+  it('copiar a planta leva as cotas; as presas a vigas apontam para as vigas da cópia', () => {
+    const plan = st().project.plans[0]
+    const beam = plan.beams[0]
+    const [a] = cols()
+    st().addDimension({
+      dir: 'h',
+      form: 'chain',
+      offset: -1,
+      points: [
+        { p: { ...a.pos }, ref: { kind: 'column', id: a.id, at: 'c' } },
+        { p: { ...beam.path[1] }, ref: { kind: 'beam', id: beam.id, vertex: 1 } },
+      ],
+    })
+    st().addPlan(plan.id)
+    const copy = st().project.plans[st().project.plans.length - 1]
+    expect(copy.dimensions).toHaveLength(1)
+    const d = copy.dimensions![0]
+    expect(d.id).not.toBe(dims()[0].id)
+    expect(d.points[0].ref).toEqual({ kind: 'column', id: a.id, at: 'c' })
+    expect(d.points[1].ref).toMatchObject({ kind: 'beam', id: copy.beams[0].id, vertex: 1 })
+    expect(lostDimRefs(st().project, copy, d)).toEqual([])
+  })
+
   it('abrir projeto com cota desatualizada acerta a posição pela referência', () => {
     const p = createSampleProject()
     const c = p.columns[0]
