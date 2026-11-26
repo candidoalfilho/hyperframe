@@ -332,6 +332,30 @@ export interface MasonryWall {
   openings?: { x: number; width: number; sill?: number; height?: number }[]
 }
 
+/**
+ * Carga concentrada ou linear aplicada SOBRE A LAJE (issue #8): equipamento,
+ * pé de reservatório, parede apoiada na laje. A laje a que pertence é a que
+ * contém o ponto (uma linha que cruza duas lajes é repartida entre elas).
+ */
+export interface SlabLoad {
+  id: string
+  name: string
+  kind: 'point' | 'line'
+  /** ponto de aplicação (pontual) ou início da linha */
+  a: Vec2
+  /** fim da linha (kind 'line') */
+  b?: Vec2
+  /** permanente: kN (pontual) ou kN/m (linear) */
+  g: number
+  /** variável: kN (pontual) ou kN/m (linear) */
+  q: number
+  /** área carregada da carga pontual, lados em X e Y, m (padrão 0,20 × 0,20) */
+  size?: { bx: number; by: number }
+  label?: string
+  /** composição da parede (linear): quando presente, g vem de wallLoadFromCalc */
+  calc?: WallLoadCalc
+}
+
 export interface FloorPlan {
   id: string
   name: string
@@ -339,6 +363,8 @@ export interface FloorPlan {
   slabs: Slab[]
   wallLoads: WallLoad[]
   loadRegions: LoadRegion[]
+  /** cargas concentradas e lineares sobre as lajes (ausente = nenhuma) */
+  slabLoads?: SlabLoad[]
   /** paredes de alvenaria estrutural (NBR 16868) */
   masonryWalls?: MasonryWall[]
 }
@@ -673,7 +699,7 @@ export interface RebarOverride {
   spacing?: number
 }
 
-export type ElementKind = 'column' | 'beam' | 'slab' | 'wallLoad' | 'loadRegion'
+export type ElementKind = 'column' | 'beam' | 'slab' | 'wallLoad' | 'loadRegion' | 'slabLoad'
 
 export interface ElementRef {
   kind: ElementKind
