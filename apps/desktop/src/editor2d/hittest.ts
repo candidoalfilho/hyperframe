@@ -7,6 +7,7 @@ import {
   type ElementRef,
   type LoadRegion,
   type Slab,
+  type SlabLoad,
   type Vec2,
   type WallLoad,
 } from '@hyperframe/engine'
@@ -40,6 +41,8 @@ export interface HitContext {
   slabs: Slab[]
   wallLoads: WallLoad[]
   loadRegions: LoadRegion[]
+  /** cargas concentradas/lineares sobre lajes */
+  slabLoads?: SlabLoad[]
   showLoads: boolean
   showSlabs: boolean
   /** px por metro — p/ tolerância mínima de 8 px nas vigas */
@@ -80,7 +83,7 @@ export function wallLoadOnBeamAt(p: Vec2, ctx: HitContext, beamId: string): Wall
 }
 
 /**
- * hit-test com prioridade: pilares > regiões de carga > vigas > cargas de
+ * hit-test com prioridade: pilares > cargas sobre laje > regiões de carga > vigas > cargas de
  * parede > lajes. A VIGA vem antes da carga de parede desenhada sobre ela —
  * a carga é alcançada clicando ao lado da viga (rótulo) ou clicando de novo
  * na viga já selecionada (ver Editor2D) e pelo painel da viga.
@@ -95,6 +98,21 @@ export function hitTest(p: Vec2, ctx: HitContext): ElementRef | null {
     if (Math.abs(p.x - c.pos.x) <= hx && Math.abs(p.y - c.pos.y) <= hy) {
       return { kind: 'column', id: c.id }
     }
+  }
+
+  // cargas sobre laje — marcador pequeno: antes das regiões e das vigas
+  if (ctx.showLoads) {
+    const tol = Math.max(0.12, 9 / ctx.k)
+    let best: SlabLoad | null = null
+    let bestD = tol
+    for (const l of ctx.slabLoads ?? []) {
+      const d = l.b ? projectOnSegment(p, l.a, l.b).d : Math.hypot(p.x - l.a.x, p.y - l.a.y)
+      if (d <= bestD) {
+        best = l
+        bestD = d
+      }
+    }
+    if (best) return { kind: 'slabLoad', id: best.id }
   }
 
   // regiões de carga — pequenas e desenhadas sobre lajes: antes das vigas (só se visíveis)
@@ -202,6 +220,11 @@ export function marqueeHits(r: WorldRect, crossing: boolean, ctx: HitContext): E
   if (ctx.showLoads) {
     for (const rg of ctx.loadRegions) {
       if (rg.polygon.every((p) => inRect(p, r))) out.push({ kind: 'loadRegion', id: rg.id })
+    }
+    for (const l of ctx.slabLoads ?? []) {
+      const full = inRect(l.a, r) && (!l.b || inRect(l.b, r))
+      const touch = crossing && !!l.b && segHitsRect(l.a, l.b, r)
+      if (full || touch) out.push({ kind: 'slabLoad', id: l.id })
     }
   }
   return out

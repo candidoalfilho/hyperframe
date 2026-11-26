@@ -321,3 +321,22 @@ describe('verificação da laje com cargas concentradas', () => {
     })
   })
 })
+
+describe('memorial', () => {
+  it('lista as cargas na laje e a verificação quando existem', async () => {
+    const { buildMemorialPdf } = await import('../src/report/memorial')
+    const text = (p: Project): string => {
+      const bytes = buildMemorialPdf(p, analyze(p), { generatedAt: '26/11/2026 10:00' })
+      let s = ''
+      for (const b of bytes) s += String.fromCharCode(b)
+      return s
+    }
+    const com = text(panel(4, 4, [pt(2, 2, 15, 5)]))
+    expect(com).toContain('Carga na laje')
+    expect(com).toContain('Lajes com cargas concentradas ou lineares')
+    expect(com).toContain('pontual')
+    const sem = text(panel(4, 4, []))
+    expect(sem).not.toContain('Carga na laje')
+    expect(sem).not.toContain('Lajes com cargas concentradas')
+  })
+})

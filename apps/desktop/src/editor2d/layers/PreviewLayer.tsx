@@ -69,7 +69,7 @@ export default function PreviewLayer({
     }
   }
 
-  if (tool === 'beam' || tool === 'region' || tool === 'mwall') {
+  if (tool === 'beam' || tool === 'region' || tool === 'mwall' || tool === 'slabload') {
     const isRegion = tool === 'region'
     if (chain.length > 0) {
       const pts = chain.map((p) => `${p.x * k},${-p.y * k}`).join(' ')

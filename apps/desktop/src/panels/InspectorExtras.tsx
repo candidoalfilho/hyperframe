@@ -52,11 +52,31 @@ export function wallFromCalc(calc: WallLoadCalc, length: number): { w: number; l
 export function WallCalcFields({ wl, beam }: { wl: WallLoad; beam: Beam | undefined }) {
   const updateWallLoad = useStore((s) => s.updateWallLoad)
   const length = wallLength(wl, beam)
-  const calc = wl.calc
+  return (
+    <WallCompositionFields
+      calc={wl.calc}
+      length={length}
+      onChange={(next) =>
+        updateWallLoad(wl.id, next ? { calc: next, ...wallFromCalc(next, length) } : { calc: undefined })
+      }
+    />
+  )
+}
 
+/** editor da composição de parede, independente de onde a carga é aplicada (viga ou laje) */
+export function WallCompositionFields({
+  calc,
+  length,
+  onChange,
+}: {
+  calc: WallLoadCalc | undefined
+  /** comprimento da parede, m */
+  length: number
+  /** nova composição, ou undefined p/ voltar ao valor informado à mão */
+  onChange: (next: WallLoadCalc | undefined) => void
+}) {
   const apply = (patch: Partial<WallLoadCalc>) => {
-    const next = { ...(calc ?? WALL_CALC_DEFAULTS), ...patch }
-    updateWallLoad(wl.id, { calc: next, ...wallFromCalc(next, length) })
+    onChange({ ...(calc ?? WALL_CALC_DEFAULTS), ...patch })
   }
 
   if (!calc) {
@@ -93,7 +113,7 @@ export function WallCalcFields({ wl, beam }: { wl: WallLoad; beam: Beam | undefi
           className="btn-icon"
           title="Voltar a informar w diretamente"
           style={{ fontSize: 12 }}
-          onClick={() => updateWallLoad(wl.id, { calc: undefined })}
+          onClick={() => onChange(undefined)}
         >
           ✕
         </button>
@@ -325,6 +345,7 @@ const KIND_LABEL: Record<ElementRef['kind'], [string, string]> = {
   slab: ['laje', 'lajes'],
   loadRegion: ['região de carga', 'regiões de carga'],
   wallLoad: ['carga de parede', 'cargas de parede'],
+  slabLoad: ['carga na laje', 'cargas na laje'],
 }
 
 /** painel da seleção múltipla: mover por valor, girar pilares, excluir */
@@ -423,6 +444,10 @@ function AlignTools({ refs }: { refs: ElementRef[] }) {
         const r = pl.loadRegions.find((x) => x.id === selection.id)
         if (r) return r.name
       }
+      if (selection.kind === 'slabLoad') {
+        const l = pl.slabLoads?.find((x) => x.id === selection.id)
+        if (l) return l.name
+      }
     }
     return null
   }, [selection, project])
@@ -436,7 +461,8 @@ function AlignTools({ refs }: { refs: ElementRef[] }) {
           : null,
     )
   const movable = refs.filter(
-    (r) => r.kind === 'column' || r.kind === 'beam' || r.kind === 'loadRegion',
+    (r) =>
+      r.kind === 'column' || r.kind === 'beam' || r.kind === 'loadRegion' || r.kind === 'slabLoad',
   ).length
 
   return (

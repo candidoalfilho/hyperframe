@@ -3,6 +3,14 @@
 export * from './model/types'
 export * from './model/presets'
 export { wallLoadFromCalc, type WallLoadBreakdown } from './model/wallLoad'
+export {
+  SLAB_LOAD_SIZE_DEFAULT,
+  assignSlabLoads,
+  slabLoadG,
+  slabLoadLength,
+  slabLoadTotal,
+} from './analysis/slabLoads'
+
 export * from './model/factory'
 export * from './model/naming'
 export { uid } from './model/uid'

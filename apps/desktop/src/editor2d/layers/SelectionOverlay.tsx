@@ -108,6 +108,32 @@ export default memo(function SelectionOverlay({ refs, single, columns, plan, k, 
             opacity={0.45}
           />,
         )
+    } else if (r.kind === 'slabLoad') {
+      const l = plan?.slabLoads?.find((x) => x.id === r.id)
+      if (l && l.b)
+        parts.push(
+          <polyline
+            key={`sl-${r.id}`}
+            points={pts([l.a, l.b], k)}
+            fill="none"
+            stroke="var(--sel)"
+            strokeWidth={8}
+            strokeLinecap="round"
+            opacity={0.45}
+          />,
+        )
+      else if (l)
+        parts.push(
+          <circle
+            key={`sl-${r.id}`}
+            cx={l.a.x * k}
+            cy={-l.a.y * k}
+            r={12}
+            fill="rgba(77,163,255,0.25)"
+            stroke="var(--sel)"
+            strokeWidth={2.5}
+          />,
+        )
     } else if (r.kind === 'slab' || r.kind === 'loadRegion') {
       const poly =
         r.kind === 'slab'

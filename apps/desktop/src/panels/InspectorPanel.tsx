@@ -38,6 +38,7 @@ import { IconTrash } from '../components/Icons'
 import PlansManager from './PlansManager'
 import { MemberForcesSection } from './MemberDiagrams'
 import LatticeSlabFields from './LatticeSlabFields'
+import SlabLoadInspector, { SlabLoadDefaults } from './SlabLoadInspector'
 import {
   AnchorPicker,
   BeamWallLoads,
@@ -506,6 +507,8 @@ function ProjectInspector({ project }: { project: Project }) {
             </span>
           </div>
         </div>
+
+        <SlabLoadDefaults />
 
         <div className="field">
           <label className="label">Região de carga — tipo</label>
@@ -2212,6 +2215,7 @@ export default function InspectorPanel() {
   const selection = useStore((s) => s.selection)
   const multi = useStore((s) => s.multi)
   const project = useStore((s) => s.project)
+  const tool = useStore((s) => s.tool)
   const refs = selectedRefs({ selection, multi })
 
   let content: ReactNode = null
@@ -2232,6 +2236,11 @@ export default function InspectorPanel() {
         .flatMap((p) => p.loadRegions)
         .find((r) => r.id === selection.id)
       if (region) content = <LoadRegionInspector key={region.id} region={region} />
+    } else if (selection.kind === 'slabLoad') {
+      const load = project.plans
+        .flatMap((p) => p.slabLoads ?? [])
+        .find((l) => l.id === selection.id)
+      if (load) content = <SlabLoadInspector key={load.id} load={load} />
     } else {
       const wl = project.plans.flatMap((p) => p.wallLoads).find((w) => w.id === selection.id)
       if (wl) content = <WallLoadInspector key={wl.id} wl={wl} project={project} />
@@ -2241,7 +2250,26 @@ export default function InspectorPanel() {
 
   return (
     <>
-      <div className="panel">{content}</div>
+      <div className="panel">
+        {/* com a ferramenta ativa, tipo e valores da próxima carga ficam sempre à mão */}
+        {tool === 'slabload' && selection && (
+          <div
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '8px 10px 2px',
+              marginBottom: 12,
+              background: 'var(--bg-2)',
+            }}
+          >
+            <div className="label" style={{ marginBottom: 6 }}>
+              Próxima carga
+            </div>
+            <SlabLoadDefaults />
+          </div>
+        )}
+        {content}
+      </div>
       <PlansManager />
     </>
   )
