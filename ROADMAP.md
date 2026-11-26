@@ -840,7 +840,8 @@
   aquele nível); remover pode manter as cotas dos outros
 - [x] Nível ativo continua válido depois de desfazer a criação de um nível
 
-600 testes (533 motor + 67 app).
+608 testes (541 motor + 67 app), incluindo um teste de robustez com vigas deslocadas
+ao acaso (equilíbrio vertical exato e nenhum NaN).
 
 **Ficou na #13 p/ depois**: verificação da região nodal (ancoragem das barras
 na ligação), centralizar na página e vão de cálculo com apoios de larguras
