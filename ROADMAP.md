@@ -805,6 +805,43 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.61 — Issue #11: memorial resumido ou detalhado, com diagramas
+
+> O memorial trazia só as tabelas de resultado; as contas e a origem das
+> cargas ficavam de fora, e os diagramas só existiam na tela.
+
+**Memorial PDF**
+- [x] **Nível de detalhe** na geração: resumido (o memorial de sempre) ou
+  detalhado (o resumido + Anexo A com a memória de cada elemento)
+- [x] **Vigas**: cargas características e a origem de cada parcela (peso
+  próprio, paredes, quinhão de cada laje, vigas apoiadas), reações em cada
+  apoio, e o desenvolvimento por vão — flexão (x/d, z, As = Md/(fyd·z), mínima,
+  adotada), cortante (VRd2, Vc, Asw/s), torção, pele, flecha e fissuração
+- [x] **Pilares**: descida de cargas pavimento a pavimento até a fundação,
+  solicitação governante, ν, esbeltez, armaduras e notas de 2ª ordem
+- [x] **Lajes**: composição de g e q, carga de cálculo, vãos, vínculos,
+  quinhões, momentos, armaduras positivas e negativas, flecha e reações em
+  cada borda
+- [x] **Fundações**: cargas do pilar por caso, tensões, excentricidades,
+  estacas e bielas, armaduras
+- [x] **Diagramas no PDF** junto de cada viga e pilar: momento, cortante,
+  normal e torção (envoltória ELU), com escala, unidade, apoios marcados,
+  valores extremos e a **combinação que produz cada extremo**
+- [x] **Deformada lateral**: deslocamento horizontal por pavimento nas
+  combinações de vento, com o limite
+- [x] **Escolha do conteúdo**: quais grupos, quais diagramas, e todos os
+  elementos ou só os selecionados na planta
+- [x] O rodapé passa a trazer a versão real do programa (estava fixa em 0.2.1)
+
+**Painel de resultados**
+- [x] Borda de cima arrastável para redimensionar; a altura fica guardada;
+  duplo-clique volta ao padrão (o botão de ampliar veio na 0.2.59)
+
+**Fora desta versão**
+- [ ] Editor de composição de pranchas (vários desenhos por folha) — issue própria
+- [ ] Diagramas das lajes (momentos da grelha) e deformada 3D no PDF
+- [ ] Memória detalhada de escadas, reservatórios e alvenaria estrutural
+
 ## v0.2.60 — Issue #10: cotas permanentes, associadas ao modelo
 
 > A ferramenta Medir (D) só consultava: a medida sumia ao sair dela.

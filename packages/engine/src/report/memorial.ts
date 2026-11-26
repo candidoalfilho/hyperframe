@@ -8,157 +8,23 @@
 import { wallLoadFromCalc } from '../model/wallLoad'
 import { slabLoadG, slabLoadLength, slabLoadTotal, SLAB_LOAD_SIZE_DEFAULT } from '../analysis/slabLoads'
 import type { LatticeNegativeEnd } from '../nbr/nbr6118/latticeSlab'
-import { A4, PdfDoc, textWidth, wrapText, type PdfFont } from './pdf'
+import { A4, textWidth } from './pdf'
+import { CW, Layout, MB, ML, MR, cm2, cmDim, fmt, mm } from './layout'
+import { appendDetailedMemorial, type MemorialDetailOptions } from './memorialDetail'
 import type { Project } from '../model/types'
 import type { AnalysisResults } from '../analysis/types'
 import { concreteProps, coverFor, fyd as fydOf } from '../nbr/nbr6118/materials'
 
-export interface MemorialOptions {
+export interface MemorialOptions extends MemorialDetailOptions {
   /** data/hora de geração, já formatada (ex.: "10/07/2026 14:32") */
   generatedAt: string
   appVersion?: string
-}
-
-// ---------------------------------------------------------------------------
-// formatação pt-BR
-// ---------------------------------------------------------------------------
-
-const fmt = (v: number, d = 1): string => (Number.isFinite(v) ? v.toFixed(d).replace('.', ',') : '—')
-const cmDim = (m: number): string => fmt(m * 100, 0)
-const cm2 = (a: number): string => fmt(a * 1e4, 2)
-const mm = (m: number, d = 2): string => fmt(m * 1000, d)
-
-// ---------------------------------------------------------------------------
-// layout
-// ---------------------------------------------------------------------------
-
-const ML = 52
-const MR = 52
-const MT = 60
-const MB = 54
-const CW = A4.width - ML - MR
-
-interface Col {
-  t: string
-  w: number
-  align?: 'l' | 'r' | 'c'
-}
-
-class Layout {
-  doc = new PdfDoc()
-  y = A4.height - MT
-
-  ensure(h: number): void {
-    if (this.y - h < MB) this.newPage()
-  }
-
-  newPage(): void {
-    this.doc.addPage()
-    this.y = A4.height - MT
-  }
-
-  vspace(h: number): void {
-    this.y -= h
-  }
-
-  h1(txt: string): void {
-    this.ensure(30)
-    this.vspace(10)
-    this.doc.text(ML, this.y - 11, txt, 11.5, 'B', 0.05)
-    this.y -= 15
-    this.doc.line(ML, this.y, ML + CW, this.y, 0.9, 0.25)
-    this.y -= 8
-  }
-
-  h2(txt: string): void {
-    this.ensure(22)
-    this.vspace(6)
-    this.doc.text(ML, this.y - 9, txt, 9.5, 'B', 0.12)
-    this.y -= 14
-  }
-
-  para(txt: string, size = 8.6, font: PdfFont = 'R', gray = 0.15): void {
-    const lines = wrapText(txt, size, CW, font)
-    for (const line of lines) {
-      this.ensure(size + 4)
-      this.doc.text(ML, this.y - size, line, size, font, gray)
-      this.y -= size + 3
-    }
-    this.y -= 2
-  }
-
-  kv(rows: [string, string][], labelW = 190): void {
-    for (const [k, v] of rows) {
-      const lines = wrapText(v, 8.6, CW - labelW - 6)
-      this.ensure(lines.length * 11.5 + 2)
-      this.doc.text(ML, this.y - 8.6, k, 8.6, 'B', 0.2)
-      for (const line of lines) {
-        this.doc.text(ML + labelW, this.y - 8.6, line, 8.6, 'R', 0.12)
-        this.y -= 11.5
-      }
-    }
-    this.y -= 3
-  }
-
-  /** trunca com reticências p/ caber na largura */
-  private fit(txt: string, size: number, maxW: number, font: PdfFont): string {
-    if (textWidth(txt, size, font) <= maxW) return txt
-    let t = txt
-    while (t.length > 1 && textWidth(`${t}…`, size, font) > maxW) t = t.slice(0, -1)
-    return `${t}…`
-  }
-
-  table(cols: Col[], rows: string[][], size = 7.4): void {
-    const totalW = cols.reduce((s, c) => s + c.w, 0)
-    const scale = CW / totalW
-    const widths = cols.map((c) => c.w * scale)
-    const rowH = size + 4.6
-    const pad = 3
-
-    const drawHeader = () => {
-      this.ensure(rowH + 4)
-      this.doc.fillRect(ML, this.y - rowH, CW, rowH, 0.9)
-      let x = ML
-      cols.forEach((c, i) => {
-        const w = widths[i]
-        const tx =
-          c.align === 'r'
-            ? x + w - pad - textWidth(c.t, size, 'B')
-            : c.align === 'c'
-              ? x + (w - textWidth(c.t, size, 'B')) / 2
-              : x + pad
-        this.doc.text(tx, this.y - rowH + 3.2, c.t, size, 'B', 0.1)
-        x += w
-      })
-      this.y -= rowH
-      this.doc.line(ML, this.y, ML + CW, this.y, 0.7, 0.35)
-    }
-
-    drawHeader()
-    for (const row of rows) {
-      if (this.y - rowH < MB) {
-        this.newPage()
-        drawHeader()
-      }
-      let x = ML
-      cols.forEach((c, i) => {
-        const w = widths[i]
-        const raw = row[i] ?? ''
-        const txt = this.fit(raw, size, w - 2 * pad, 'R')
-        const tx =
-          c.align === 'r'
-            ? x + w - pad - textWidth(txt, size, 'R')
-            : c.align === 'c'
-              ? x + (w - textWidth(txt, size, 'R')) / 2
-              : x + pad
-        this.doc.text(tx, this.y - rowH + 3.2, txt, size, 'R', 0.12)
-        x += w
-      })
-      this.y -= rowH
-      this.doc.line(ML, this.y, ML + CW, this.y, 0.35, 0.82)
-    }
-    this.y -= 6
-  }
+  /**
+   * nível de detalhe: 'resumido' = tabelas de resultados e verificações
+   * (padrão); 'detalhado' = o resumido + anexo com a memória de cada elemento
+   * (origem das cargas, reações, diagramas e desenvolvimento das contas)
+   */
+  detail?: 'resumido' | 'detalhado'
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +53,7 @@ export function buildMemorialPdf(
 
   // ------------------------------------------------------------------ capa
   L.vspace(6)
+  const detailed = opts.detail === 'detalhado'
   L.doc.text(ML, L.y - 16, 'Memorial de Cálculo Estrutural', 17, 'B', 0)
   L.y -= 24
   L.doc.text(ML, L.y - 10, project.name, 11.5, 'R', 0.15)
@@ -198,6 +65,12 @@ export function buildMemorialPdf(
       ['Autor / responsável', project.author || '—'],
       ['Cidade', project.city || '—'],
       ['Gerado em', `${opts.generatedAt} · HyperFrame v${version}`],
+      [
+        'Nível de detalhe',
+        detailed
+          ? 'detalhado — resultados e verificações + Anexo A com a memória de cada elemento'
+          : 'resumido — resultados e verificações por elemento',
+      ],
       [
         'Normas aplicadas',
         'NBR 6118:2023 · NBR 6120:2019 · NBR 6123 · NBR 8681 · NBR 14432 · NBR 15200 · NBR 6122',
@@ -1533,6 +1406,9 @@ export function buildMemorialPdf(
     'I',
     0.3,
   )
+
+  // ------------------------------------------- anexo: memória por elemento
+  if (detailed) appendDetailedMemorial(L, project, results, opts)
 
   // ------------------------------------------------------- cabeçalho/rodapé
   L.doc.forEachPage((i, total) => {

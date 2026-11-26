@@ -239,6 +239,33 @@ export class PdfDoc {
     )
   }
 
+  /** polilinha (ou contorno fechado) — `dash` em pt: [traço, vazio] */
+  polyline(
+    pts: { x: number; y: number }[],
+    width = 0.6,
+    gray = 0,
+    closed = false,
+    dash?: [number, number],
+  ): void {
+    if (pts.length < 2) return
+    const g = gray.toFixed(3)
+    const path = pts
+      .map((p, i) => `${p.x.toFixed(2)} ${p.y.toFixed(2)} ${i === 0 ? 'm' : 'l'}`)
+      .join(' ')
+    const d = dash ? `[${dash[0]} ${dash[1]}] 0 d ` : ''
+    this.op(`${g} ${g} ${g} RG ${width.toFixed(2)} w ${d}${path}${closed ? ' h' : ''} S${dash ? ' [] 0 d' : ''}`)
+  }
+
+  /** polígono preenchido (sem contorno) */
+  fillPolygon(pts: { x: number; y: number }[], gray = 0.9): void {
+    if (pts.length < 3) return
+    const g = gray.toFixed(3)
+    const path = pts
+      .map((p, i) => `${p.x.toFixed(2)} ${p.y.toFixed(2)} ${i === 0 ? 'm' : 'l'}`)
+      .join(' ')
+    this.op(`${g} ${g} ${g} rg ${path} h f`)
+  }
+
   fillRect(x: number, y: number, w: number, h: number, gray = 0.93): void {
     const g = gray.toFixed(3)
     this.op(`${g} ${g} ${g} rg ${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f`)

@@ -108,6 +108,11 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
   τRd1 = 794 kPa < τSd1 = 1384 kPa ⇒ exige armadura)
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
+- Memorial detalhado (v0.2.61): a conta escrita As = Md/(fyd·z), z = d − 0,4x reproduz a
+  armadura calculada de cada apoio de viga do edifício de exemplo; a combinação apontada em
+  cada diagrama reproduz o valor extremo da envoltória; a tabela de cargas de cada viga
+  fecha com a soma das reações; a descida de cargas de cada pilar termina na reação da
+  planta de cargas
 - Cotas do usuário (v0.2.60): linear horizontal entre (1;2) e (5;3) mede Δx = 4,00 m com a
   linha em y = 1; alinhada no triângulo 3-4-5 mede 5,00 m com a linha a 1 m na normal;
   cadeia 0–4–8,5–12,5 m ⇒ 400 · 450 · 400 e total 1250 cm; acumulada ⇒ 0 · 400 · 850 · 1250;
