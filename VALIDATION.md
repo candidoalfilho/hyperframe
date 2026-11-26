@@ -108,6 +108,12 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
   τRd1 = 794 kPa < τSd1 = 1384 kPa ⇒ exige armadura)
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
+- Ligação viga–pilar com braço rígido (§14.6.2.1, v0.2.57): movimento de corpo rígido
+  dos nós não gera esforço no elemento com offsets (transformação H correta); pórtico
+  de 1 vão com viga a 15 cm do eixo dos pilares — parede 10 kN/m × 5 m ⇒ 25 kN por
+  pilar e momento 25 × 0,15 = 3,75 kN·m na base (âncora à mão); equilíbrio global de
+  momentos com as cargas na posição real; trechos rígidos: pilar t = 50 cm, viga
+  h = 40 cm ⇒ ℓef = 4,50 + 2 × 0,12 = 4,74 m (§14.6.2.4), com a força vertical conservada
 
 ### Versão web (navegador)
 

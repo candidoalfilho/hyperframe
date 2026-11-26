@@ -161,6 +161,84 @@ export function globalStiffness(r: Float64Array, kl: Float64Array): Float64Array
   return kg
 }
 
+// ---------------------------------------------------------------------------
+// Braços rígidos (offsets) — NBR 6118 §14.6.2.1: nó de dimensões finitas
+// ---------------------------------------------------------------------------
+// O extremo do elemento fica em nó + r (r em coordenadas GLOBAIS) e acompanha
+// o nó como corpo rígido:  u_ext = u_nó + θ_nó × r ,  θ_ext = θ_nó.
+// Com H = [[I, −S(r)], [0, I]] por extremo (S(r)·θ = r × θ):
+//   u_ext = H·u_nó ;  f_nó = Hᵀ·f_ext ;  K_nó = Hᵀ·K_ext·H
+// A força F no extremo chega ao nó com o momento de excentricidade r × F.
+
+/** u_ext = H·u_nó (12 GDL globais; ri/rj ausentes = sem braço) */
+export function offsetDisplacements(
+  ug: ArrayLike<number>,
+  ri: Vec3 | undefined,
+  rj: Vec3 | undefined,
+): Float64Array {
+  const out = Float64Array.from(ug)
+  for (const [o, r] of [
+    [0, ri],
+    [6, rj],
+  ] as const) {
+    if (!r) continue
+    const tx = ug[o + 3]
+    const ty = ug[o + 4]
+    const tz = ug[o + 5]
+    // θ × r
+    out[o + 0] += ty * r[2] - tz * r[1]
+    out[o + 1] += tz * r[0] - tx * r[2]
+    out[o + 2] += tx * r[1] - ty * r[0]
+  }
+  return out
+}
+
+/** f_nó = Hᵀ·f_ext: mesma força, momento acrescido de r × F */
+export function offsetForces(
+  fg: ArrayLike<number>,
+  ri: Vec3 | undefined,
+  rj: Vec3 | undefined,
+): Float64Array {
+  const out = Float64Array.from(fg)
+  for (const [o, r] of [
+    [0, ri],
+    [6, rj],
+  ] as const) {
+    if (!r) continue
+    const fx = fg[o + 0]
+    const fy = fg[o + 1]
+    const fz = fg[o + 2]
+    out[o + 3] += r[1] * fz - r[2] * fy
+    out[o + 4] += r[2] * fx - r[0] * fz
+    out[o + 5] += r[0] * fy - r[1] * fx
+  }
+  return out
+}
+
+/** K_nó = Hᵀ·K_ext·H (12×12 densa, GDL globais) */
+export function offsetStiffness(
+  kg: Float64Array,
+  ri: Vec3 | undefined,
+  rj: Vec3 | undefined,
+): Float64Array {
+  if (!ri && !rj) return kg
+  // K·H: aplica H às colunas ⇒ cada LINHA de K é transformada como força (Hᵀ)
+  const kh = new Float64Array(144)
+  for (let i = 0; i < 12; i++) {
+    const row = offsetForces(kg.subarray(i * 12, i * 12 + 12), ri, rj)
+    kh.set(row, i * 12)
+  }
+  // Hᵀ·(K·H): transforma cada COLUNA como força
+  const out = new Float64Array(144)
+  const col = new Float64Array(12)
+  for (let j = 0; j < 12; j++) {
+    for (let i = 0; i < 12; i++) col[i] = kh[i * 12 + j]
+    const c = offsetForces(col, ri, rj)
+    for (let i = 0; i < 12; i++) out[i * 12 + j] = c[i]
+  }
+  return out
+}
+
 /** propriedades geométricas de seção retangular bw×h (bw ao longo de z local, h ao longo de y local) */
 export function rectSectionProps(bw: number, h: number): {
   A: number

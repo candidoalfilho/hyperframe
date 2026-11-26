@@ -34,6 +34,15 @@ import {
   type WallLoad,
 } from '@hyperframe/engine'
 import { pushRecent } from '../io/fileio'
+import {
+  alignInProject,
+  anchorOffset,
+  centerFromAnchor,
+  distributeInProject,
+  moveInProject,
+  type AlignMode,
+  type ColumnAnchor,
+} from './align'
 
 /** elementos efetivamente selecionados (seleção múltipla válida ou a simples) */
 export function selectedRefs(s: { selection: ElementRef | null; multi: ElementRef[] }): ElementRef[] {
@@ -104,6 +113,8 @@ export interface D3Options {
 export interface ElementDefaults {
   columnSection: ColumnSection
   columnRotation: 0 | 90 | 180 | 270
+  /** ponto da seção sob o cursor ao inserir o pilar (ausente = centro) */
+  columnAnchor?: ColumnAnchor
   beamSection: SectionRect
   slabThickness: number
   slabFinish: number
@@ -240,6 +251,22 @@ export interface HFState {
    * pontos movidos acompanham (o modelo continua conectado).
    */
   moveElements: (refs: ElementRef[], delta: Vec2) => 'ok' | 'duplicate'
+  /**
+   * alinha os elementos da seleção pela âncora (o elemento selecionado por
+   * último, que fica parado), em um único passo de desfazer
+   */
+  alignSelection: (mode: AlignMode) => 'ok' | 'none' | 'duplicate'
+  /** distribui a seleção com centros igualmente espaçados; extremos parados */
+  distributeSelection: (axis: 'x' | 'y') => 'ok' | 'none' | 'duplicate'
+  /**
+   * muda seção/rotação do pilar mantendo fixo o ponto de ancoragem (face ou
+   * canto): o centro é deslocado, as vigas ficam onde estão
+   */
+  resizeColumn: (
+    id: string,
+    patch: Partial<Pick<Column, 'section' | 'rotationDeg'>>,
+    anchor: ColumnAnchor,
+  ) => void
   /** gira 90° os pilares indicados */
   rotateColumns: (ids: string[]) => void
   addBeamPath: (path: Vec2[]) => void
@@ -278,17 +305,31 @@ export interface HFState {
   setStoryHeight: (levelId: string, height: number) => void
   renameLevel: (levelId: string, name: string) => void
   /**
-   * insere um nível novo em projeto existente: acima do nível indicado
-   * (desloca os superiores pelo pé-direito) ou, com aboveLevelId null,
-   * abaixo do nível mais baixo (ex.: subsolo). extendColumns estende até o
-   * novo topo os pilares que terminavam no antigo topo.
+   * insere um nível novo em projeto existente.
+   * - sucessivo (padrão): acima do nível indicado, deslocando os superiores
+   *   pelo pé-direito; com aboveLevelId null, abaixo do nível mais baixo.
+   * - independente (`independent: true`): cota = cota do nível de referência
+   *   (aboveLevelId) + height (pode ser negativo), SEM deslocar nenhum outro
+   *   nível; exige ≥ MIN_LEVEL_GAP de distância a qualquer nível existente.
+   * extendColumns estende até o novo topo os pilares que terminavam no antigo.
    */
-  addLevel: (opts: { aboveLevelId: string | null; height: number; extendColumns?: boolean }) => void
+  addLevel: (opts: {
+    aboveLevelId: string | null
+    height: number
+    extendColumns?: boolean
+    independent?: boolean
+  }) => 'ok' | 'invalid'
   /**
-   * remove um nível sem pilares/consolos ancorados nele (os superiores descem
-   * pelo pé-direito removido); exige ≥ 2 níveis restantes
+   * move só este nível para a cota indicada (os demais ficam onde estão);
+   * precisa continuar entre os vizinhos, a ≥ MIN_LEVEL_GAP de cada um
    */
-  deleteLevel: (levelId: string) => void
+  setLevelElevation: (levelId: string, elevation: number) => void
+  /**
+   * remove um nível sem pilares/consolos ancorados nele; exige ≥ 2 níveis
+   * restantes. Por padrão os superiores descem pelo pé-direito removido;
+   * com keepElevations os demais níveis mantêm a cota.
+   */
+  deleteLevel: (levelId: string, opts?: { keepElevations?: boolean }) => void
 
   // ---- arquivo ----
   /** registra salvamento bem-sucedido (caminho/nome) e limpa dirty */
@@ -325,6 +366,9 @@ function firstEditableLevel(p: Project): string {
 }
 
 let worker: Worker | null = null
+
+/** distância mínima entre dois níveis (m) — abaixo disso o tramo de pilar degenera */
+export const MIN_LEVEL_GAP = 0.5
 
 const initialProject = createSampleProject()
 
@@ -555,9 +599,15 @@ export const useStore = create<HFState>()(
       setResultsTab: (resultsTab) => set({ resultsTab }),
 
       // ---- modelagem ----
-      addColumn: (pos) => {
+      addColumn: (point) => {
         const s = get()
         const p = s.project
+        // o ponto clicado é a âncora escolhida (centro, face ou canto) da seção
+        const pos = centerFromAnchor(
+          { section: s.defaults.columnSection, rotationDeg: s.defaults.columnRotation },
+          s.defaults.columnAnchor ?? 'c',
+          point,
+        )
         // evita pilar duplicado no mesmo ponto
         const exists = p.columns.some(
           (c) => Math.hypot(c.pos.x - pos.x, c.pos.y - pos.y) < 0.05,
@@ -688,57 +738,52 @@ export const useStore = create<HFState>()(
           }
         }),
       moveElements: (refs, delta) => {
-        if (Math.abs(delta.x) < 1e-9 && Math.abs(delta.y) < 1e-9) return 'ok'
-        const s = get()
-        const p = s.project
-        const has = (kind: ElementRef['kind'], id: string) =>
-          refs.some((r) => r.kind === kind && r.id === id)
-        const movedCols = p.columns.filter((c) => has('column', c.id))
-        // pilar não pode cair sobre outro que fica parado
-        const collide = movedCols.some((c) =>
-          p.columns.some(
-            (o) =>
-              !has('column', o.id) &&
-              Math.hypot(o.pos.x - (c.pos.x + delta.x), o.pos.y - (c.pos.y + delta.y)) < 0.05,
-          ),
-        )
-        if (collide) return 'duplicate'
-        // pontos que se movem: pilares (valem em todas as plantas) + vértices
-        // dos elementos selecionados (valem na planta deles)
-        const globalPts = movedCols.map((c) => c.pos)
-        const shift = (q: Vec2) => ({ x: q.x + delta.x, y: q.y + delta.y })
-        const plans = p.plans.map((pl) => {
-          const pts = [
-            ...globalPts,
-            ...pl.beams.filter((b) => has('beam', b.id)).flatMap((b) => b.path),
-            ...pl.slabs.filter((x) => has('slab', x.id)).flatMap((x) => x.polygon),
-            ...pl.loadRegions.filter((r) => has('loadRegion', r.id)).flatMap((r) => r.polygon),
-          ]
-          if (pts.length === 0) return pl
-          const near = (q: Vec2) => pts.some((m) => Math.hypot(q.x - m.x, q.y - m.y) < 0.02)
-          const mv = (q: Vec2) => (near(q) ? shift(q) : q)
-          return {
-            ...pl,
-            beams: pl.beams.map((b) => ({ ...b, path: b.path.map(mv) })),
-            slabs: pl.slabs.map((x) => ({ ...x, polygon: x.polygon.map(mv) })),
-            loadRegions: pl.loadRegions.map((r) => ({ ...r, polygon: r.polygon.map(mv) })),
-            ...(pl.masonryWalls
-              ? { masonryWalls: pl.masonryWalls.map((w) => ({ ...w, path: w.path.map(mv) })) }
-              : {}),
-          }
-        })
-        set({
-          project: {
-            ...p,
-            columns: p.columns.map((c) => (has('column', c.id) ? { ...c, pos: shift(c.pos) } : c)),
-            plans,
-          },
-          dirty: true,
-          results: null,
-          analysisStatus: 'idle',
-        })
+        const next = moveInProject(get().project, refs, delta)
+        if (next === 'duplicate') return 'duplicate'
+        if (next === get().project) return 'ok'
+        set({ project: next, dirty: true, results: null, analysisStatus: 'idle' })
         return 'ok'
       },
+      alignSelection: (mode) => {
+        const s = get()
+        const refs = selectedRefs(s)
+        if (refs.length < 2 || !s.selection) return 'none'
+        const r = alignInProject(s.project, refs, s.selection, mode)
+        if (r === 'duplicate' || r === 'none') return r
+        set({ project: r.project, dirty: true, results: null, analysisStatus: 'idle' })
+        return 'ok'
+      },
+      distributeSelection: (axis) => {
+        const s = get()
+        const r = distributeInProject(s.project, selectedRefs(s), axis)
+        if (r === 'duplicate' || r === 'none') return r
+        set({ project: r.project, dirty: true, results: null, analysisStatus: 'idle' })
+        return 'ok'
+      },
+      resizeColumn: (id, patch, anchor) =>
+        set((s) => {
+          const c = s.project.columns.find((x) => x.id === id)
+          if (!c) return {}
+          const next = { ...c, ...patch }
+          const o0 = anchorOffset(c, anchor)
+          const o1 = anchorOffset(next, anchor)
+          // o ponto de ancoragem não se move: centro novo = âncora − offset novo
+          const pos = { x: c.pos.x + o0.x - o1.x, y: c.pos.y + o0.y - o1.y }
+          const clash = s.project.columns.some(
+            (o) => o.id !== id && Math.hypot(o.pos.x - pos.x, o.pos.y - pos.y) < 0.05,
+          )
+          return {
+            project: {
+              ...s.project,
+              columns: s.project.columns.map((x) =>
+                x.id === id ? { ...next, pos: clash ? c.pos : pos } : x,
+              ),
+            },
+            dirty: true,
+            results: null,
+            analysisStatus: 'idle',
+          }
+        }),
       rotateColumns: (ids) =>
         set((s) => ({
           project: {
@@ -1184,29 +1229,43 @@ export const useStore = create<HFState>()(
           },
           dirty: true,
         })),
-      addLevel: ({ aboveLevelId, height, extendColumns }) => {
-        if (!(height >= 1) || height > 10) return
+      addLevel: ({ aboveLevelId, height, extendColumns, independent }) => {
+        if (independent) {
+          if (!Number.isFinite(height) || Math.abs(height) > 60) return 'invalid'
+        } else if (!(height >= 1) || height > 10) return 'invalid'
+        let outcome: 'ok' | 'invalid' = 'invalid'
         set((s) => {
           const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
           const below = aboveLevelId ? sorted.find((l) => l.id === aboveLevelId) : null
           if (aboveLevelId && !below) return {}
-          const topId = sorted[sorted.length - 1].id
+          if (independent && !below) return {}
+          const top = sorted[sorted.length - 1]
           const elevation = below ? below.elevation + height : sorted[0].elevation - height
-          const newLevel = { id: uid('lv'), name: 'Novo nível', elevation, planId: null }
-          // inserção intermediária desloca os níveis acima pelo pé-direito novo
-          const shifted = s.project.levels.map((l) =>
-            below && l.elevation > below.elevation + 1e-9
-              ? { ...l, elevation: l.elevation + height }
-              : l,
+          // nível independente: não pode coincidir (nem quase) com um existente
+          if (
+            independent &&
+            sorted.some((l) => Math.abs(l.elevation - elevation) < MIN_LEVEL_GAP - 1e-9)
           )
+            return {}
+          const newLevel = { id: uid('lv'), name: 'Novo nível', elevation, planId: null }
+          // inserção sucessiva intermediária desloca os níveis acima pelo pé-direito novo
+          const shifted = independent
+            ? s.project.levels
+            : s.project.levels.map((l) =>
+                below && l.elevation > below.elevation + 1e-9
+                  ? { ...l, elevation: l.elevation + height }
+                  : l,
+              )
           // o array de níveis é mantido ordenado por cota (invariante do modelo)
           const levels = [...shifted, newLevel].sort((a, b) => a.elevation - b.elevation)
+          const becomesTop = independent ? elevation > top.elevation : below?.id === top.id
           let columns = s.project.columns
-          if (extendColumns && below && below.id === topId) {
+          if (extendColumns && becomesTop) {
             columns = columns.map((c) =>
-              c.topLevelId === topId ? { ...c, topLevelId: newLevel.id } : c,
+              c.topLevelId === top.id ? { ...c, topLevelId: newLevel.id } : c,
             )
           }
+          outcome = 'ok'
           return {
             project: { ...s.project, levels, columns },
             activeLevelId: newLevel.id,
@@ -1215,8 +1274,31 @@ export const useStore = create<HFState>()(
             analysisStatus: 'idle',
           }
         })
+        return outcome
       },
-      deleteLevel: (levelId) =>
+      setLevelElevation: (levelId, elevation) => {
+        if (!Number.isFinite(elevation)) return
+        set((s) => {
+          const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
+          const idx = sorted.findIndex((l) => l.id === levelId)
+          if (idx < 0) return {}
+          if (Math.abs(sorted[idx].elevation - elevation) < 1e-9) return {}
+          // continua entre os vizinhos: a ordem dos níveis não muda
+          const lo = idx > 0 ? sorted[idx - 1].elevation + MIN_LEVEL_GAP : -Infinity
+          const hi = idx < sorted.length - 1 ? sorted[idx + 1].elevation - MIN_LEVEL_GAP : Infinity
+          if (elevation < lo - 1e-9 || elevation > hi + 1e-9) return {}
+          return {
+            project: {
+              ...s.project,
+              levels: s.project.levels.map((l) => (l.id === levelId ? { ...l, elevation } : l)),
+            },
+            dirty: true,
+            results: null,
+            analysisStatus: 'idle',
+          }
+        })
+      },
+      deleteLevel: (levelId, opts) =>
         set((s) => {
           const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
           if (sorted.length <= 2) return {}
@@ -1229,7 +1311,8 @@ export const useStore = create<HFState>()(
               c.corbels?.some((cb) => cb.levelId === levelId),
           )
           if (referenced) return {}
-          const drop = idx > 0 ? sorted[idx].elevation - sorted[idx - 1].elevation : 0
+          const drop =
+            idx > 0 && !opts?.keepElevations ? sorted[idx].elevation - sorted[idx - 1].elevation : 0
           const removedElev = sorted[idx].elevation
           const levels = sorted
             .filter((l) => l.id !== levelId)
@@ -1306,6 +1389,16 @@ export const useStore = create<HFState>()(
     },
   ),
 )
+
+// nível ativo sempre válido: desfazer a criação de um nível (ou refazer a
+// remoção) deixava activeLevelId apontando para um nível que não existe mais
+useStore.subscribe((s, prev) => {
+  if (s.project.levels === prev.project.levels) return
+  if (s.project.levels.some((l) => l.id === s.activeLevelId)) return
+  const sorted = [...s.project.levels].sort((a, b) => a.elevation - b.elevation)
+  const fallback = [...sorted].reverse().find((l) => l.planId) ?? sorted[sorted.length - 1]
+  if (fallback) useStore.setState({ activeLevelId: fallback.id })
+})
 
 // aplica o tema salvo antes do primeiro paint (tokens em data-theme no <html>)
 if (typeof document !== 'undefined') applyTheme(useStore.getState().theme)

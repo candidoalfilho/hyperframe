@@ -179,3 +179,97 @@ describe('moveBeam', () => {
     }
   })
 })
+
+/**
+ * Issue #14: nível independente — cota referenciada a um nível de origem,
+ * sem deslocar os níveis existentes.
+ */
+describe('níveis independentes (issue #14)', () => {
+  it('cria o nível na cota de referência + distância sem mover os demais', () => {
+    const before = sortedLevels(st().project)
+    const base = before[0]
+    const elev = new Map(before.map((l) => [l.id, l.elevation]))
+    // exemplo da issue: novo nível a +1,30 m da base, com outro nível logo acima
+    const r = st().addLevel({ aboveLevelId: base.id, height: 1.3, independent: true })
+    expect(r).toBe('ok')
+    const p = sortedLevels(st().project)
+    expect(p.length).toBe(before.length + 1)
+    const novo = p.find((l) => !elev.has(l.id))!
+    expect(novo.elevation).toBeCloseTo(base.elevation + 1.3, 9)
+    for (const l of p) if (elev.has(l.id)) expect(l.elevation).toBeCloseTo(elev.get(l.id)!, 9)
+    // array continua ordenado por cota
+    const arr = st().project.levels
+    for (let i = 1; i < arr.length; i++) expect(arr[i].elevation).toBeGreaterThan(arr[i - 1].elevation)
+    expect(st().results).toBeNull()
+  })
+
+  it('aceita distância negativa (abaixo da referência) e recusa cota colada em nível existente', () => {
+    const before = sortedLevels(st().project)
+    const second = before[1]
+    const n = before.length
+    // 0,20 m acima de um nível existente: recusado
+    expect(st().addLevel({ aboveLevelId: second.id, height: 0.2, independent: true })).toBe(
+      'invalid',
+    )
+    expect(st().project.levels.length).toBe(n)
+    // 1,00 m abaixo do 2º nível
+    expect(st().addLevel({ aboveLevelId: second.id, height: -1, independent: true })).toBe('ok')
+    const p = sortedLevels(st().project)
+    expect(p.length).toBe(n + 1)
+    expect(p[1].elevation).toBeCloseTo(second.elevation - 1, 9)
+    expect(p[2].id).toBe(second.id)
+  })
+
+  it('acima do topo: vira o novo topo e pode estender os pilares', () => {
+    const before = sortedLevels(st().project)
+    const base = before[0]
+    const top = before[before.length - 1]
+    const nCols = st().project.columns.filter((c) => c.topLevelId === top.id).length
+    const dist = top.elevation - base.elevation + 2
+    st().addLevel({ aboveLevelId: base.id, height: dist, independent: true, extendColumns: true })
+    const p = sortedLevels(st().project)
+    const newTop = p[p.length - 1]
+    expect(newTop.elevation).toBeCloseTo(top.elevation + 2, 9)
+    expect(st().project.columns.filter((c) => c.topLevelId === newTop.id).length).toBe(nCols)
+  })
+
+  it('remover com keepElevations não desce os níveis superiores', () => {
+    const base = sortedLevels(st().project)[0]
+    st().addLevel({ aboveLevelId: base.id, height: 1.3, independent: true })
+    const withNew = sortedLevels(st().project)
+    const novo = withNew[1]
+    const acima = withNew.slice(2).map((l) => l.elevation)
+    st().deleteLevel(novo.id, { keepElevations: true })
+    const p = sortedLevels(st().project)
+    expect(p.find((l) => l.id === novo.id)).toBeUndefined()
+    p.slice(1).forEach((l, i) => expect(l.elevation).toBeCloseTo(acima[i], 9))
+  })
+
+  it('setLevelElevation move só o nível, mantendo-o entre os vizinhos', () => {
+    const before = sortedLevels(st().project)
+    const mid = before[1]
+    const outros = before.filter((l) => l.id !== mid.id).map((l) => [l.id, l.elevation] as const)
+    st().setLevelElevation(mid.id, mid.elevation + 0.4)
+    let p = st().project.levels
+    expect(p.find((l) => l.id === mid.id)!.elevation).toBeCloseTo(mid.elevation + 0.4, 9)
+    for (const [id, e] of outros) expect(p.find((l) => l.id === id)!.elevation).toBeCloseTo(e, 9)
+    // cruzar o vizinho de cima é recusado
+    const acima = before[2]
+    st().setLevelElevation(mid.id, acima.elevation - 0.1)
+    p = st().project.levels
+    expect(p.find((l) => l.id === mid.id)!.elevation).toBeCloseTo(mid.elevation + 0.4, 9)
+  })
+})
+
+describe('nível ativo após desfazer', () => {
+  it('desfazer a criação de um nível não deixa o nível ativo órfão', () => {
+    useStore.temporal.getState().clear()
+    const top = sortedLevels(st().project)[st().project.levels.length - 1]
+    st().addLevel({ aboveLevelId: top.id, height: 3 })
+    const novo = st().activeLevelId
+    expect(st().project.levels.some((l) => l.id === novo)).toBe(true)
+    useStore.temporal.getState().undo()
+    expect(st().project.levels.some((l) => l.id === novo)).toBe(false)
+    expect(st().project.levels.some((l) => l.id === st().activeLevelId)).toBe(true)
+  })
+})

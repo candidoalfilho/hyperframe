@@ -805,6 +805,48 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.57 — Issues #13 e #14: ligação viga–pilar com braço rígido, níveis independentes, alinhar
+
+> Primeiro lote das issues abertas a partir da #6 (Eng-Carlos, razielazureskys).
+> A #13 muda resultado: a excentricidade viga–pilar deixa de ser só um aviso.
+
+**Análise — ligação viga–pilar (#13)**
+- [x] **Braço rígido** (NBR 6118 §14.6.2.1, nó de dimensões finitas): o extremo
+  flexível da viga fica sobre o eixo REAL dela e é ligado ao centro de gravidade
+  do pilar por transformação cinemática no elemento (K = Hᵀ·K·H). A reação da
+  viga chega ao pilar com o momento V·e — nos dois eixos e com várias vigas no
+  mesmo pilar. Viga que passa pelo centro: nada muda
+- [x] **Trechos rígidos longitudinais** (opção nas configurações, desligada por
+  padrão): vão de cálculo ℓ0 + a1 + a2, a = min(t/2; 0,3·h) (§14.6.2.4); peso
+  próprio e cargas do trecho dentro do apoio são conservados
+- [x] Avisos: excentricidades consideradas (maiores primeiro), viga com a alma
+  além da face do pilar, e ligação em que o braço não pôde ser montado
+- [x] Trecho de viga descartado dentro do pilar continua contando como apoio
+  da borda da laje (sumiu o falso "borda parcialmente apoiada")
+- [x] Memorial descreve o modelo da ligação; planta mostra os braços rígidos
+  do modelo analisado (centro do pilar → extremo da viga, com e e trecho rígido)
+
+**Editor (#13)**
+- [x] **Ponto de inserção do pilar**: centro, meio de face ou canto (seletor
+  3×3). O mesmo ponto fica parado quando a seção ou a rotação mudam
+- [x] **Alinhar pela âncora** (último elemento clicado com Shift fica parado):
+  esquerda, direita, topo, base e centros — Alt+L/R/T/B/C/E — pelas faces da
+  seção do pilar e pela largura da viga; **distribuir** com centros igualmente
+  espaçados em X ou Y. Um passo de desfazer
+
+**Níveis (#14)**
+- [x] **Nível independente**: cota = nível de referência + distância (pode ser
+  negativa), sem deslocar os demais; a cota de cada nível é editável (move só
+  aquele nível); remover pode manter as cotas dos outros
+- [x] Nível ativo continua válido depois de desfazer a criação de um nível
+
+608 testes (541 motor + 67 app), incluindo um teste de robustez com vigas deslocadas
+ao acaso (equilíbrio vertical exato e nenhum NaN).
+
+**Ficou na #13 p/ depois**: verificação da região nodal (ancoragem das barras
+na ligação), centralizar na página e vão de cálculo com apoios de larguras
+muito diferentes tratados caso a caso.
+
 ## v0.2.56 — Issue #6: correções de modelagem, seleção múltipla, medição e detalhamento
 
 > Lote de pedidos do Eng-Carlos e do razielazureskys (issue #6). Três eram
@@ -864,7 +906,7 @@
 no desenho, cargas concentradas em lajes, visualização do caminho das cargas,
 memorial detalhado com o desenvolvimento das contas e diagramas dentro do PDF,
 edição de armaduras com comprimentos/continuidade e estribos por trecho,
-excentricidade viga–pilar com offset rígido de verdade.
+~~excentricidade viga–pilar com offset rígido de verdade~~ (v0.2.57).
 
 ## v0.2.55 — Lajes treliçadas integradas (issue #5, Eng-Carlos) — fase 1
 

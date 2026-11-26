@@ -38,6 +38,7 @@ import PreviewLayer, { type CursorSnap } from './layers/PreviewLayer'
 import GhostLayer from './layers/GhostLayer'
 import SelectionOverlay from './layers/SelectionOverlay'
 import MeasureLayer from './layers/MeasureLayer'
+import RigidArmsLayer from './layers/RigidArmsLayer'
 
 const ORTHO_MAX_RAD = (15 * Math.PI) / 180
 /** tolerância de snap em px de tela */
@@ -136,6 +137,13 @@ export default function Editor2D() {
   const underlay = useStore((s) => s.project.underlay ?? null)
   const foundations = useStore((s) => s.results?.foundations ?? null)
   const isLowestLevel = useStore((s) => s.activeLevelId === s.project.levels[0]?.id)
+  // braços rígidos viga–pilar do modelo analisado, no nível ativo
+  const analysisModel = useStore((s) => s.results?.model ?? null)
+  const activeLevelIndex = useStore((s) =>
+    [...s.project.levels]
+      .sort((a, b) => a.elevation - b.elevation)
+      .findIndex((l) => l.id === s.activeLevelId),
+  )
   const plan = useActivePlan()
   const tool = useStore((s) => s.tool)
   const display = useStore((s) => s.display)
@@ -813,6 +821,9 @@ export default function Editor2D() {
             selectedId={selColumn}
             hoveredId={hovColumn}
           />
+          {analysisModel && activeLevelIndex >= 0 && (
+            <RigidArmsLayer model={analysisModel} levelIndex={activeLevelIndex} k={vp.k} />
+          )}
           {plan && display.showLoads && (
             <WallLoadsLayer
               wallLoads={plan.wallLoads}
@@ -829,6 +840,7 @@ export default function Editor2D() {
             chain={chain}
             columnSection={defaults.columnSection}
             columnRotation={defaults.columnRotation}
+            columnAnchor={defaults.columnAnchor ?? 'c'}
           />
           {aiGhost && <GhostLayer ghost={aiGhost} k={vp.k} />}
           {dragGhosts.map((g, i) => (

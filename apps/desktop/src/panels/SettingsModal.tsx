@@ -1230,6 +1230,31 @@ export default function SettingsModal() {
               (§15.7.2)
             </label>
 
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 12.5,
+                marginBottom: 10,
+                cursor: 'pointer',
+              }}
+              title={
+                'Desligado: vão de cálculo eixo a eixo dos pilares.\n' +
+                'Ligado: o trecho da viga dentro do apoio, até 0,3·h da face, é rígido — ' +
+                'vão de cálculo ℓ0 + a1 + a2, com a = min(t/2; 0,3·h).\n' +
+                'A excentricidade transversal viga–pilar é sempre considerada.'
+              }
+            >
+              <input
+                type="checkbox"
+                checked={st.rigidEndZones === true}
+                onChange={(e) => updateSettings({ rigidEndZones: e.target.checked || undefined })}
+              />
+              Trechos rígidos nos nós viga–pilar: vão de cálculo ℓ0 + a1 + a2 (§14.6.2.1 e
+              §14.6.2.4)
+            </label>
+
             <div className="field-row">
               <div className="field">
                 <label className="label">Fator de torção das vigas</label>

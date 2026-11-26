@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { columnFootprint, type ColumnSection, dist, type Vec2 } from '@hyperframe/engine'
 import type { Tool } from '../../store'
+import { centerFromAnchor, type ColumnAnchor } from '../../store/align'
 import type { SnapKind } from '../snap'
 import { fmt } from '../format'
 
@@ -16,6 +17,7 @@ interface Props {
   chain: Vec2[]
   columnSection: ColumnSection
   columnRotation: 0 | 90 | 180 | 270
+  columnAnchor: ColumnAnchor
 }
 
 /** pré-visualizações das ferramentas: fantasma do pilar, polilinha da viga/região, marcador de snap */
@@ -26,15 +28,21 @@ export default function PreviewLayer({
   chain,
   columnSection,
   columnRotation,
+  columnAnchor,
 }: Props) {
   if (!cursor && chain.length === 0) return null
   const parts: ReactElement[] = []
 
   if (tool === 'column' && cursor) {
+    // o cursor marca a âncora (centro, face ou canto); o fantasma mostra a seção
     const fp = columnFootprint({
       section: columnSection,
       rotationDeg: columnRotation,
-      pos: cursor.point,
+      pos: centerFromAnchor(
+        { section: columnSection, rotationDeg: columnRotation },
+        columnAnchor,
+        cursor.point,
+      ),
     })
     parts.push(
       <polygon
@@ -46,6 +54,19 @@ export default function PreviewLayer({
         strokeDasharray="4 3"
       />,
     )
+    if (columnAnchor !== 'c') {
+      parts.push(
+        <circle
+          key="anchor"
+          cx={cursor.point.x * k}
+          cy={-cursor.point.y * k}
+          r={3.5}
+          fill="var(--accent)"
+          stroke="var(--bg-0, #0f1218)"
+          strokeWidth={1}
+        />,
+      )
+    }
   }
 
   if (tool === 'beam' || tool === 'region' || tool === 'mwall') {

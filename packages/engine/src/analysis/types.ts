@@ -53,6 +53,14 @@ export interface AMember {
    * capturado pelo nó de um pilar por estar dentro da projeção dele)
    */
   axis?: { a: { x: number; y: number }; b: { x: number; y: number } }
+  /**
+   * braços rígidos (offsets) dos extremos, em coordenadas GLOBAIS: o extremo
+   * flexível da barra fica em nó + offset e acompanha o nó como corpo rígido
+   * (nó de dimensões finitas, §14.6.2.1). `length` e os eixos locais referem-se
+   * ao trecho flexível. Ausente = extremo no próprio nó.
+   */
+  offI?: Vec3
+  offJ?: Vec3
 }
 
 /** Casos de carga fundamentais (EQ* = sismo NBR 15421, forças equivalentes) */

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useStore } from '../store'
+import { MIN_LEVEL_GAP, useStore } from '../store'
 import { fmt } from './format'
 import { NumberField } from './NumberField'
 import { IconClose } from '../components/Icons'
@@ -21,11 +21,17 @@ export default function PlansManager() {
   const renameLevel = useStore((s) => s.renameLevel)
   const addLevel = useStore((s) => s.addLevel)
   const deleteLevel = useStore((s) => s.deleteLevel)
+  const setLevelElevation = useStore((s) => s.setLevelElevation)
 
   // formulário "novo nível": posição ('' = acima do topo; '_below' = abaixo da base)
   const [addPos, setAddPos] = useState<string>('')
   const [addHeight, setAddHeight] = useState(3)
   const [extendCols, setExtendCols] = useState(true)
+  // modo de inserção/remoção: 'shift' = sucessivo (desloca os níveis acima);
+  // 'keep' = independente (cota referenciada a um nível, os demais não se movem)
+  const [mode, setMode] = useState<'shift' | 'keep'>('shift')
+  const [refId, setRefId] = useState<string>('')
+  const [offset, setOffset] = useState(3)
 
   const sortedLevels = useMemo(
     () => [...project.levels].sort((a, b) => a.elevation - b.elevation),
@@ -45,7 +51,17 @@ export default function PlansManager() {
 
   const topLevel = sortedLevels[sortedLevels.length - 1]
   const addAboveId = addPos === '' ? (topLevel?.id ?? null) : addPos === '_below' ? null : addPos
-  const addingNewTop = addAboveId !== null && addAboveId === topLevel?.id
+  const independent = mode === 'keep'
+  // referência padrão = topo: +3 m nunca coincide com um nível existente
+  const refLevel = sortedLevels.find((l) => l.id === refId) ?? sortedLevels[sortedLevels.length - 1]
+  const newElevation = refLevel ? refLevel.elevation + offset : 0
+  /** nível existente que impediria a criação do nível independente */
+  const clash = independent
+    ? sortedLevels.find((l) => Math.abs(l.elevation - newElevation) < MIN_LEVEL_GAP - 1e-9)
+    : undefined
+  const addingNewTop = independent
+    ? !!topLevel && newElevation > topLevel.elevation
+    : addAboveId !== null && addAboveId === topLevel?.id
 
   const usage = useMemo(() => {
     const map = new Map<string, number>()
@@ -77,7 +93,9 @@ export default function PlansManager() {
                 <th title="Distância ao nível inferior — editar desloca este nível e os acima">
                   Pé-direito (m)
                 </th>
-                <th>Cota (m)</th>
+                <th title="Cota do nível — editar move só este nível (os demais não se deslocam)">
+                  Cota (m)
+                </th>
                 <th>Planta</th>
                 <th />
               </tr>
@@ -111,7 +129,20 @@ export default function PlansManager() {
                         />
                       )}
                     </td>
-                    <td>{fmt(l.elevation, 2)}</td>
+                    <td>
+                      <NumberField
+                        value={l.elevation}
+                        digits={2}
+                        min={below ? below.elevation + MIN_LEVEL_GAP : -60}
+                        max={
+                          i < sortedLevels.length - 1
+                            ? sortedLevels[i + 1].elevation - MIN_LEVEL_GAP
+                            : 400
+                        }
+                        style={{ width: 76 }}
+                        onCommit={(v) => setLevelElevation(l.id, v)}
+                      />
+                    </td>
                     <td>
                       <select
                         className="select"
@@ -141,14 +172,16 @@ export default function PlansManager() {
                                 ? 'Em uso — há pilar (base/topo) ou consolo ancorado neste nível'
                                 : last
                                   ? 'O projeto precisa de pelo menos 2 níveis'
-                                  : 'Remover nível (os superiores descem o pé-direito removido)'
+                                  : independent
+                                    ? 'Remover nível (os demais mantêm a cota)'
+                                    : 'Remover nível (os superiores descem o pé-direito removido)'
                             }
                             style={{
                               color: blocked ? undefined : 'var(--err)',
                               opacity: blocked ? 0.35 : 1,
                               fontSize: 13,
                             }}
-                            onClick={() => deleteLevel(l.id)}
+                            onClick={() => deleteLevel(l.id, { keepElevations: independent })}
                           >
                             ✕
                           </button>
@@ -179,33 +212,80 @@ export default function PlansManager() {
             <span style={{ fontWeight: 600 }}>＋ Novo nível</span>
             <select
               className="select"
-              value={addPos}
-              onChange={(e) => setAddPos(e.target.value)}
-              style={{ flex: '1 1 150px', minWidth: 130 }}
+              value={mode}
+              onChange={(e) => setMode(e.target.value as 'shift' | 'keep')}
+              title={
+                'Sucessivo: o nível entra na sequência e desloca os que estão acima.\n' +
+                'Independente: cota medida a partir de um nível de referência; nenhum outro nível se move.'
+              }
+              style={{ flex: 'none' }}
             >
-              <option value="">acima do topo ({topLevel?.name ?? '—'})</option>
-              {sortedLevels
-                .slice(0, -1)
-                .reverse()
-                .map((l) => (
-                  <option key={l.id} value={l.id}>
-                    acima de {l.name}
-                  </option>
-                ))}
-              <option value="_below">abaixo de {sortedLevels[0]?.name ?? '—'} (subsolo)</option>
+              <option value="shift">sucessivo</option>
+              <option value="keep">independente</option>
             </select>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              pé-direito
-              <NumberField
-                value={addHeight}
-                digits={2}
-                min={1}
-                max={10}
-                style={{ width: 64 }}
-                onCommit={setAddHeight}
-              />
-              m
-            </label>
+            {independent ? (
+              <>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  a
+                  <NumberField
+                    value={offset}
+                    digits={2}
+                    min={-60}
+                    max={60}
+                    style={{ width: 64 }}
+                    onCommit={setOffset}
+                  />
+                  m de
+                </label>
+                <select
+                  className="select"
+                  value={refLevel?.id ?? ''}
+                  onChange={(e) => setRefId(e.target.value)}
+                  style={{ flex: '1 1 120px', minWidth: 110 }}
+                >
+                  {sortedLevels.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name} ({fmt(l.elevation, 2)})
+                    </option>
+                  ))}
+                </select>
+                <span className="mono" title="Cota resultante do novo nível">
+                  → cota {fmt(newElevation, 2)}
+                </span>
+              </>
+            ) : (
+              <>
+                <select
+                  className="select"
+                  value={addPos}
+                  onChange={(e) => setAddPos(e.target.value)}
+                  style={{ flex: '1 1 150px', minWidth: 130 }}
+                >
+                  <option value="">acima do topo ({topLevel?.name ?? '—'})</option>
+                  {sortedLevels
+                    .slice(0, -1)
+                    .reverse()
+                    .map((l) => (
+                      <option key={l.id} value={l.id}>
+                        acima de {l.name}
+                      </option>
+                    ))}
+                  <option value="_below">abaixo de {sortedLevels[0]?.name ?? '—'} (subsolo)</option>
+                </select>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  pé-direito
+                  <NumberField
+                    value={addHeight}
+                    digits={2}
+                    min={1}
+                    max={10}
+                    style={{ width: 64 }}
+                    onCommit={setAddHeight}
+                  />
+                  m
+                </label>
+              </>
+            )}
             {addingNewTop && (
               <label
                 style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
@@ -221,17 +301,36 @@ export default function PlansManager() {
             )}
             <button
               className="btn"
+              disabled={!!clash}
+              title={
+                clash
+                  ? `A cota fica a menos de ${fmt(MIN_LEVEL_GAP, 2)} m de ${clash.name}`
+                  : undefined
+              }
               onClick={() =>
-                addLevel({
-                  aboveLevelId: addAboveId,
-                  height: addHeight,
-                  extendColumns: addingNewTop && extendCols,
-                })
+                independent
+                  ? addLevel({
+                      aboveLevelId: refLevel?.id ?? null,
+                      height: offset,
+                      extendColumns: addingNewTop && extendCols,
+                      independent: true,
+                    })
+                  : addLevel({
+                      aboveLevelId: addAboveId,
+                      height: addHeight,
+                      extendColumns: addingNewTop && extendCols,
+                    })
               }
             >
               Adicionar
             </button>
           </div>
+          {clash && (
+            <div style={{ fontSize: 11, marginTop: 6, color: 'var(--err)' }}>
+              A cota {fmt(newElevation, 2)} m fica a menos de {fmt(MIN_LEVEL_GAP, 2)} m de{' '}
+              {clash.name} ({fmt(clash.elevation, 2)} m). Ajuste a distância.
+            </div>
+          )}
           <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>
             ⚠ Alterar níveis, pé-direito ou atribuição de plantas invalida os resultados da
             análise. O nível novo nasce sem planta — atribua uma existente ou crie abaixo.
