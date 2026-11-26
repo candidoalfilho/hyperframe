@@ -959,3 +959,26 @@ body {
     display: none !important;
   }
 }
+
+/* ---------- caminho das cargas: linhas clicáveis do painel ---------- */
+
+.lp-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 4px 6px;
+  margin: 0 -6px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.lp-row:hover {
+  background: var(--bg-2);
+}

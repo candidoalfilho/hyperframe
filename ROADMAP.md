@@ -805,6 +805,44 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.59 — Issue #9: caminho das cargas (lajes → vigas → pilares → fundações)
+
+> As reações de laje em viga e de viga em pilar já eram calculadas, mas só
+> apareciam em tabelas soltas e nos diagramas de cada elemento.
+
+**Resultados → Caminho das cargas**
+- [x] **Planta do pavimento** com o quinhão de cada borda de laje (charneiras a
+  45°, faixas nas unidirecionais) e a carga que a borda entrega à viga, em kN/m
+- [x] **Reações das vigas** em cada apoio, em kN — em pilar ou em outra viga
+  (viga sobre viga aparece em azul, com o nome da viga que recebe)
+- [x] **Pilares**: o que chega no pavimento e o N acumulado na base do tramo; no
+  nível da fundação, a reação de cada apoio
+- [x] **Caso ou combinação** à escolha: G + Q característica (padrão), cada caso
+  isolado (G, Q, vento, sismo) e todas as combinações ELU/ELS
+- [x] **Selecionar um elemento** (na planta, na tabela ou no editor) mostra de
+  quem ele recebe e a quem entrega, com os valores; o caminho a montante fica
+  em azul e o a jusante em laranja, e a lista leva de um elemento ao vizinho —
+  inclusive em outro pavimento
+- [x] **Descida de cargas nos pilares**: tabela pilar × pavimento com o N
+  acumulado e o acréscimo de cada pavimento, até a fundação
+- [x] Conferência sempre à vista: carga aplicada = soma das reações; laje sem
+  apoio (carga fora do pórtico) é apontada
+- [x] Botão para **ampliar o painel de resultados** (vale para todas as abas)
+
+**Motor**
+- [x] `analysis/loadPath.ts`: não é um cálculo novo — lê, nó a nó, o equilíbrio
+  que o pórtico já resolveu (cortante das vigas, normal dos pilares, cargas
+  nodais e reações). O que cada laje entrega a cada barra é anotado na
+  montagem das cargas (`model.loadTransfers`)
+- [x] Reação de carga concentrada que cai na divisa de duas barras da viga
+  passa a ser repartida entre elas (antes ia sempre para a primeira)
+
+**Fora desta versão**
+- [ ] Caminho das cargas no memorial e nas pranchas (#11)
+- [ ] Vista 3D do caminho das cargas
+- [ ] Parcela exata de cada laje na carga de uma fundação (hoje: quem está a
+  montante, sem o rateio)
+
 ## v0.2.58 — Issue #8: cargas concentradas e lineares sobre lajes
 
 > Equipamento, pé de reservatório ou parede apoiada direto na laje. Antes só
