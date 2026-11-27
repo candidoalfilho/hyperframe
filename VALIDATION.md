@@ -108,6 +108,14 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
   τRd1 = 794 kPa < τSd1 = 1384 kPa ⇒ exige armadura)
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
+- DXF (v0.2.64): "N4 16×φ5 c/18" grava os bytes 31 36 D7 D8 35 (× = D7, Ø = D8 em
+  ANSI_1252), sem nenhuma sequência UTF-8 (C3 97, CF 86); todos os desenhos do projeto
+  de exemplo saem sem caractere perdido nem escapado; arquivo conferido com leitor
+  independente (ezdxf: 117 textos com × ou Ø, 0 corrompidos; o da 0.2.63 dava 43
+  corrompidos); leitura aceita ANSI_1252 e UTF-8 e decide pelos bytes
+- Pranchas — inserção em lote (v0.2.64): um a um ou em lote dá a mesma folha; com
+  transbordo, 43 desenhos em A3/A1 sem sobreposição em nenhuma folha e nenhum desenho
+  mais que duas escalas-padrão abaixo da que teria sozinho
 - Pranchas compostas (v0.2.63): área útil da A1 = folha − margens (25/10 mm) − 5 mm;
   tamanho no papel = desenho ÷ escala (girado troca largura e altura); cada linha do
   desenho cai dentro da caixa do item, com comprimento ÷ escala; organização automática

@@ -31,6 +31,8 @@ const REPLACEMENTS: [string, string][] = [
   ['ψ1', 'psi1'],
   ['ψ2', 'psi2'],
   ['ψ', 'psi'],
+  ['σmáx', 'sigma-máx'],
+  ['σmín', 'sigma-mín'],
   ['σ', 'sigma'],
   ['Δ', 'delta-'],
   ['δ', 'delta'],
@@ -42,6 +44,7 @@ const REPLACEMENTS: [string, string][] = [
   ['ν', 'ni'],
   ['ξ', 'qsi'],
   ['φ', 'Ø'],
+  ['ℓ', 'l'],
   ['⌀', 'Ø'],
   ['≤', '<='],
   ['≥', '>='],
@@ -54,7 +57,7 @@ const REPLACEMENTS: [string, string][] = [
 ]
 
 /** CP1252: pontos fora do Latin-1 que têm byte próprio */
-const CP1252: Record<number, number> = {
+export const CP1252: Record<number, number> = {
   0x20ac: 0x80,
   0x201a: 0x82,
   0x0192: 0x83,

@@ -100,36 +100,84 @@ export function sheetSourceLabel(project: Project, src: SheetSource): string {
   }
 }
 
-/** desenhos que podem ser inseridos, agrupados; os que dependem da análise só entram com resultados */
-export function sheetSourceOptions(
-  project: Project,
-  results: AnalysisResults | null,
-): { group: string; label: string; source: SheetSource }[] {
-  const out: { group: string; label: string; source: SheetSource }[] = []
-  const add = (group: string, source: SheetSource) =>
-    out.push({ group, label: sheetSourceLabel(project, source), source })
-  for (const pl of project.plans) add('Plantas', { kind: 'forma', planId: pl.id })
+/** identidade de uma origem: duas origens com a mesma chave são o mesmo desenho */
+export function sheetSourceKey(src: SheetSource): string {
+  switch (src.kind) {
+    case 'forma':
+    case 'lajes':
+      return `${src.kind}:${src.planId}`
+    case 'corte':
+      return `corte:${src.dir}:${src.axisId}`
+    case 'viga':
+      return `viga:${src.beamId}`
+    case 'pilar-elev':
+      return `pilar-elev:${src.columnId}`
+    case 'alv-elev':
+      return `alv-elev:${src.wallId}`
+    default:
+      return src.kind
+  }
+}
+
+/** desenho que pode entrar numa prancha */
+export interface SheetSourceOption {
+  /** categoria, para agrupar e filtrar */
+  group: string
+  label: string
+  source: SheetSource
+  key: string
+  /** planta (pavimento) a que o desenho pertence, quando pertence a uma */
+  planId?: string
+}
+
+/** categorias na ordem em que aparecem nas listas */
+export const SHEET_SOURCE_GROUPS = [
+  'Plantas de forma',
+  'Lajes',
+  'Vigas',
+  'Pilares',
+  'Fundações',
+  'Cortes',
+  'Alvenaria',
+  'Tabelas',
+] as const
+
+/** desenhos que podem ser inseridos, por categoria; os que dependem da análise só entram com resultados */
+export function sheetSourceOptions(project: Project, results: AnalysisResults | null): SheetSourceOption[] {
+  const out: SheetSourceOption[] = []
+  const add = (group: (typeof SHEET_SOURCE_GROUPS)[number], source: SheetSource, planId?: string) =>
+    out.push({
+      group,
+      label: sheetSourceLabel(project, source),
+      source,
+      key: sheetSourceKey(source),
+      ...(planId ? { planId } : {}),
+    })
+  for (const pl of project.plans) add('Plantas de forma', { kind: 'forma', planId: pl.id }, pl.id)
+  if (results) {
+    for (const pl of project.plans) add('Lajes', { kind: 'lajes', planId: pl.id }, pl.id)
+    for (const pl of project.plans) {
+      for (const b of byName(pl.beams)) {
+        if (results.detailing.beams.some((d) => d.beamId === b.id)) add('Vigas', { kind: 'viga', beamId: b.id }, pl.id)
+      }
+    }
+    add('Pilares', { kind: 'pilares' })
+    for (const c of byName(project.columns)) {
+      if (results.detailing.columns.some((d) => d.columnId === c.id)) add('Pilares', { kind: 'pilar-elev', columnId: c.id })
+    }
+    add('Fundações', { kind: 'cargas' })
+    add('Fundações', { kind: 'fundacoes' })
+    add('Fundações', { kind: 'fundacoes-det' })
+  }
   for (const a of project.grid.xAxes) add('Cortes', { kind: 'corte', dir: 'x', axisId: a.id })
   for (const a of project.grid.yAxes) add('Cortes', { kind: 'corte', dir: 'y', axisId: a.id })
   for (const pl of project.plans) {
-    for (const w of byName(pl.masonryWalls ?? [])) add('Alvenaria', { kind: 'alv-elev', wallId: w.id })
+    for (const w of byName(pl.masonryWalls ?? [])) add('Alvenaria', { kind: 'alv-elev', wallId: w.id }, pl.id)
   }
-  if (!results) return out
-  for (const pl of project.plans) add('Plantas', { kind: 'lajes', planId: pl.id })
-  add('Fundações', { kind: 'cargas' })
-  add('Fundações', { kind: 'fundacoes' })
-  add('Fundações', { kind: 'fundacoes-det' })
-  for (const pl of project.plans) {
-    for (const b of byName(pl.beams)) {
-      if (results.detailing.beams.some((d) => d.beamId === b.id)) add('Vigas', { kind: 'viga', beamId: b.id })
-    }
+  if (results) {
+    add('Tabelas', { kind: 'aco' })
+    add('Tabelas', { kind: 'quantitativos' })
   }
-  add('Pilares', { kind: 'pilares' })
-  for (const c of byName(project.columns)) {
-    if (results.detailing.columns.some((d) => d.columnId === c.id)) add('Pilares', { kind: 'pilar-elev', columnId: c.id })
-  }
-  add('Tabelas', { kind: 'aco' })
-  add('Tabelas', { kind: 'quantitativos' })
   return out
 }
 
@@ -368,8 +416,11 @@ export function newSheetItem(
 }
 
 /**
- * Primeiro lugar livre para uma caixa w × h: canto superior esquerdo, depois à
- * direita e abaixo de cada desenho já posto. null = não há lugar livre.
+ * Primeiro lugar livre para uma caixa w × h, de cima para baixo e da esquerda
+ * para a direita. Candidatos: o canto superior esquerdo, à direita e abaixo de
+ * cada desenho já posto e os cruzamentos entre a borda direita de um desenho e
+ * a borda de baixo de outro (os cantos que sobram entre desenhos de tamanhos
+ * diferentes). null = não há lugar livre.
  */
 export function freeSheetSpot(
   format: SheetFormatId,
@@ -383,9 +434,15 @@ export function freeSheetSpot(
     cands.push({ x: b.x1 + SHEET_GAP, y: b.y1 - h })
     cands.push({ x: b.x0, y: b.y0 - SHEET_GAP - h })
   }
+  const xs = [usable.x0, ...taken.map((b) => b.x1 + SHEET_GAP)]
+  const tops = [usable.y1, ...taken.map((b) => b.y0 - SHEET_GAP)]
+  for (const x of xs) for (const top of tops) cands.push({ x, y: top - h })
+  // posições no décimo de milímetro em que são gravadas, arredondadas para longe
+  // do vizinho (direita e baixo): a conferência vê a mesma caixa testada aqui
+  const snapped = cands.map((c) => ({ x: Math.ceil(c.x * 1e4 - 1e-6) / 1e4, y: Math.floor(c.y * 1e4 + 1e-6) / 1e4 }))
   // de cima para baixo, da esquerda para a direita
-  cands.sort((p, q) => q.y - p.y || p.x - q.x)
-  for (const c of cands) {
+  snapped.sort((p, q) => q.y - p.y || p.x - q.x)
+  for (const c of snapped) {
     const box = { x0: c.x, y0: c.y - SHEET_TITLE_STRIP, x1: c.x + w, y1: c.y + h }
     const inside =
       box.x0 >= usable.x0 - 1e-9 && box.y0 >= usable.y0 - 1e-9 && box.x1 <= usable.x1 + 1e-9 && box.y1 <= usable.y1 + 1e-9
@@ -402,21 +459,99 @@ export function placeNewSheetItem(
   source: SheetSource,
   id: string,
 ): SheetItem {
-  const item = newSheetItem(project, results, layout.format, source, id)
-  const d = buildSourceDrawing(project, results, source)
-  const taken = placeSheetItems(project, results, layout).map((p) => p.box)
-  const r4 = (v: number) => Math.round(v * 1e4) / 1e4
-  // na escala padrão não há lugar? tenta as escalas-padrão seguintes (desenho menor)
-  const scales = d ? STANDARD_SCALES.filter((sc) => sc >= item.scale) : [item.scale]
-  for (const scale of scales) {
-    const size = d ? itemPaperSize(d, scale) : { w: 0.06, h: 0.03 }
-    const spot = freeSheetSpot(layout.format, taken, size.w, size.h)
-    if (spot) return { ...item, scale, x: r4(spot.x), y: r4(spot.y) }
-  }
-  // folha cheia: entra no canto superior esquerdo (a conferência aponta a sobreposição)
+  return placeNewSheetItems(project, results, layout, [source], () => id).items[0]
+}
+
+const r4 = (v: number): number => Math.round(v * 1e4) / 1e4
+
+/** quantas escalas-padrão um desenho pode descer para caber antes de ir para outra folha */
+export const OVERFLOW_SHRINK_STEPS = 2
+
+/**
+ * Vários desenhos de uma vez (issue #28), cada um no primeiro lugar livre.
+ *
+ * `overflow: false` — tudo na mesma folha: sem lugar na escala padrão, o
+ * desenho entra numa escala menor; folha cheia, vai para o canto superior
+ * esquerdo, sobreposto (`unplaced` conta esses; a conferência os aponta).
+ *
+ * `overflow: true` — o que não cabe vai para folhas novas (`extra`, uma lista
+ * de itens por folha, no mesmo formato), em vez de sobrepor. Antes de abrir
+ * outra folha o desenho pode descer até `OVERFLOW_SHRINK_STEPS` escalas-padrão
+ * (a escala padrão é generosa: a maior que cabe em meia folha).
+ */
+export function placeNewSheetItems(
+  project: Project,
+  results: AnalysisResults | null,
+  layout: SheetLayout,
+  sources: SheetSource[],
+  makeId: () => string,
+  opts: { overflow?: boolean } = {},
+): { items: SheetItem[]; extra: SheetItem[][]; unplaced: number } {
   const { usable } = sheetAreas(layout.format)
-  const size = d ? itemPaperSize(d, item.scale) : { w: 0.06, h: 0.03 }
-  return { ...item, x: r4(usable.x0), y: r4(usable.y1 - size.h) }
+  const taken = placeSheetItems(project, results, layout).map((p) => p.box)
+  const boxOf = (x: number, y: number, w: number, h: number): Box => ({ x0: x, y0: y - SHEET_TITLE_STRIP, x1: x + w, y1: y + h })
+  const items: SheetItem[] = []
+  const extra: { items: SheetItem[]; taken: Box[] }[] = []
+  let unplaced = 0
+  for (const source of sources) {
+    const item = newSheetItem(project, results, layout.format, source, makeId())
+    const d = buildSourceDrawing(project, results, source)
+    const sizeAt = (scale: number) => (d ? itemPaperSize(d, scale) : { w: 0.06, h: 0.03 })
+    const tryOn = (boxes: Box[], scales: number[]): SheetItem | null => {
+      for (const scale of scales) {
+        const size = sizeAt(scale)
+        const spot = freeSheetSpot(layout.format, boxes, size.w, size.h)
+        if (spot) {
+          // a caixa é a da posição gravada (arredondada), como numa inserção de cada vez
+          const x = r4(spot.x)
+          const y = r4(spot.y)
+          boxes.push(boxOf(x, y, size.w, size.h))
+          return { ...item, scale, x, y }
+        }
+      }
+      return null
+    }
+    // sem lugar na escala padrão: as escalas-padrão seguintes (desenho menor)
+    const smaller = d ? STANDARD_SCALES.filter((sc) => sc >= item.scale) : [item.scale]
+    const near = smaller.slice(0, 1 + OVERFLOW_SHRINK_STEPS)
+    const here = tryOn(taken, opts.overflow ? near : smaller)
+    if (here) {
+      items.push(here)
+      continue
+    }
+    if (opts.overflow) {
+      let put: SheetItem | null = null
+      for (const sh of extra) {
+        put = tryOn(sh.taken, near)
+        if (put) {
+          sh.items.push(put)
+          break
+        }
+      }
+      if (!put) {
+        // folha nova: vazia, o desenho cabe (a escala padrão ocupa no máximo meia folha)
+        const sh = { items: [] as SheetItem[], taken: [] as Box[] }
+        put = tryOn(sh.taken, smaller)
+        if (!put) {
+          const size = sizeAt(item.scale)
+          put = { ...item, x: r4(usable.x0), y: r4(usable.y1 - size.h) }
+          sh.taken.push(boxOf(put.x, put.y, size.w, size.h))
+          unplaced++
+        }
+        sh.items.push(put)
+        extra.push(sh)
+      }
+      continue
+    }
+    // folha cheia: canto superior esquerdo (a conferência aponta a sobreposição)
+    const size = sizeAt(item.scale)
+    const x = r4(usable.x0)
+    const y = r4(usable.y1 - size.h)
+    taken.push(boxOf(x, y, size.w, size.h))
+    items.push({ ...item, x, y })
+    unplaced++
+  }
+  return { items, extra: extra.map((e) => e.items), unplaced }
 }
 
 /**

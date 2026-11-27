@@ -12,7 +12,7 @@ import {
   buildSectionCutDrawing,
   buildSlabRebarDrawing,
   composeSheet,
-  writeDxf,
+  writeDxfBytes,
   type DimCategory,
   type Drawing,
   type SheetFormat,
@@ -240,7 +240,7 @@ export default function PranchasPanel() {
   const downloadDxf = (): void => {
     if (!drawing) return
     saveBlob(
-      new Blob([writeDxf(drawing)], { type: 'application/dxf' }),
+      new Blob([writeDxfBytes(drawing) as BlobPart], { type: 'application/dxf' }),
       `${tipo}-${slug(baseName())}${withSheet ? `-${format.toLowerCase()}` : ''}.dxf`,
     )
   }

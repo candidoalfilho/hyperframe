@@ -12,6 +12,7 @@
  */
 
 import type { UnderlayEntity, Vec2 } from '../model/types'
+import { decodeDxfText } from './encoding'
 
 /** teto de entidades — suficiente para underlay sem estourar memória */
 const MAX_ENTITIES = 50_000
@@ -274,7 +275,7 @@ function buildArc(groups: Pair[]): UnderlayEntity | null {
 }
 
 function buildText(groups: Pair[]): UnderlayEntity | null {
-  const text = grp(groups, 1) ?? ''
+  const text = decodeDxfText(grp(groups, 1) ?? '')
   if (text === '') return null
   return {
     type: 'text',
@@ -292,7 +293,8 @@ function buildMtext(groups: Pair[]): UnderlayEntity | null {
   // concatenar na ordem do arquivo reconstrói a string completa
   let rawText = ''
   for (const g of groups) if (g.code === 3 || g.code === 1) rawText += g.value
-  const text = stripMtextFormatting(rawText)
+  // \\U+XXXX antes: senão o filtro de formatação o tomaria por um código \\X…;
+  const text = stripMtextFormatting(decodeDxfText(rawText))
   if (text === '') return null
   return {
     type: 'text',

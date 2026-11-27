@@ -7,6 +7,7 @@ import {
   autoDimension,
   detectFaces,
   placeNewSheetItem,
+  placeNewSheetItems,
   dimStyleOf,
   refreshDimensions,
   nextBeamName,
@@ -351,6 +352,16 @@ export interface HFState {
   deleteSheet: (id: string) => void
   /** insere o desenho no primeiro lugar livre da folha; devolve o id do item */
   addSheetItem: (sheetId: string, source: SheetSource) => string | null
+  /**
+   * Insere vários desenhos de uma vez (um passo de desfazer). Com `overflow`,
+   * o que não cabe na folha vai para pranchas novas; sem, tudo fica nela
+   * (`unplaced` = quantos entraram sobrepostos por falta de lugar).
+   */
+  addSheetItems: (
+    sheetId: string,
+    sources: SheetSource[],
+    overflow?: boolean,
+  ) => { ids: string[]; newSheets: string[]; unplaced: number }
   updateSheetItem: (sheetId: string, itemId: string, patch: Partial<Omit<SheetItem, 'id' | 'source'>>) => void
   removeSheetItem: (sheetId: string, itemId: string) => void
   duplicateSheetItem: (sheetId: string, itemId: string) => string | null
@@ -1284,6 +1295,36 @@ export const useStore = create<HFState>()(
           dirty: true,
         })
         return item.id
+      },
+      addSheetItems: (sheetId, sources, overflow = false) => {
+        const s = get()
+        const sheets = s.project.sheets ?? []
+        const sheet = sheets.find((x) => x.id === sheetId)
+        if (!sheet || sources.length === 0) return { ids: [], newSheets: [], unplaced: 0 }
+        const placed = placeNewSheetItems(s.project, s.results, sheet, sources, () => uid('si'), { overflow })
+        const used = new Set(sheets.map((x) => x.name))
+        let n = sheets.length + 1
+        const nameOf = (k: number) => `Prancha ${String(k).padStart(2, '0')}`
+        const created: SheetLayout[] = placed.extra.map((items) => {
+          while (used.has(nameOf(n))) n++
+          used.add(nameOf(n))
+          return { id: uid('sh'), name: nameOf(n), format: sheet.format, items }
+        })
+        set({
+          project: {
+            ...s.project,
+            sheets: [
+              ...sheets.map((x) => (x.id === sheetId ? { ...x, items: [...x.items, ...placed.items] } : x)),
+              ...created,
+            ],
+          },
+          dirty: true,
+        })
+        return {
+          ids: [...placed.items, ...placed.extra.flat()].map((it) => it.id),
+          newSheets: created.map((x) => x.id),
+          unplaced: placed.unplaced,
+        }
       },
       updateSheetItem: (sheetId, itemId, patch) =>
         set((s) => ({
