@@ -805,6 +805,40 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.63 — Issue #23: composição de pranchas (vários desenhos por folha)
+
+> Cada prancha mostrava um desenho por vez; não dava para reunir forma, vigas,
+> pilares e tabelas na mesma folha.
+
+**Resultados → Pranchas → Compor prancha**
+- [x] **Vários desenhos na mesma folha**: plantas de forma, armação de lajes,
+  cortes, cargas e fundações, vigas, pilares (seções e elevação), paredes de
+  alvenaria e as tabelas de **resumo de aço** e **quantitativos**
+- [x] **Arrastar** cada desenho na folha; duplicar, remover e **girar 90°**
+- [x] **Escala própria por desenho**, escrita embaixo dele; "Ajustar à folha"
+  escolhe a maior escala-padrão que cabe. Com escalas diferentes, o carimbo
+  traz "INDICADA"
+- [x] **Organizar automaticamente** em fileiras, mantendo as escalas ou
+  reduzindo as dos maiores até caber
+- [x] **Conferência**: aponta desenho sobreposto, fora da área útil, sobre o
+  carimbo ou indisponível (elemento excluído, análise não rodada)
+- [x] Desenho novo entra no primeiro lugar livre (em escala menor, se a folha
+  estiver apertada)
+- [x] **Várias pranchas por projeto**, com nome e formato (A0–A4) de cada uma;
+  numeração "01/03" no carimbo
+- [x] As pranchas ficam **salvas no projeto**, com posições e escalas; compor
+  não invalida a análise
+- [x] **PDF** da prancha e **PDF de todas** (uma página por folha, cada uma no
+  seu formato, em tamanho real) e **DXF**
+- [x] O desenho avulso continua como antes
+
+**Fora desta versão (registrado na issue de continuação)**
+- [ ] Recortar a janela do desenho (mostrar só parte dele); vistas 3D na folha
+- [ ] Legendas, notas e detalhes construtivos como itens da folha
+- [ ] Margens, carimbo e identificação configuráveis; revisão por prancha na tela
+- [ ] Editar eixos e criar cortes em posição livre a partir da prancha
+- [ ] Painel de resultados destacável em janela própria
+
 ## v0.2.62 — Issue #12: editor de armaduras de vigas e pilares, com reverificação
 
 > O editor só trocava quantidade e bitola das barras e o passo dos estribos

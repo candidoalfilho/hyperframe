@@ -8,9 +8,11 @@ import {
   buildSourceDrawing,
   composeSheetLayout,
   fitItemScale,
+  freeSheetSpot,
   itemPaperSize,
   newSheetItem,
   packSheet,
+  placeNewSheetItem,
   placeSheetItems,
   sheetAreas,
   sheetIssues,
@@ -231,6 +233,39 @@ describe('organizar automaticamente', () => {
     expect(sheetIssues('A3', placeSheetItems(project, results, shrunk.layout))).toEqual([])
     // a prancha original não é alterada
     expect(lay.items[0]).toMatchObject({ x: 0, y: 0, scale: 25 })
+  })
+})
+
+describe('inserir um desenho', () => {
+  it('lugar livre: canto superior esquerdo, depois ao lado e abaixo do que já está', () => {
+    const { usable } = sheetAreas('A1')
+    expect(freeSheetSpot('A1', [], 0.2, 0.1)).toEqual({ x: usable.x0, y: usable.y1 - 0.1 })
+    const a = { x0: usable.x0, y0: usable.y1 - 0.1 - SHEET_TITLE_STRIP, x1: usable.x0 + 0.2, y1: usable.y1 }
+    const next = freeSheetSpot('A1', [a], 0.2, 0.1)!
+    expect(next.x).toBeCloseTo(usable.x0 + 0.2 + SHEET_GAP, 12)
+    expect(next.y).toBeCloseTo(usable.y1 - 0.1, 12)
+    // folha tomada: não há lugar
+    expect(freeSheetSpot('A4', [{ ...sheetAreas('A4').usable }], 0.05, 0.05)).toBeNull()
+    expect(freeSheetSpot('A4', [], 0.5, 0.1)).toBeNull()
+  })
+
+  it('cada desenho novo entra sem sobrepor; com a folha apertada, entra em escala menor', () => {
+    let lay = layoutOf('A1', [])
+    const sources: SheetSource[] = [
+      forma,
+      { kind: 'viga', beamId: plan.beams[0].id },
+      { kind: 'pilares' },
+      { kind: 'aco' },
+      { kind: 'quantitativos' },
+      { kind: 'fundacoes' },
+    ]
+    sources.forEach((s, i) => {
+      lay = { ...lay, items: [...lay.items, placeNewSheetItem(project, results, lay, s, `n${i}`)] }
+      expect(sheetIssues('A1', placeSheetItems(project, results, lay)), `depois do ${i + 1}º`).toEqual([])
+    })
+    // a escala de quem entrou depois pode ser menor que a padrão para caber
+    const std = newSheetItem(project, results, 'A1', sources[5], 'x').scale
+    expect(lay.items[5].scale).toBeGreaterThanOrEqual(std)
   })
 })
 

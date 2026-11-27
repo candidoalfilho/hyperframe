@@ -3,8 +3,10 @@ import { temporal } from 'zundo'
 import {
   createSampleProject,
   createEmptyProject,
+  arrangeSheet,
   autoDimension,
   detectFaces,
+  placeNewSheetItem,
   dimStyleOf,
   refreshDimensions,
   nextBeamName,
@@ -37,6 +39,9 @@ import {
   type RebarOverride,
   type FoundationOverride,
   type SectionRect,
+  type SheetItem,
+  type SheetLayout,
+  type SheetSource,
   type Slab,
   type Vec2,
   type WallLoad,
@@ -337,6 +342,20 @@ export interface HFState {
   /** cota em cadeia dos pilares/vigas indicados (padrão: a seleção) */
   autoDimension: (opts: AutoDimOptions, refs?: ElementRef[]) => 'ok' | 'none'
   setDimStyle: (patch: Partial<DimStyle>) => void
+  /**
+   * pranchas compostas (issue #23) — documentação: NÃO invalidam a análise.
+   * `addSheet` devolve o id da prancha criada.
+   */
+  addSheet: () => string
+  updateSheet: (id: string, patch: Partial<Pick<SheetLayout, 'name' | 'format' | 'revision'>>) => void
+  deleteSheet: (id: string) => void
+  /** insere o desenho no primeiro lugar livre da folha; devolve o id do item */
+  addSheetItem: (sheetId: string, source: SheetSource) => string | null
+  updateSheetItem: (sheetId: string, itemId: string, patch: Partial<Omit<SheetItem, 'id' | 'source'>>) => void
+  removeSheetItem: (sheetId: string, itemId: string) => void
+  duplicateSheetItem: (sheetId: string, itemId: string) => string | null
+  /** organiza em fileiras; `shrink` reduz escalas até caber. Devolve se coube */
+  arrangeSheet: (sheetId: string, shrink?: boolean) => boolean
   deleteElement: (ref: ElementRef) => void
   /** exclui vários elementos em um único passo de desfazer */
   deleteElements: (refs: ElementRef[]) => void
@@ -1228,6 +1247,94 @@ export const useStore = create<HFState>()(
           project: { ...s.project, dimStyle: { ...dimStyleOf(s.project), ...patch } },
           dirty: true,
         })),
+      addSheet: () => {
+        const s = get()
+        const sheets = s.project.sheets ?? []
+        const used = new Set(sheets.map((x) => x.name))
+        let n = sheets.length + 1
+        const nameOf = (k: number) => `Prancha ${String(k).padStart(2, '0')}`
+        while (used.has(nameOf(n))) n++
+        const sheet: SheetLayout = { id: uid('sh'), name: nameOf(n), format: 'A1', items: [] }
+        set({ project: { ...s.project, sheets: [...sheets, sheet] }, dirty: true })
+        return sheet.id
+      },
+      updateSheet: (id, patch) =>
+        set((s) => ({
+          project: {
+            ...s.project,
+            sheets: (s.project.sheets ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)),
+          },
+          dirty: true,
+        })),
+      deleteSheet: (id) =>
+        set((s) => ({
+          project: { ...s.project, sheets: (s.project.sheets ?? []).filter((x) => x.id !== id) },
+          dirty: true,
+        })),
+      addSheetItem: (sheetId, source) => {
+        const s = get()
+        const sheet = s.project.sheets?.find((x) => x.id === sheetId)
+        if (!sheet) return null
+        const item = placeNewSheetItem(s.project, s.results, sheet, source, uid('si'))
+        set({
+          project: {
+            ...s.project,
+            sheets: s.project.sheets!.map((x) => (x.id === sheetId ? { ...x, items: [...x.items, item] } : x)),
+          },
+          dirty: true,
+        })
+        return item.id
+      },
+      updateSheetItem: (sheetId, itemId, patch) =>
+        set((s) => ({
+          project: {
+            ...s.project,
+            sheets: (s.project.sheets ?? []).map((x) =>
+              x.id === sheetId
+                ? { ...x, items: x.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)) }
+                : x,
+            ),
+          },
+          dirty: true,
+        })),
+      removeSheetItem: (sheetId, itemId) =>
+        set((s) => ({
+          project: {
+            ...s.project,
+            sheets: (s.project.sheets ?? []).map((x) =>
+              x.id === sheetId ? { ...x, items: x.items.filter((it) => it.id !== itemId) } : x,
+            ),
+          },
+          dirty: true,
+        })),
+      duplicateSheetItem: (sheetId, itemId) => {
+        const s = get()
+        const sheet = s.project.sheets?.find((x) => x.id === sheetId)
+        const src = sheet?.items.find((it) => it.id === itemId)
+        if (!sheet || !src) return null
+        // a cópia mantém escala e rotação e vai para o primeiro lugar livre
+        const placed = placeNewSheetItem(s.project, s.results, sheet, src.source, uid('si'))
+        const copy: SheetItem = { ...placed, scale: src.scale, ...(src.rotation ? { rotation: src.rotation } : {}) }
+        set({
+          project: {
+            ...s.project,
+            sheets: s.project.sheets!.map((x) => (x.id === sheetId ? { ...x, items: [...x.items, copy] } : x)),
+          },
+          dirty: true,
+        })
+        return copy.id
+      },
+      arrangeSheet: (sheetId, shrink = false) => {
+        const s = get()
+        const sheet = s.project.sheets?.find((x) => x.id === sheetId)
+        if (!sheet) return false
+        const r = arrangeSheet(s.project, s.results, sheet, { shrink })
+        set({
+          project: { ...s.project, sheets: s.project.sheets!.map((x) => (x.id === sheetId ? r.layout : x)) },
+          dirty: true,
+        })
+        return r.fits
+      },
       deleteElement: (ref) => {
         const s = get()
         let project = s.project

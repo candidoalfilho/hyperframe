@@ -368,6 +368,58 @@ export function newSheetItem(
 }
 
 /**
+ * Primeiro lugar livre para uma caixa w × h: canto superior esquerdo, depois à
+ * direita e abaixo de cada desenho já posto. null = não há lugar livre.
+ */
+export function freeSheetSpot(
+  format: SheetFormatId,
+  taken: Box[],
+  w: number,
+  h: number,
+): { x: number; y: number } | null {
+  const { usable, stamp } = sheetAreas(format)
+  const cands: { x: number; y: number }[] = [{ x: usable.x0, y: usable.y1 - h }]
+  for (const b of taken) {
+    cands.push({ x: b.x1 + SHEET_GAP, y: b.y1 - h })
+    cands.push({ x: b.x0, y: b.y0 - SHEET_GAP - h })
+  }
+  // de cima para baixo, da esquerda para a direita
+  cands.sort((p, q) => q.y - p.y || p.x - q.x)
+  for (const c of cands) {
+    const box = { x0: c.x, y0: c.y - SHEET_TITLE_STRIP, x1: c.x + w, y1: c.y + h }
+    const inside =
+      box.x0 >= usable.x0 - 1e-9 && box.y0 >= usable.y0 - 1e-9 && box.x1 <= usable.x1 + 1e-9 && box.y1 <= usable.y1 + 1e-9
+    if (inside && !overlap(box, stamp) && !taken.some((t) => overlap(box, t))) return c
+  }
+  return null
+}
+
+/** item novo já no primeiro lugar livre da prancha */
+export function placeNewSheetItem(
+  project: Project,
+  results: AnalysisResults | null,
+  layout: SheetLayout,
+  source: SheetSource,
+  id: string,
+): SheetItem {
+  const item = newSheetItem(project, results, layout.format, source, id)
+  const d = buildSourceDrawing(project, results, source)
+  const taken = placeSheetItems(project, results, layout).map((p) => p.box)
+  const r4 = (v: number) => Math.round(v * 1e4) / 1e4
+  // na escala padrão não há lugar? tenta as escalas-padrão seguintes (desenho menor)
+  const scales = d ? STANDARD_SCALES.filter((sc) => sc >= item.scale) : [item.scale]
+  for (const scale of scales) {
+    const size = d ? itemPaperSize(d, scale) : { w: 0.06, h: 0.03 }
+    const spot = freeSheetSpot(layout.format, taken, size.w, size.h)
+    if (spot) return { ...item, scale, x: r4(spot.x), y: r4(spot.y) }
+  }
+  // folha cheia: entra no canto superior esquerdo (a conferência aponta a sobreposição)
+  const { usable } = sheetAreas(layout.format)
+  const size = d ? itemPaperSize(d, item.scale) : { w: 0.06, h: 0.03 }
+  return { ...item, x: r4(usable.x0), y: r4(usable.y1 - size.h) }
+}
+
+/**
  * Desenho final da prancha, em metros de papel: moldura, carimbo (ESCALA =
  * a escala única ou "INDICADA") e cada item escalado, girado e com o título
  * "nome — ESC. 1:N" embaixo.

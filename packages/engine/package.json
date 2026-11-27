@@ -1,6 +1,6 @@
 {
   "name": "@hyperframe/engine",
-  "version": "0.2.62",
+  "version": "0.2.63",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
