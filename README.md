@@ -18,8 +18,10 @@ sistema e código-fonte no site.
   automático, com X de vazio na planta), **GEOMETRIA CURVA** (curvar trecho de viga ou borda de laje por flecha — balcões e sacadas curvas viram polilinha em arco e TODO o pipeline funciona: pórtico com torção, grelha, quinhões, 3D, pranchas), **underlay de DXF de arquitetura**, **múltiplas
   plantas de forma** (térreo ≠ tipo ≠ cobertura) — com undo/redo, atalhos e **verificação
   de consistência** (avisos graves/médios/leves antes da análise)
-- **3D sincronizado**: seleção cruzada 2D↔3D, isolamento de pavimento, sombras, deformada, **armaduras de vigas e pilares em 3D** (cores por categoria; clicar na barra mostra posição, bitola, comprimento e a linha do quadro de ferros)
-  (interpolação de Hermite), diagramas N/My/Mz em fita sobre as barras, **escadas e
+- **3D sincronizado**: seleção cruzada 2D↔3D, isolamento de pavimento, sombras, deformada
+  (interpolação de Hermite), diagramas N/My/Mz em fita sobre as barras, **armaduras de
+  vigas e pilares em 3D** (cores por categoria; clicar na barra mostra posição, bitola,
+  comprimento e a linha do quadro de ferros), **escadas e
   reservatórios como sólidos** (lance com degraus, laje inclinada e patamar; caixa com
   paredes e tampa), **lajes com furos reais** sobre as escadas/aberturas e **furos na
   alma das vigas** recortados no sólido (§13.2.5)
