@@ -805,6 +805,40 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.64 — Issue #28: DXF com × e Ø corretos; vários desenhos de uma vez na prancha
+
+> No AutoCAD, "N4 16×φ5 c/18" abria como "N4 16Ã—Ï†5 c/18"; e os desenhos
+> entravam na prancha um por um, por uma lista suspensa.
+
+**Exportação DXF**
+- [x] O arquivo sai na página de códigos **ANSI_1252**, declarada no cabeçalho
+  (`$DWGCODEPAGE`) — a que o AutoCAD usa para DXF R12. Antes saía em UTF-8 e
+  cada símbolo ou acento virava dois caracteres errados
+- [x] **×**, **Ø**, acentos, travessão, ², ³, ° e · chegam inteiros; o diâmetro
+  (φ na tela) vai como **Ø**; símbolos que a página não tem são escritos por
+  extenso (≥ vira ">=", σmáx vira "sigma-máx") ou, em último caso, como `\U+XXXX`
+- [x] Vale para a prancha composta e para o desenho avulso
+- [x] **Importar DXF** (underlay) lê arquivos em ANSI_1252 e em UTF-8 e entende
+  `%%c`, `%%d`, `%%p` e `\U+XXXX` — textos de arquivos do AutoCAD deixam de vir
+  com acento trocado
+
+**Compor prancha — escolha dos desenhos**
+- [x] Janela **Adicionar desenhos** com **caixas de seleção**, por categoria
+  (plantas de forma, lajes, vigas, pilares, fundações, cortes, alvenaria, tabelas)
+- [x] **Selecionar todos**, **desmarcar todos** e a caixa da categoria (marca o
+  grupo inteiro)
+- [x] **Filtros**: busca por texto, categoria e pavimento
+- [x] **Marca do que já foi usado**: "nesta prancha" e "prancha 02"; opção de
+  listar só o que ainda não está em nenhuma prancha
+- [x] Vários desenhos entram **de uma vez** (um único desfazer); o que não cabe
+  na folha vai para **pranchas novas**, no mesmo formato — ou tudo fica na folha
+  escolhida, se preferir
+- [x] Lugar livre melhor aproveitado: o desenho novo ocupa os cantos que sobram
+  entre desenhos de tamanhos diferentes
+
+**PDF das pranchas**
+- [x] "ℓ" (vão) deixava um "?" na nota da armação de lajes — corrigido
+
 ## v0.2.63 — Issue #23: composição de pranchas (vários desenhos por folha)
 
 > Cada prancha mostrava um desenho por vez; não dava para reunir forma, vigas,

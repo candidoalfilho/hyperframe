@@ -149,6 +149,7 @@ export {
 } from './design/rebarCheck'
 export { buildDrawingPdf, buildDrawingsPdf } from './drawing/drawingPdf'
 export {
+  OVERFLOW_SHRINK_STEPS,
   SHEET_GAP,
   SHEET_TITLE_STRIP,
   arrangeSheet,
@@ -160,13 +161,17 @@ export {
   newSheetItem,
   packSheet,
   placeNewSheetItem,
+  placeNewSheetItems,
   placeSheetItems,
   sheetAreas,
   sheetIssues,
+  SHEET_SOURCE_GROUPS,
+  sheetSourceKey,
   sheetSourceLabel,
   sheetSourceOptions,
   type PlacedItem,
   type SheetIssue,
+  type SheetSourceOption,
 } from './drawing/sheetLayout'
 export { buildQuantitiesTableDrawing, buildSteelTableDrawing, tableDrawing } from './drawing/tables'
 
@@ -345,7 +350,8 @@ export {
 } from './analysis/buildModel'
 
 export { parseDxf } from './dxf/parse'
-export { writeDxf } from './dxf/write'
+export { writeDxf, writeDxfBytes } from './dxf/write'
+export { decodeDxfBytes, decodeDxfText, dxfSafeText, encodeDxf } from './dxf/encoding'
 
 export { buildMemorialPdf, type MemorialOptions } from './report/memorial'
 export {

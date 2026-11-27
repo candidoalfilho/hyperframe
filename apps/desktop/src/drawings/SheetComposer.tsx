@@ -8,7 +8,7 @@ import {
   fitItemScale,
   sheetAreas,
   sheetSourceOptions,
-  writeDxf,
+  writeDxfBytes,
   type SheetFormat,
   type SheetLayout,
   type SheetSource,
@@ -17,6 +17,7 @@ import { useStore } from '../store'
 import { cssPxScale } from '../ui/zoom'
 import { IconDownload } from '../components/Icons'
 import DrawingSvg, { type DrawingView } from './DrawingSvg'
+import SheetSourcePicker, { sheetUsage } from './SheetSourcePicker'
 
 /**
  * Compositor de pranchas (issue #23): vários desenhos do projeto na mesma
@@ -56,7 +57,7 @@ export default function SheetComposer() {
   const addSheet = useStore((s) => s.addSheet)
   const updateSheet = useStore((s) => s.updateSheet)
   const deleteSheet = useStore((s) => s.deleteSheet)
-  const addSheetItem = useStore((s) => s.addSheetItem)
+  const addSheetItems = useStore((s) => s.addSheetItems)
   const updateSheetItem = useStore((s) => s.updateSheetItem)
   const removeSheetItem = useStore((s) => s.removeSheetItem)
   const duplicateSheetItem = useStore((s) => s.duplicateSheetItem)
@@ -66,14 +67,16 @@ export default function SheetComposer() {
   const [sheetId, setSheetId] = useState('')
   const sheet: SheetLayout | null = sheets.find((x) => x.id === sheetId) ?? sheets[0] ?? null
   const [selId, setSelId] = useState<string | null>(null)
-  const [sourceIdx, setSourceIdx] = useState(0)
+  const [picking, setPicking] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  /** aviso informativo (o que foi adicionado e onde) */
+  const [note, setNote] = useState<string | null>(null)
   /** arrasto em andamento: item e deslocamento em metros de papel */
   const [drag, setDrag] = useState<{ id: string; dx: number; dy: number } | null>(null)
   const dragRef = useRef<{ id: string; px: number; py: number; k: number; scale: number } | null>(null)
 
   const options = useMemo(() => sheetSourceOptions(project, results), [project, results])
-  const groups = useMemo(() => [...new Set(options.map((o) => o.group))], [options])
+  const usage = useMemo(() => sheetUsage(sheets, sheet?.id ?? ''), [sheets, sheet])
 
   const info = useMemo(
     () => ({
@@ -115,12 +118,28 @@ export default function SheetComposer() {
     )
   }
 
-  const add = () => {
-    const opt = options[sourceIdx]
-    if (!opt) return
-    const id = addSheetItem(sheet.id, opt.source as SheetSource)
-    if (id) setSelId(id)
+  const add = (sources: SheetSource[], overflow: boolean) => {
+    const r = addSheetItems(sheet.id, sources, overflow)
+    setPicking(false)
     setMsg(null)
+    if (r.ids.length === 0) return
+    const here = r.ids.length - (useStore.getState().project.sheets ?? [])
+      .filter((x) => r.newSheets.includes(x.id))
+      .reduce((n, x) => n + x.items.length, 0)
+    setSelId(here === 1 ? r.ids[0] : null)
+    const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+    const parts = [`${plural(r.ids.length, 'desenho adicionado', 'desenhos adicionados')}`]
+    if (r.newSheets.length > 0) {
+      parts.push(
+        `${plural(r.ids.length - here, 'não coube nesta folha e foi', 'não couberam nesta folha e foram')} para ${plural(r.newSheets.length, 'prancha nova', 'pranchas novas')}`,
+      )
+    }
+    setNote(parts.join('; ') + '.')
+    if (r.unplaced > 0) {
+      setMsg(
+        `${plural(r.unplaced, 'desenho não achou lugar livre e ficou sobreposto', 'desenhos não acharam lugar livre e ficaram sobrepostos')} — use “Organizar reduzindo escalas”, uma folha maior ou divida em mais pranchas.`,
+      )
+    }
   }
 
   // ---- arrastar um desenho na folha (só o contorno se move; solta = grava) ----
@@ -286,36 +305,18 @@ export default function SheetComposer() {
       </div>
 
       <div style={row}>
-        <span className="label" style={{ margin: 0 }}>
-          Inserir
-        </span>
-        <select
-          className="select"
-          aria-label="Desenho a inserir"
-          style={{ maxWidth: 300 }}
-          value={sourceIdx}
-          onChange={(e) => setSourceIdx(Number(e.target.value))}
+        <button
+          className="btn btn-primary"
+          title="Abre a lista de desenhos do projeto para marcar os que entram nesta prancha"
+          onClick={() => setPicking(true)}
         >
-          {groups.map((g) => (
-            <optgroup key={g} label={g}>
-              {options.map((o, i) =>
-                o.group === g ? (
-                  <option key={i} value={i}>
-                    {o.label}
-                  </option>
-                ) : null,
-              )}
-            </optgroup>
-          ))}
-        </select>
-        <button className="btn btn-primary" onClick={add}>
-          Adicionar à folha
+          + Adicionar desenhos…
         </button>
         <button
           className="btn"
           disabled={sheet.items.length === 0}
           title="Distribui os desenhos em fileiras, mantendo as escalas"
-          onClick={() => setMsg(arrange(sheet.id, false) ? null : 'Não coube nas escalas atuais — reduza alguma escala, use uma folha maior ou “Organizar reduzindo escalas”.')}
+          onClick={() => { setNote(null); setMsg(arrange(sheet.id, false) ? null : 'Não coube nas escalas atuais — reduza alguma escala, use uma folha maior ou “Organizar reduzindo escalas”.') }}
         >
           Organizar
         </button>
@@ -323,7 +324,7 @@ export default function SheetComposer() {
           className="btn"
           disabled={sheet.items.length === 0}
           title="Distribui os desenhos e reduz a escala dos maiores até tudo caber"
-          onClick={() => setMsg(arrange(sheet.id, true) ? null : 'Mesmo nas menores escalas não coube — use uma folha maior ou divida em duas pranchas.')}
+          onClick={() => { setNote(null); setMsg(arrange(sheet.id, true) ? null : 'Mesmo nas menores escalas não coube — use uma folha maior ou divida em duas pranchas.') }}
         >
           Organizar reduzindo escalas
         </button>
@@ -424,13 +425,18 @@ export default function SheetComposer() {
             className="faint"
             style={{ position: 'absolute', left: 0, right: 0, top: '45%', textAlign: 'center', fontSize: 12.5, pointerEvents: 'none' }}
           >
-            Folha vazia — escolha um desenho acima e clique em “Adicionar à folha”.
+            Folha vazia — clique em “Adicionar desenhos…” e marque os que entram nesta prancha.
           </div>
         )}
       </div>
 
-      {(composed.issues.length > 0 || msg) && (
+      {(composed.issues.length > 0 || msg || note) && (
         <div style={{ paddingTop: 6, flex: 'none' }} data-testid="sheet-issues">
+          {note && (
+            <div className="faint" style={{ fontSize: 11.5 }} data-testid="sheet-note">
+              {note}
+            </div>
+          )}
           {msg && <div style={{ color: 'var(--warn)', fontSize: 11.5 }}>{msg}</div>}
           {composed.issues.slice(0, 4).map((i, k) => (
             <div key={k} style={{ color: 'var(--err)', fontSize: 11.5 }}>
@@ -459,7 +465,7 @@ export default function SheetComposer() {
         </button>
         <button
           className="btn"
-          onClick={() => saveBlob(new Blob([writeDxf(composed.drawing)], { type: 'application/dxf' }), `${base}.dxf`)}
+          onClick={() => saveBlob(new Blob([writeDxfBytes(composed.drawing) as BlobPart], { type: 'application/dxf' }), `${base}.dxf`)}
         >
           <IconDownload size={14} />
           DXF
@@ -469,6 +475,18 @@ export default function SheetComposer() {
           e DXF saem em tamanho real de papel. Revisão de engenheiro continua obrigatória.
         </span>
       </div>
+
+      {picking && (
+        <SheetSourcePicker
+          options={options}
+          plans={project.plans.map((p) => ({ id: p.id, name: p.name }))}
+          usage={usage}
+          sheetName={`${labelOf(sheets.indexOf(sheet))} — ${sheet.name}`}
+          hasResults={!!results}
+          onAdd={add}
+          onClose={() => setPicking(false)}
+        />
+      )}
     </div>
   )
 }

@@ -18,6 +18,7 @@ import {
   fyd as fydOf,
   uid as uidGen,
   dist,
+  decodeDxfBytes,
   parseDxf,
   polygonArea,
   uid,
@@ -171,7 +172,8 @@ function ProjectInspector({ project }: { project: Project }) {
     e.target.value = '' // permite reimportar o mesmo arquivo
     if (!file) return
     try {
-      const text = await file.text()
+      // DXF de AutoCAD vem em ANSI_1252 (ou UTF-8, do 2007 em diante): decide pelos bytes
+      const text = decodeDxfBytes(new Uint8Array(await file.arrayBuffer()))
       const entities = parseDxf(text)
       if (entities.length === 0) throw new Error('nenhuma entidade suportada encontrada')
       setUnderlay({

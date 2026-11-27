@@ -9,10 +9,15 @@
  * Simplificações assumidas: `dashed` e `filled` são atributos visuais do app
  * e não são exportados (traço contínuo, círculo sem hachura) — a camada já
  * carrega a semântica do elemento.
+ *
+ * Texto: R12 não é UTF-8 — o conteúdo devolvido só tem caracteres da página
+ * ANSI_1252 (declarada em $DWGCODEPAGE) e o arquivo deve ser gravado com
+ * `encodeDxf` (bytes CP1252), nunca como UTF-8. Ver `dxf/encoding.ts`.
  */
 
 import { dimParts } from '../drawing/dim'
 import type { DDim, Drawing } from '../drawing/types'
+import { dxfSafeText, encodeDxf } from './encoding'
 
 /** camadas fixas do HyperFrame → cor ACI (AutoCAD Color Index) */
 const LAYERS: ReadonlyArray<readonly [string, number]> = [
@@ -42,7 +47,7 @@ export function writeDxf(drawing: Drawing): string {
   const out: string[] = []
   /** emite um par código/valor; quebras de linha no valor corromperiam o arquivo */
   const g = (code: number, value: string): void => {
-    out.push(String(code), value.replace(/[\r\n]+/g, ' '))
+    out.push(String(code), dxfSafeText(value.replace(/[\r\n]+/g, ' ')))
   }
   const gn = (code: number, value: number): void => {
     out.push(String(code), fmt(value))
@@ -107,6 +112,9 @@ export function writeDxf(drawing: Drawing): string {
   g(2, 'HEADER')
   g(9, '$ACADVER')
   g(1, 'AC1009') // R12
+  // página de códigos do texto: sem ela o leitor adivinha (issue #28)
+  g(9, '$DWGCODEPAGE')
+  g(3, 'ANSI_1252')
   g(9, '$INSUNITS')
   g(70, '6') // 6 = metros
   g(0, 'ENDSEC')
@@ -184,4 +192,9 @@ export function writeDxf(drawing: Drawing): string {
 
   g(0, 'EOF')
   return out.join('\n') + '\n'
+}
+
+/** o arquivo DXF em bytes, na página de códigos declarada (ANSI_1252) */
+export function writeDxfBytes(drawing: Drawing): Uint8Array {
+  return encodeDxf(writeDxf(drawing))
 }

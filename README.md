@@ -5,7 +5,7 @@ macOS + Windows (Tauri) e navegador. Alternativa moderna e aberta aos softwares
 estruturais tradicionais do mercado — **100% open source**, com binários por
 sistema e código-fonte no site.
 
-![status](https://img.shields.io/badge/vers%C3%A3o-0.2.63-orange) ![tests](https://img.shields.io/badge/testes-818%20passando-brightgreen)
+![status](https://img.shields.io/badge/vers%C3%A3o-0.2.64-orange) ![tests](https://img.shields.io/badge/testes-842%20passando-brightgreen)
 
 ## O que já faz (v0.2.52)
 
@@ -87,7 +87,7 @@ sistema e código-fonte no site.
   real** com decalagem al §17.4.2.2 e escalonamento, **emendas por traspasse** §9.5.2,
   estribos na distribuição real, **QUADRO DE FERROS** por posição e **editor de
   armaduras** com aviso de As insuficiente), seções de pilares, **PILAR EXECUTIVO em elevação** (arranques da fundação, emendas por traspasse em cada pavimento §9.5.2, estribos na distribuição real por tramo, cotas de nível/pé-direito, seção com barras e quadro de ferros do pilar) —
-  SVG no app, **exportação DXF** (writer R12 próprio) e **PDF vetorial 1:1 com a folha** (imprime na escala do carimbo), **moldura + carimbo ABNT**
+  SVG no app, **exportação DXF** (writer R12 próprio, em ANSI_1252 — × e Ø abrem certos no AutoCAD) e **PDF vetorial 1:1 com a folha** (imprime na escala do carimbo), **moldura + carimbo ABNT**
   (A0–A4, escala automática ou fixa; cotas proporcionais à escala), tabela de aço por
   bitola, relatório imprimível e **memorial de cálculo completo em PDF** (writer PDF
   próprio, 15 seções + furos/solo/custo, multipágina)

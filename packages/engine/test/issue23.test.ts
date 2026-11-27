@@ -239,11 +239,14 @@ describe('organizar automaticamente', () => {
 describe('inserir um desenho', () => {
   it('lugar livre: canto superior esquerdo, depois ao lado e abaixo do que já está', () => {
     const { usable } = sheetAreas('A1')
-    expect(freeSheetSpot('A1', [], 0.2, 0.1)).toEqual({ x: usable.x0, y: usable.y1 - 0.1 })
+    // (posições no décimo de milímetro em que são gravadas)
+    const first = freeSheetSpot('A1', [], 0.2, 0.1)!
+    expect(first.x).toBeCloseTo(usable.x0, 9)
+    expect(first.y).toBeCloseTo(usable.y1 - 0.1, 9)
     const a = { x0: usable.x0, y0: usable.y1 - 0.1 - SHEET_TITLE_STRIP, x1: usable.x0 + 0.2, y1: usable.y1 }
     const next = freeSheetSpot('A1', [a], 0.2, 0.1)!
-    expect(next.x).toBeCloseTo(usable.x0 + 0.2 + SHEET_GAP, 12)
-    expect(next.y).toBeCloseTo(usable.y1 - 0.1, 12)
+    expect(next.x).toBeCloseTo(usable.x0 + 0.2 + SHEET_GAP, 9)
+    expect(next.y).toBeCloseTo(usable.y1 - 0.1, 9)
     // folha tomada: não há lugar
     expect(freeSheetSpot('A4', [{ ...sheetAreas('A4').usable }], 0.05, 0.05)).toBeNull()
     expect(freeSheetSpot('A4', [], 0.5, 0.1)).toBeNull()
