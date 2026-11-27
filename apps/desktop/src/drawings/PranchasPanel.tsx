@@ -21,6 +21,7 @@ import { useStore } from '../store'
 import DrawingSvg from './DrawingSvg'
 import { IconDownload } from '../components/Icons'
 import { BeamRebarEditor, ColumnRebarEditor } from './RebarEditors'
+import SheetComposer from './SheetComposer'
 
 /**
  * Aba "Pranchas": planta de forma, corte esquemático, planta de cargas,
@@ -59,6 +60,8 @@ export default function PranchasPanel() {
   const results = useStore((s) => s.results)
   const project = useStore((s) => s.project)
 
+  /** desenho avulso (um por vez) ou prancha composta (vários desenhos na folha) */
+  const [mode, setMode] = useState<'avulso' | 'compor'>('avulso')
   const [tipo, setTipo] = useState<Tipo>('forma')
   const [planId, setPlanId] = useState('')
   const [beamId, setBeamId] = useState('')
@@ -259,8 +262,41 @@ export default function PranchasPanel() {
         ? 'Defina eixos no projeto p/ posicionar o corte.'
         : 'Rode a análise para gerar as pranchas.'
 
+  const modeBar = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 8, flex: 'none' }}>
+      {(
+        [
+          ['avulso', 'Desenho avulso', 'Um desenho por vez, com moldura e carimbo opcionais'],
+          ['compor', 'Compor prancha', 'Vários desenhos na mesma folha, cada um na sua escala — fica salvo no projeto'],
+        ] as const
+      ).map(([id, label, title]) => (
+        <button
+          key={id}
+          className={`btn ${mode === id ? 'btn-primary' : ''}`}
+          style={{ height: 24, fontSize: 11.5 }}
+          title={title}
+          aria-pressed={mode === id}
+          onClick={() => setMode(id)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+  if (mode === 'compor') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 420 }}>
+        {modeBar}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <SheetComposer />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 420 }}>
+      {modeBar}
       {/* seleção do tipo de prancha */}
       <div
         style={{

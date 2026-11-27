@@ -108,6 +108,10 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
   τRd1 = 794 kPa < τSd1 = 1384 kPa ⇒ exige armadura)
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
+- Pranchas compostas (v0.2.63): área útil da A1 = folha − margens (25/10 mm) − 5 mm;
+  tamanho no papel = desenho ÷ escala (girado troca largura e altura); cada linha do
+  desenho cai dentro da caixa do item, com comprimento ÷ escala; organização automática
+  sem sobreposição e sem tocar o carimbo; PDF em tamanho real (A1 = 2383,9 × 1683,8 pt)
 - Armadura adotada (v0.2.62): 4 φ10 em 20 × (d = 46) cm ⇒ Rs = 136,6 kN, a = 3,75 cm,
   MRd = 60,3 kN·m (à mão); MRd da armadura calculada devolve o Md de entrada (inverso do
   dimensionamento) em 4 níveis de momento; seção T com a LN na mesa e na alma conferidas

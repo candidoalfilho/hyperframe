@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { DDim, Drawing, DrawingLayer } from '@hyperframe/engine'
 import { cssPxScale, eventPoint } from '../ui/zoom'
 
@@ -114,12 +114,33 @@ function decomposeDim(d: DDim): DimParts {
   }
 }
 
-export default function DrawingSvg({ drawing }: { drawing: Drawing }) {
+/** conversão do desenho para a tela, entregue à camada extra */
+export interface DrawingView {
+  X: (x: number) => number
+  Y: (y: number) => number
+  /** px por metro do desenho */
+  k: number
+}
+
+export default function DrawingSvg({
+  drawing,
+  fitKey,
+  overlay,
+}: {
+  drawing: Drawing
+  /**
+   * quando informado, a vista só é reenquadrada ao mudar a chave (e não a cada
+   * desenho novo) — o compositor de pranchas redesenha a cada ajuste
+   */
+  fitKey?: string
+  /** camada interativa por cima do desenho (mesmo sistema de coordenadas) */
+  overlay?: (view: DrawingView) => ReactNode
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [vp, setVp] = useState<Vp>({ k: 50, ox: 40, oy: 400 })
   const [panning, setPanning] = useState(false)
-  const fittedFor = useRef<Drawing | null>(null)
+  const fittedFor = useRef<Drawing | string | null>(null)
   const panRef = useRef<{ id: number; x: number; y: number } | null>(null)
 
   // tamanho do container
@@ -140,10 +161,11 @@ export default function DrawingSvg({ drawing }: { drawing: Drawing }) {
   // enquadra ao montar / ao trocar de desenho
   useEffect(() => {
     if (size.w <= 0 || size.h <= 0) return
-    if (fittedFor.current === drawing) return
-    fittedFor.current = drawing
+    const key = fitKey ?? drawing
+    if (fittedFor.current === key) return
+    fittedFor.current = key
     setVp(fitViewport(drawing.bounds, size.w, size.h))
-  }, [drawing, size])
+  }, [drawing, size, fitKey])
 
   // zoom na roda mantendo o ponto sob o cursor (listener nativo p/ preventDefault)
   useEffect(() => {
@@ -374,6 +396,7 @@ export default function DrawingSvg({ drawing }: { drawing: Drawing }) {
         }}
       >
         {els}
+        {overlay?.({ X, Y, k: vp.k })}
       </svg>
     </div>
   )

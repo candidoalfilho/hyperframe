@@ -9,7 +9,7 @@ import type { Drawing, DrawingPrimitive } from './types'
 export type SheetFormat = 'A0' | 'A1' | 'A2' | 'A3' | 'A4'
 
 /** dimensões do papel paisagem, m */
-const FORMATS: Record<SheetFormat, { w: number; h: number }> = {
+export const SHEET_FORMATS: Record<SheetFormat, { w: number; h: number }> = {
   A0: { w: 1.189, h: 0.841 },
   A1: { w: 0.841, h: 0.594 },
   A2: { w: 0.594, h: 0.42 },
@@ -18,17 +18,17 @@ const FORMATS: Record<SheetFormat, { w: number; h: number }> = {
 }
 
 /** margens ABNT: esquerda 25 mm (encadernação), demais 10 mm (7 p/ A4/A3) */
-function margins(format: SheetFormat): { left: number; other: number } {
+export function sheetMargins(format: SheetFormat): { left: number; other: number } {
   return format === 'A4' || format === 'A3'
     ? { left: 0.025, other: 0.007 }
     : { left: 0.025, other: 0.01 }
 }
 
-const STANDARD_SCALES = [10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 500]
+export const STANDARD_SCALES = [10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 500]
 
 /** carimbo: 175×56 mm no canto inferior direito */
-const STAMP_W = 0.175
-const STAMP_H = 0.056
+export const STAMP_W = 0.175
+export const STAMP_H = 0.056
 
 export interface SheetInfo {
   /** obra (nome do projeto) */
@@ -62,26 +62,41 @@ export interface SheetResult {
   format: SheetFormat
 }
 
-/** transforma primitiva do desenho (m de modelo) p/ papel: p' = o + p/k */
-function mapPrimitive(p: DrawingPrimitive, k: number, ox: number, oy: number): DrawingPrimitive {
-  const mx = (x: number) => ox + x / k
-  const my = (y: number) => oy + y / k
+/**
+ * transforma primitiva do desenho (m de modelo) p/ papel: p' = o + R(p)/k.
+ * `rot` = 90 gira o desenho 90° no sentido anti-horário antes de escalar.
+ */
+export function mapPrimitive(
+  p: DrawingPrimitive,
+  k: number,
+  ox: number,
+  oy: number,
+  rot: 0 | 90 = 0,
+): DrawingPrimitive {
+  const mx = (x: number, y: number) => ox + (rot === 90 ? -y : x) / k
+  const my = (x: number, y: number) => oy + (rot === 90 ? x : y) / k
   switch (p.kind) {
     case 'line':
-      return { ...p, x1: mx(p.x1), y1: my(p.y1), x2: mx(p.x2), y2: my(p.y2) }
+      return { ...p, x1: mx(p.x1, p.y1), y1: my(p.x1, p.y1), x2: mx(p.x2, p.y2), y2: my(p.x2, p.y2) }
     case 'polyline':
-      return { ...p, points: p.points.map((pt) => ({ x: mx(pt.x), y: my(pt.y) })) }
+      return { ...p, points: p.points.map((pt) => ({ x: mx(pt.x, pt.y), y: my(pt.x, pt.y) })) }
     case 'circle':
-      return { ...p, cx: mx(p.cx), cy: my(p.cy), r: p.r / k }
+      return { ...p, cx: mx(p.cx, p.cy), cy: my(p.cx, p.cy), r: p.r / k }
     case 'text':
-      return { ...p, x: mx(p.x), y: my(p.y), height: p.height / k }
+      return {
+        ...p,
+        x: mx(p.x, p.y),
+        y: my(p.x, p.y),
+        height: p.height / k,
+        ...(rot === 90 ? { rotation: (p.rotation ?? 0) + 90 } : {}),
+      }
     case 'dim':
       return {
         ...p,
-        x1: mx(p.x1),
-        y1: my(p.y1),
-        x2: mx(p.x2),
-        y2: my(p.y2),
+        x1: mx(p.x1, p.y1),
+        y1: my(p.x1, p.y1),
+        x2: mx(p.x2, p.y2),
+        y2: my(p.x2, p.y2),
         offset: p.offset / k,
         // altura explícita escala como DText.height; sem ela o renderer
         // derivaria do offset JÁ dividido e o piso legível saturaria (texto gigante)
@@ -90,36 +105,19 @@ function mapPrimitive(p: DrawingPrimitive, k: number, ox: number, oy: number): D
   }
 }
 
-export function composeSheet(content: Drawing, opts: SheetOptions): SheetResult {
-  const fmt = FORMATS[opts.format]
-  const mg = margins(opts.format)
+/**
+ * Moldura e carimbo da folha (ABNT NBR 10068/10582), em metros de papel.
+ * `scaleText` vai no campo ESCALA: "1:50" ou "INDICADA" quando os desenhos da
+ * prancha têm escalas diferentes.
+ */
+export function sheetFrame(format: SheetFormat, info: SheetInfo, scaleText: string): DrawingPrimitive[] {
+  const fmt = SHEET_FORMATS[format]
+  const mg = sheetMargins(format)
   const prims: DrawingPrimitive[] = []
-
-  // área útil (dentro da moldura), reservando a faixa do carimbo
   const frameX0 = mg.left
   const frameY0 = mg.other
   const frameX1 = fmt.w - mg.other
   const frameY1 = fmt.h - mg.other
-  const availW = frameX1 - frameX0 - 0.01
-  const availH = frameY1 - frameY0 - STAMP_H - 0.015
-
-  const cw = Math.max(content.bounds.maxX - content.bounds.minX, 0.1)
-  const ch = Math.max(content.bounds.maxY - content.bounds.minY, 0.1)
-
-  let scale = opts.scale ?? 0
-  if (!scale || scale <= 0) {
-    scale =
-      STANDARD_SCALES.find((s) => cw / s <= availW && ch / s <= availH) ??
-      STANDARD_SCALES[STANDARD_SCALES.length - 1]
-  }
-
-  // centraliza o conteúdo na área útil (acima do carimbo)
-  const drawW = cw / scale
-  const drawH = ch / scale
-  const ox = frameX0 + (availW - drawW) / 2 + 0.005 - content.bounds.minX / scale
-  const oy = frameY0 + STAMP_H + 0.01 + (availH - drawH) / 2 - content.bounds.minY / scale
-  for (const p of content.primitives) prims.push(mapPrimitive(p, scale, ox, oy))
-
   // ---- moldura ----
   prims.push({
     kind: 'polyline',
@@ -155,7 +153,6 @@ export function composeSheet(content: Drawing, opts: SheetOptions): SheetResult 
     prims.push({ kind: 'text', x, y, text: t, height: h, layer: 'TEXTOS', align })
   }
   box(sx0, sy0, sx1, sy1)
-  const info = opts.info
   const pad = 0.002
   const rowH = STAMP_H / 4
   // linhas horizontais do carimbo
@@ -185,7 +182,7 @@ export function composeSheet(content: Drawing, opts: SheetOptions): SheetResult 
   const values = [
     info.author ?? '—',
     info.date ?? '—',
-    `1:${scale}`,
+    scaleText,
     info.sheetLabel ?? '01',
     info.revision ?? 'R00',
   ]
@@ -198,6 +195,42 @@ export function composeSheet(content: Drawing, opts: SheetOptions): SheetResult 
     text(x, sy0 + rowH - 0.0038, labels[i], 0.0016)
     text(x, sy0 + 0.0022, values[i], 0.0024)
   }
+
+  return prims
+}
+
+export function composeSheet(content: Drawing, opts: SheetOptions): SheetResult {
+  const fmt = SHEET_FORMATS[opts.format]
+  const mg = sheetMargins(opts.format)
+  const prims: DrawingPrimitive[] = []
+
+  // área útil (dentro da moldura), reservando a faixa do carimbo
+  const frameX0 = mg.left
+  const frameY0 = mg.other
+  const frameX1 = fmt.w - mg.other
+  const frameY1 = fmt.h - mg.other
+  const availW = frameX1 - frameX0 - 0.01
+  const availH = frameY1 - frameY0 - STAMP_H - 0.015
+
+  const cw = Math.max(content.bounds.maxX - content.bounds.minX, 0.1)
+  const ch = Math.max(content.bounds.maxY - content.bounds.minY, 0.1)
+
+  let scale = opts.scale ?? 0
+  if (!scale || scale <= 0) {
+    scale =
+      STANDARD_SCALES.find((s) => cw / s <= availW && ch / s <= availH) ??
+      STANDARD_SCALES[STANDARD_SCALES.length - 1]
+  }
+
+  // centraliza o conteúdo na área útil (acima do carimbo)
+  const drawW = cw / scale
+  const drawH = ch / scale
+  const ox = frameX0 + (availW - drawW) / 2 + 0.005 - content.bounds.minX / scale
+  const oy = frameY0 + STAMP_H + 0.01 + (availH - drawH) / 2 - content.bounds.minY / scale
+  for (const p of content.primitives) prims.push(mapPrimitive(p, scale, ox, oy))
+
+  prims.push(...sheetFrame(opts.format, opts.info, `1:${scale}`))
+  const info = opts.info
 
   const title = `${info.title1}${info.title2 ? ' — ' + info.title2 : ''} (${opts.format} 1:${scale})`
   return {
