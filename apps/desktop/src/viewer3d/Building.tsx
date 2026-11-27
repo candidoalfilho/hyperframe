@@ -49,6 +49,12 @@ const HOVER_COLOR: Record<SolidKind, string> = {
 }
 
 const SEL_COLOR = '#4da3ff' // var(--sel)
+
+// Material sólido ↔ fantasma: o three compila o shader para um dos dois modos
+// (define OPAQUE), então trocar `transparent` num material já usado não tem
+// efeito sem recompilar. A `key` nos materiais abaixo recria o material quando
+// o modo muda — sem ela o concreto continuava opaco na deformada, no "isolar
+// pavimento" e nas armaduras.
 const EDGE_COLOR = '#3a4152'
 const DEFAULT_RAYCAST = THREE.Mesh.prototype.raycast
 
@@ -102,7 +108,9 @@ export default function Building() {
 
   const isolate = isolateOpt && activeIdx >= 0
   // estrutura indeformada vira fantasma quando a deformada está visível
-  const ghostAll = showDeformed && hasResults && activeComboId !== null
+  // …e também quando as armaduras estão à mostra (o concreto não pode escondê-las)
+  const showRebar = useStore((s) => s.d3.showRebar)
+  const ghostAll = hasResults && ((showDeformed && activeComboId !== null) || showRebar)
 
   const handleClick = (kind: SolidKind, id: string) => (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > 5) return // arrasto do orbit — não é clique de seleção
@@ -188,6 +196,7 @@ export default function Building() {
               <boxGeometry args={b.size} />
             )}
             <meshStandardMaterial
+              key={solid ? 'solido' : 'fantasma'}
               color={paint.color}
               roughness={0.9}
               metalness={0.05}
@@ -235,6 +244,7 @@ export default function Building() {
                 <boxGeometry args={f.size} />
               )}
               <meshStandardMaterial
+                key={solid ? 'solido' : 'fantasma'}
                 color={color}
                 roughness={0.95}
                 metalness={0.03}
@@ -275,6 +285,7 @@ export default function Building() {
             >
               <boxGeometry args={r.size} />
               <meshStandardMaterial
+                key={solid ? 'solido' : 'fantasma'}
                 color={color}
                 roughness={0.9}
                 metalness={0.05}
@@ -362,6 +373,7 @@ function PrismMesh({
       onPointerOut={onPointerOut}
     >
       <meshStandardMaterial
+        key={solid ? 'solido' : 'fantasma'}
         color={paint.color}
         roughness={0.9}
         metalness={0.05}
@@ -425,6 +437,7 @@ function WebBoxMesh({
       onPointerOut={onPointerOut}
     >
       <meshStandardMaterial
+        key={solid ? 'solido' : 'fantasma'}
         color={paint.color}
         roughness={0.9}
         metalness={0.05}

@@ -399,3 +399,10 @@ export {
 } from './drawing/sheet'
 
 export { serializeProject, parseProject, normalizeProject, ProjectParseError } from './io/serialize'
+export {
+  REBAR_CATEGORIES,
+  buildRebar3D,
+  rebarPathLength,
+  type RebarCategory,
+  type RebarGroup3D,
+} from './design/rebar3d'
