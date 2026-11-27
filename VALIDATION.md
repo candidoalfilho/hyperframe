@@ -108,6 +108,11 @@ HyperFrame é validado — e o que ainda falta antes de uso em projeto real.
   τRd1 = 794 kPa < τSd1 = 1384 kPa ⇒ exige armadura)
 - Consistência: pilar interno à laje sem viga (laje lisa não modelada) e pilar-parede
   (b/h ≥ 5) apontados
+- Armaduras em 3D (v0.2.65): toda barra fica dentro do concreto (altura, largura e
+  comprimento da viga; contorno do pilar, inclusive girado, circular e em L); a soma das
+  barras desenhadas em todos os pavimentos é igual à quantidade do quadro de ferros,
+  posição por posição; o comprimento desenhado é o de corte onde a ponta não é limitada
+  à viga; estribos no passo do detalhamento (trechos de 10 e 20 cm conferidos)
 - DXF (v0.2.64): "N4 16×φ5 c/18" grava os bytes 31 36 D7 D8 35 (× = D7, Ø = D8 em
   ANSI_1252), sem nenhuma sequência UTF-8 (C3 97, CF 86); todos os desenhos do projeto
   de exemplo saem sem caractere perdido nem escapado; arquivo conferido com leitor

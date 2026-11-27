@@ -1,7 +1,8 @@
 import { useState, type CSSProperties } from 'react'
-import type { LoadCombo } from '@hyperframe/engine'
+import { REBAR_CATEGORIES, type LoadCombo } from '@hyperframe/engine'
 import { useStore, type Diagram3D } from '../store'
 import { IconChevronDown } from '../components/Icons'
+import { REBAR_COLOR } from './rebarGeometry'
 
 /** Painel de controle do 3D (HTML sobreposto, canto superior esquerdo). */
 
@@ -67,6 +68,12 @@ export default function ControlPanel() {
   const setD3 = useStore((s) => s.setD3)
   const results = useStore((s) => s.results)
   const [collapsed, setCollapsed] = useState(false)
+  const project = useStore((s) => s.project)
+  const rebarOnly = d3.rebarElement
+    ? d3.rebarElement.kind === 'beam'
+      ? `Viga ${project.plans.flatMap((p) => p.beams).find((b) => b.id === d3.rebarElement!.id)?.name ?? '?'}`
+      : `Pilar ${project.columns.find((c) => c.id === d3.rebarElement!.id)?.name ?? '?'}`
+    : null
 
   const combos: LoadCombo[] = results?.combos ?? []
   const elu = combos.filter((c) => c.type === 'ELU')
@@ -141,6 +148,49 @@ export default function ControlPanel() {
             />
             Modo unifilar
           </label>
+          <label style={rowStyle} title="Barras do detalhamento de vigas e pilares; o concreto fica transparente">
+            <input
+              type="checkbox"
+              style={checkStyle}
+              checked={d3.showRebar}
+              onChange={(e) => setD3({ showRebar: e.currentTarget.checked, rebarSel: null })}
+            />
+            Armaduras
+          </label>
+          {d3.showRebar && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingLeft: 18 }} data-testid="rebar-legend">
+              {(['Vigas', 'Pilares'] as const).map((grp) => (
+                <div key={grp} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div style={{ ...dimStyle, marginBottom: 0 }}>{grp}</div>
+                  {REBAR_CATEGORIES.filter((c) => c.group === grp).map((c) => (
+                    <label key={c.id} style={rowStyle}>
+                      <input
+                        type="checkbox"
+                        style={checkStyle}
+                        aria-label={`${grp} — ${c.label}`}
+                        checked={d3.rebarCats[c.id]}
+                        onChange={(e) => setD3({ rebarCats: { ...d3.rebarCats, [c.id]: e.currentTarget.checked } })}
+                      />
+                      <span style={{ width: 9, height: 9, borderRadius: 2, background: REBAR_COLOR[c.id], flex: 'none' }} />
+                      {c.label}
+                    </label>
+                  ))}
+                </div>
+              ))}
+              {rebarOnly ? (
+                <div style={{ ...dimStyle, marginBottom: 0 }}>
+                  Só {rebarOnly} ·{' '}
+                  <a style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => setD3({ rebarElement: null })}>
+                    ver todos
+                  </a>
+                </div>
+              ) : (
+                <div style={{ ...dimStyle, marginBottom: 0, lineHeight: '14px' }}>
+                  Clique numa barra para ver posição, bitola e comprimento.
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ height: 1, background: 'var(--border)', margin: '2px 0' }} />
           <label style={rowStyle}>
             <input

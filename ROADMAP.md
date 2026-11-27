@@ -805,6 +805,36 @@
   mecanismo do ⌘+/⌘−) — projetor/meetup
 - [x] Nada de cálculo tocado — 482 testes seguem passando; typecheck ok
 
+## v0.2.65 — Issue #25 (1ª parte): armaduras na vista 3D
+
+> As armaduras só apareciam nas pranchas, elemento por elemento; não dava para
+> ver o conjunto nem conferir uma barra no lugar dela.
+
+**Vista 3D → Exibição → Armaduras**
+- [x] **Barras de vigas e pilares em 3D**, a partir do mesmo detalhamento das
+  pranchas e do quadro de ferros: positivas, negativas (com ganchos e as
+  escalonadas), estribos trecho a trecho (2, 4 ou 6 ramos), barras e estribos
+  dos pilares por tramo, com o traspasse acima do piso
+- [x] Acompanha os **ajustes do editor de armaduras**, vigas curvas e pilares
+  girados, circulares e em L
+- [x] **Cores por categoria e legenda**; ligar e desligar cada categoria
+- [x] **Por pavimento** ("Isolar pavimento ativo") e **por elemento** ("Ver só
+  esta viga / este pilar")
+- [x] **Clicar numa barra** mostra elemento e vão/tramo, posição (N), quantidade,
+  bitola, comprimento de corte e a **linha dela no quadro de ferros**; a barra
+  fica em destaque
+- [x] O concreto fica translúcido enquanto as armaduras estão à mostra
+
+**Correção**
+- [x] O concreto **não ficava translúcido** na "Deformada" nem no "Isolar
+  pavimento ativo" (continuava opaco e escondia a deformada) — corrigido
+
+**Fora desta versão (continua na #25)**
+- [ ] Armaduras em planta e em cortes; armaduras de lajes e fundações no 3D
+- [ ] Posição das barras escolhida pelo engenheiro (camadas, seção do pilar);
+  interferência viga × pilar no nó
+- [ ] Ganchos por posição, emendas, pilar por tramo, região nodal
+
 ## v0.2.64 — Issue #28: DXF com × e Ø corretos; vários desenhos de uma vez na prancha
 
 > No AutoCAD, "N4 16×φ5 c/18" abria como "N4 16Ã—Ï†5 c/18"; e os desenhos

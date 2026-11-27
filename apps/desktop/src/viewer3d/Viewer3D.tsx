@@ -2,12 +2,16 @@ import { useMemo, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { GizmoHelper, GizmoViewport, Grid, OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { buildRebar3D } from '@hyperframe/engine'
 import { useStore } from '../store'
 import { computeBounds, NO_RAYCAST } from './coords'
 import Building from './Building'
 import DeformedShape from './DeformedShape'
 import DiagramRibbons from './DiagramRibbons'
 import ControlPanel from './ControlPanel'
+import Rebar3D from './Rebar3D'
+import RebarCard from './RebarCard'
+import { filterRebar } from './rebarGeometry'
 
 /** Visualizador 3D do edifício (three.js é y-up; mundo → three: [x, cota, -y]). */
 export default function Viewer3D() {
@@ -15,6 +19,26 @@ export default function Viewer3D() {
   const select = useStore((s) => s.select)
 
   const bounds = useMemo(() => computeBounds(project), [project])
+
+  // ---- armaduras (issue #25): barras do detalhamento, filtradas pela exibição
+  const results = useStore((s) => s.results)
+  const showRebar = useStore((s) => s.d3.showRebar)
+  const rebarCats = useStore((s) => s.d3.rebarCats)
+  const rebarElement = useStore((s) => s.d3.rebarElement)
+  const rebarSel = useStore((s) => s.d3.rebarSel)
+  const isolateLevel = useStore((s) => s.d3.isolateActiveLevel)
+  const activeLevelId = useStore((s) => s.activeLevelId)
+  const setD3 = useStore((s) => s.setD3)
+  const rebarAll = useMemo(() => {
+    if (!showRebar || !results) return []
+    const li = project.levels.findIndex((l) => l.id === activeLevelId)
+    return buildRebar3D(project, results, isolateLevel && li >= 0 ? { levels: [li] } : {})
+  }, [showRebar, results, project, isolateLevel, activeLevelId])
+  const rebar = useMemo(
+    () => filterRebar(rebarAll, { cats: rebarCats, element: rebarElement }),
+    [rebarAll, rebarCats, rebarElement],
+  )
+  const rebarGroup = rebar.find((g) => g.id === rebarSel) ?? null
   const shadowExt = Math.ceil(bounds.originRadius + 10)
   // cores do cenário vêm dos tokens CSS do tema ativo (dark/light)
   const theme = useStore((s) => s.theme)
@@ -58,6 +82,10 @@ export default function Viewer3D() {
         shadows
         dpr={[1, 2]}
         camera={{ position: [25, 20, 25], fov: 45, near: 0.1, far: 2000 }}
+        onCreated={(state) => {
+          // só em desenvolvimento: cena à mão para os roteiros de verificação
+          if (import.meta.env.DEV) (window as unknown as { __hfThree?: unknown }).__hfThree = state
+        }}
         onPointerMissed={(e) => {
           const d = downAt.current
           if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) return
@@ -110,6 +138,9 @@ export default function Viewer3D() {
         <Building />
         <DeformedShape />
         <DiagramRibbons />
+        {showRebar && results && (
+          <Rebar3D groups={rebar} selectedId={rebarGroup?.id ?? null} onSelect={(id) => setD3({ rebarSel: id })} />
+        )}
 
         <OrbitControls
           ref={controlsRef}
@@ -127,6 +158,27 @@ export default function Viewer3D() {
       </Canvas>
 
       <ControlPanel />
+
+      {showRebar && results && rebarGroup && (
+        <RebarCard
+          group={rebarGroup}
+          levelName={
+            rebarGroup.elementKind === 'beam'
+              ? (project.levels[rebarGroup.levelIndex]?.name ?? '')
+              : `${project.levels[rebarGroup.levelIndex]?.name ?? ''} → ${project.levels[rebarGroup.levelTop ?? rebarGroup.levelIndex]?.name ?? ''}`
+          }
+          steelRow={
+            results.detailing.steel.items.find(
+              (it) => it.elementId === rebarGroup.elementId && it.pos === rebarGroup.pos,
+            ) ?? null
+          }
+          isolated={rebarElement?.id === rebarGroup.elementId}
+          onIsolate={(on) =>
+            setD3({ rebarElement: on ? { kind: rebarGroup.elementKind, id: rebarGroup.elementId } : null })
+          }
+          onClose={() => setD3({ rebarSel: null })}
+        />
+      )}
 
       {(
         [

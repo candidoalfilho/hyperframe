@@ -46,6 +46,7 @@ import {
   type Slab,
   type Vec2,
   type WallLoad,
+  type RebarCategory,
 } from '@hyperframe/engine'
 import { pushRecent } from '../io/fileio'
 import {
@@ -133,6 +134,14 @@ export interface D3Options {
   activeComboId: string | null
   /** modo unifilar: só os eixos do pórtico (útil p/ diagramas) — PR #1 @danubiolagoa */
   wireframeMode: boolean
+  /** armaduras de vigas e pilares (issue #25); o concreto vira fantasma */
+  showRebar: boolean
+  /** categorias de armadura visíveis */
+  rebarCats: Record<RebarCategory, boolean>
+  /** só as armaduras deste elemento (null = todos) */
+  rebarElement: { kind: 'beam' | 'column'; id: string } | null
+  /** grupo de barras selecionado (id de RebarGroup3D) */
+  rebarSel: string | null
 }
 
 export interface ElementDefaults {
@@ -527,6 +536,16 @@ export const useStore = create<HFState>()(
         diagramScale: 1,
         activeComboId: null,
         wireframeMode: false,
+        showRebar: false,
+        rebarCats: {
+          'viga-positiva': true,
+          'viga-negativa': true,
+          'viga-estribo': true,
+          'pilar-barra': true,
+          'pilar-estribo': true,
+        },
+        rebarElement: null,
+        rebarSel: null,
       },
       defaults: {
         columnSection: { bw: 0.25, h: 0.6 },
